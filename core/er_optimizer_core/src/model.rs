@@ -550,6 +550,18 @@ pub struct DataRules {
     pub status_buildup_scales: bool,
 }
 
+impl DataRules {
+    /// The highest upgrade the profile allows a weapon of one reinforcement group. A
+    /// single-path profile has one maximum, which the manifest holds in both fields.
+    pub fn max_upgrade(&self, is_somber: bool) -> u8 {
+        if is_somber && self.separate_upgrade_caps {
+            self.somber_max_upgrade
+        } else {
+            self.standard_max_upgrade
+        }
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct GameData {
     pub dataset_version: String,

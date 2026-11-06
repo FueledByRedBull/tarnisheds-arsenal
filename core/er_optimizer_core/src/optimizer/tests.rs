@@ -6110,6 +6110,74 @@ fn exact_upgrade_uses_weapon_class_caps() {
 }
 
 #[test]
+fn separate_profiles_cap_each_reinforcement_group_by_its_own_field() {
+    let data = load_data();
+    assert!(data.rules.separate_upgrade_caps);
+    let mut request = base_request();
+    request.standard_max_upgrade = 20;
+    request.somber_max_upgrade = 7;
+
+    assert_eq!(request.upgrade_cap(false, &data.rules), 20);
+    assert_eq!(request.upgrade_cap(true, &data.rules), 7);
+    assert_eq!(data.rules.max_upgrade(false), 25);
+    assert_eq!(data.rules.max_upgrade(true), 10);
+
+    request.set_upgrade_cap(true, 4, &data.rules);
+    assert_eq!(
+        (request.standard_max_upgrade, request.somber_max_upgrade),
+        (20, 4)
+    );
+    request.set_upgrade_cap(false, 9, &data.rules);
+    assert_eq!(
+        (request.standard_max_upgrade, request.somber_max_upgrade),
+        (9, 4)
+    );
+}
+
+#[test]
+fn single_path_profiles_use_the_standard_cap_for_every_weapon() {
+    let data = load_convergence_data();
+    assert!(!data.rules.separate_upgrade_caps);
+    let mut request = base_request();
+    request.standard_max_upgrade = 3;
+    request.somber_max_upgrade = 15;
+
+    assert_eq!(request.upgrade_cap(false, &data.rules), 3);
+    assert_eq!(request.upgrade_cap(true, &data.rules), 3);
+    assert_eq!(data.rules.max_upgrade(true), data.rules.max_upgrade(false));
+
+    request.set_upgrade_cap(true, 6, &data.rules);
+    assert_eq!(
+        (request.standard_max_upgrade, request.somber_max_upgrade),
+        (6, 6)
+    );
+    request.set_upgrade_cap(false, 2, &data.rules);
+    assert_eq!(
+        (request.standard_max_upgrade, request.somber_max_upgrade),
+        (2, 2)
+    );
+}
+
+#[test]
+fn single_path_search_ignores_a_disagreeing_somber_cap() {
+    let data = load_convergence_data();
+    let somber_weapon = data
+        .weapons
+        .iter()
+        .find(|weapon| weapon.is_somber && data.weapon_ar_supported(weapon))
+        .expect("Convergence has a somber weapon");
+    let mut request = broad_request();
+    request.standard_max_upgrade = 3;
+    request.somber_max_upgrade = 15;
+    request.exact_upgrade = true;
+
+    assert_eq!(
+        available_upgrades(somber_weapon, &request, &data).expect("somber upgrades"),
+        vec![3],
+    );
+}
+
+#[test]
 fn somber_only_exact_uses_somber_cap_not_standard_cap() {
     let game_data = load_data();
     let mut request = broad_request();

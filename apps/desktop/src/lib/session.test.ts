@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { buildOptimizeRequest, classLabel, classMeta, derivedLevel, EIGHT_STAT_KEYS, optimalStartingClass, replaceFilterEntries, respecChanges, rowFingerprint, scalingLetter, stableSignature, STARTING_CLASS_METADATA, startingClassLevel } from "./session";
+import { buildOptimizeRequest, classLabel, classMeta, derivedLevel, EIGHT_STAT_KEYS, optimalStartingClass, replaceFilterEntries, respecChanges, rowFingerprint, scalingLetter, stableSignature, STARTING_CLASS_METADATA, startingClassLevel, upgradeCapPatch } from "./session";
 import { solvedBuild } from "./test-fixtures";
 import { defaultRequest } from "./state";
 import type { CatalogDto } from "./types";
@@ -119,6 +119,18 @@ describe("result identity", () => {
     expect(stableSignature(reordered)).toBe(stableSignature(defaultRequest));
     expect(stableSignature({ ...defaultRequest, dex: defaultRequest.dex + 1 })).not.toBe(stableSignature(defaultRequest));
     expect(stableSignature({ ...defaultRequest, profileId: "convergence" })).not.toBe(stableSignature(defaultRequest));
+  });
+});
+
+describe("upgrade cap patch", () => {
+  it("sets the cap of one reinforcement group when the profile keeps separate caps", () => {
+    expect(upgradeCapPatch(true, false, 7)).toEqual({ standardMaxUpgrade: 7 });
+    expect(upgradeCapPatch(true, true, 7)).toEqual({ somberMaxUpgrade: 7 });
+  });
+
+  it("states the one cap in both fields when the profile has a single path", () => {
+    expect(upgradeCapPatch(false, false, 7)).toEqual({ standardMaxUpgrade: 7, somberMaxUpgrade: 7 });
+    expect(upgradeCapPatch(false, true, 7)).toEqual({ standardMaxUpgrade: 7, somberMaxUpgrade: 7 });
   });
 });
 

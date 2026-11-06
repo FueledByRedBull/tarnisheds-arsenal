@@ -1,5 +1,5 @@
 import { objectiveLabel } from "./format";
-import { classLabel, classMeta, clampHorizon, derivedLevel, hasCombatStatLocks, replaceFilterEntries } from "./session";
+import { classLabel, classMeta, clampHorizon, derivedLevel, hasCombatStatLocks, replaceFilterEntries, upgradeCapPatch } from "./session";
 import { CatalogDto, ObjectiveId, OptimizeRequestDto, WorkspaceTab } from "./types";
 
 // The command palette's vocabulary. Parsing is pure: it returns data describing what to do,
@@ -145,7 +145,7 @@ function parsedCommands(query: string, context: CommandContext): Command[] {
     if (!rules.separateUpgradeCaps) {
       if (value <= rules.standardMaxUpgrade) {
         commands.push(command("upgrade-both", "Upgrades", `Weapon upgrade +${value}`, current(`+${request.standardMaxUpgrade}`),
-          { kind: "patch", patch: { standardMaxUpgrade: value, somberMaxUpgrade: value } }));
+          { kind: "patch", patch: upgradeCapPatch(false, false, value) }));
       }
       return commands;
     }

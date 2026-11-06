@@ -220,11 +220,7 @@ fn kind_counts_mut(counts: &mut MatrixCounts, native: bool) -> &mut KindCounts {
 }
 
 fn upgrade_cap(data: &GameData, weapon: &Weapon) -> u8 {
-    if weapon.is_somber {
-        data.rules.somber_max_upgrade
-    } else {
-        data.rules.standard_max_upgrade
-    }
+    data.rules.max_upgrade(weapon.is_somber)
 }
 
 fn max_available_upgrade(data: &GameData, weapon: &Weapon) -> Option<u8> {
@@ -258,22 +254,14 @@ fn fixed_request(
         });
     }
     let (class_name, character_level) = fixed_stat_budget(data, stats);
-    OptimizeRequest {
+    let mut request = OptimizeRequest {
         class_name,
         character_level,
         current_stats: stats,
         min_combat_stats: [0; 5],
         locked_combat_stats: stats.combat_array().map(Some),
-        standard_max_upgrade: if case.weapon.is_somber {
-            data.rules.standard_max_upgrade
-        } else {
-            case.upgrade
-        },
-        somber_max_upgrade: if case.weapon.is_somber {
-            case.upgrade
-        } else {
-            data.rules.somber_max_upgrade
-        },
+        standard_max_upgrade: data.rules.standard_max_upgrade,
+        somber_max_upgrade: data.rules.somber_max_upgrade,
         exact_upgrade: true,
         two_handing: case.two_handing,
         dlc_scaling: false,
@@ -287,7 +275,9 @@ fn fixed_request(
         result_grouping: ResultGrouping::Loadout,
         objective,
         top_k: 1,
-    }
+    };
+    request.set_upgrade_cap(case.weapon.is_somber, case.upgrade, &data.rules);
+    request
 }
 
 fn run_fixed_production(

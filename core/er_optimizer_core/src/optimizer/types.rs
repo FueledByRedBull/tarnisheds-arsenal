@@ -1,5 +1,5 @@
 use crate::math::scadutree_attack_multiplier;
-use crate::model::{AowRouteResult, COMBAT_STAT_COUNT, DamageBreakdown, Stats};
+use crate::model::{AowRouteResult, COMBAT_STAT_COUNT, DamageBreakdown, DataRules, Stats};
 use std::time::Duration;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -162,6 +162,30 @@ pub struct OptimizeRequest {
 impl OptimizeRequest {
     pub fn damage_multiplier(&self) -> f32 {
         scadutree_attack_multiplier(self.dlc_scaling, self.scadutree_level)
+    }
+
+    /// The upgrade cap that applies to a weapon of one reinforcement group. A single-path
+    /// profile (`separate_upgrade_caps` false) has one cap for every weapon: the standard
+    /// cap, whatever `somber_max_upgrade` holds.
+    pub fn upgrade_cap(&self, is_somber: bool, rules: &DataRules) -> u8 {
+        if is_somber && rules.separate_upgrade_caps {
+            self.somber_max_upgrade
+        } else {
+            self.standard_max_upgrade
+        }
+    }
+
+    /// Sets the cap `upgrade_cap` reads for that group. A single-path profile writes both
+    /// fields, so the request states the one cap the same way for every weapon.
+    pub fn set_upgrade_cap(&mut self, is_somber: bool, cap: u8, rules: &DataRules) {
+        if is_somber && rules.separate_upgrade_caps {
+            self.somber_max_upgrade = cap;
+        } else {
+            self.standard_max_upgrade = cap;
+            if !rules.separate_upgrade_caps {
+                self.somber_max_upgrade = cap;
+            }
+        }
     }
 }
 

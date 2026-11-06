@@ -2007,11 +2007,7 @@ mod tests {
                 .iter()
                 .filter(|weapon| data.weapon_ar_supported(weapon))
             {
-                let top = if weapon.is_somber {
-                    data.rules.somber_max_upgrade
-                } else {
-                    data.rules.standard_max_upgrade
-                };
+                let top = data.rules.max_upgrade(weapon.is_somber);
                 for upgrade in [0, top].into_iter().filter(|upgrade| {
                     data.reinforce_level(weapon.reinforce_type, *upgrade)
                         .is_some()
@@ -2122,11 +2118,7 @@ mod tests {
         ] {
             let data = crate::data::load_embedded_game_profile(profile).expect("profile");
             let pairs = |weapon: &Weapon| {
-                let top = if weapon.is_somber {
-                    data.rules.somber_max_upgrade
-                } else {
-                    data.rules.standard_max_upgrade
-                };
+                let top = data.rules.max_upgrade(weapon.is_somber);
                 (0..top)
                     .filter(|&lower| {
                         upgrade_inputs_dominated(weapon, lower, lower + 1, &data)

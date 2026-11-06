@@ -256,6 +256,20 @@ export function applyProfileRules(
   };
 }
 
+/**
+ * The request fields that set the upgrade cap of one reinforcement group. A profile with
+ * a single path (`separateUpgradeCaps` false) has one cap for every weapon, which the core
+ * reads from the standard field, so both fields carry it.
+ */
+export function upgradeCapPatch(
+  separateUpgradeCaps: boolean,
+  isSomber: boolean,
+  cap: number,
+): Partial<Pick<OptimizeRequestDto, "standardMaxUpgrade" | "somberMaxUpgrade">> {
+  if (!separateUpgradeCaps) return { standardMaxUpgrade: cap, somberMaxUpgrade: cap };
+  return isSomber ? { somberMaxUpgrade: cap } : { standardMaxUpgrade: cap };
+}
+
 export function upgradeCapForRow(row: Pick<SolvedBuildDto, "isSomber">, request: OptimizeRequestDto): number {
   return row.isSomber ? request.somberMaxUpgrade : request.standardMaxUpgrade;
 }
