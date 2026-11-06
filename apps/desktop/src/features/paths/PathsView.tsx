@@ -34,6 +34,7 @@ export function PathsView() {
   const isPathBusy = useDesktopStore((state) => state.isPathBusy);
   const pathProgress = useDesktopStore((state) => state.pathProgress);
   const pushNotice = useDesktopStore((state) => state.pushNotice);
+  const pathTraceRequested = useDesktopStore((state) => state.pathTraceRequested);
   const base = useBuiltRequest(catalog, request, lockedStatMode);
   const effectiveHorizon = clampHorizon(request, horizon);
   const signature = stableSignature({
@@ -75,7 +76,6 @@ export function PathsView() {
   }
 
   // The palette's "Plan levels" command asks for a trace; claim it once and run it.
-  const pathTraceRequested = useDesktopStore((state) => state.pathTraceRequested);
   const traceRequested = useEffectEvent(() => {
     if (useDesktopStore.getState().consumePathTraceRequest()) void refresh();
   });

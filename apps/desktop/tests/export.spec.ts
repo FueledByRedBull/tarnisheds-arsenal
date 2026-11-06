@@ -45,7 +45,8 @@ for (const action of ["cancel", "profile", "edit", "numeric edit", "navigate", "
     const downloads: string[] = [];
     page.on("download", (download) => downloads.push(download.suggestedFilename()));
     await exportRows(page, "100 rows");
-    await expect(page.getByRole("button", { name: "Search", exact: true })).toBeDisabled();
+    // The export owns the search slot; a search asked for now waits for it.
+    await expect(page.getByRole("button", { name: "Search", exact: true })).toHaveAccessibleDescription("A search started now runs when the CSV export finishes.");
     await expect(page.getByText("3 / 50", { exact: true })).toBeVisible();
     if (action === "cancel") await page.getByRole("button", { name: "Cancel export", exact: true }).click();
     else if (action === "profile") await page.getByRole("radio", { name: /Convergence/ }).click();
@@ -62,9 +63,12 @@ for (const action of ["cancel", "profile", "edit", "numeric edit", "navigate", "
     } else await page.getByRole("navigation").getByRole("button", { name: "Compare", exact: true }).click();
     await page.waitForFunction(() => (window as unknown as { exportCancelled: boolean }).exportCancelled);
     if (action === "navigate") await page.getByRole("navigation").getByRole("button", { name: "Rankings", exact: true }).click();
-    await expect(page.getByRole("button", { name: /^(Search|Update Results)$/ })).toBeDisabled();
+    // The slot stays with the export until its native job confirms the cancel.
+    const search = page.getByRole("button", { name: /^(Search|Update Results)$/ });
+    await expect(search).toHaveAccessibleDescription(/runs when the CSV export finishes/);
     await page.evaluate(() => Object.assign(window, { finishExport: true }));
-    await expect(page.getByRole("button", { name: /^(Search|Update Results)$/ })).toBeEnabled();
+    await expect(search).toBeEnabled();
+    await expect(search).not.toHaveAccessibleDescription(/CSV export/);
     await settled(page);
     expect(downloads).toEqual([]);
     await expect(page.locator('.error-strip[role="alert"]')).toHaveCount(0);

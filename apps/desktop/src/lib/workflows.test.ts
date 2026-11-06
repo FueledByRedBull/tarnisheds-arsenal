@@ -369,4 +369,35 @@ describe("searching during a CSV export", () => {
     await vi.advanceTimersByTimeAsync(200);
     expect(api.startSearch).not.toHaveBeenCalled();
   });
+
+  it("shows that a search is queued until the export finishes", async () => {
+    expect(useDesktopStore.getState().searchWaitingForExport).toBe(false);
+    await runSearchFromStore();
+    expect(useDesktopStore.getState().searchWaitingForExport).toBe(true);
+    useDesktopStore.getState().setExporting(false);
+    expect(useDesktopStore.getState().searchWaitingForExport).toBe(false);
+  });
+
+  it("drops a queued search when the profile or its data changed before the export finished", async () => {
+    await runSearchFromStore();
+    const { catalog, request } = useDesktopStore.getState();
+    useDesktopStore.setState({ request: { ...request, profileId: "convergence" } });
+    useDesktopStore.setState({ isExporting: false, catalogStatus: "ready" });
+    await vi.advanceTimersByTimeAsync(200);
+
+    useDesktopStore.setState({ isExporting: true, request });
+    await runSearchFromStore();
+    useDesktopStore.setState({ catalog: { ...catalog } as typeof catalog });
+    useDesktopStore.setState({ isExporting: false });
+    await vi.advanceTimersByTimeAsync(200);
+    expect(api.startSearch).not.toHaveBeenCalled();
+  });
+
+  it("forgets a queued search when the profile switch clears it", async () => {
+    await runSearchFromStore();
+    useDesktopStore.setState({ searchWaitingForExport: false });
+    useDesktopStore.setState({ isExporting: false });
+    await vi.advanceTimersByTimeAsync(200);
+    expect(api.startSearch).not.toHaveBeenCalled();
+  });
 });

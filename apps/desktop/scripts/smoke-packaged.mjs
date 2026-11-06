@@ -267,7 +267,8 @@ try {
     setTimeout(() => URL.revokeObjectURL(url), 30_000);
   });
   if ((await releaseStatus(page, affinityHold)).includes("cancel_affinity_watch")) throw new Error("a tab switch cancelled Affinity Watch");
-  markSmokeStage("wait for Affinity Watch");
+  // Natively stopped work reaches the UI as a stopped run, not as a cancel request.
+  markSmokeStage("wait for Affinity Watch to finish after the tab switch and the download");
   await page.getByRole("table", { name: "Affinity watch rankings" }).locator('[role="row"]').nth(1).waitFor({ timeout: 120_000 });
   await expect(page.getByText("Affinity watch stopped.", { exact: true })).toHaveCount(0);
 

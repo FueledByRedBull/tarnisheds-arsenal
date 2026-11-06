@@ -101,13 +101,17 @@ test("unavailable controls say why, in text a screen reader reads with them", as
     const { useDesktopStore } = await import("/src/lib/state.ts");
     useDesktopStore.setState({ isSearching: false, isExporting: true });
   });
+  // A search asked for during an export waits for it instead of being dropped.
   const searchButton = page.getByRole("button", { name: "Search", exact: true });
-  await expect(searchButton).toBeDisabled();
-  await expect(searchButton).toHaveAccessibleDescription(/Search resumes when the CSV export finishes/);
+  await expect(searchButton).toBeEnabled();
+  await expect(searchButton).toHaveAccessibleDescription("A search started now runs when the CSV export finishes.");
+  await searchButton.click();
+  await expect(searchButton).toHaveAccessibleDescription("Search queued. It runs when the CSV export finishes.");
   await page.evaluate(async () => {
     const { useDesktopStore } = await import("/src/lib/state.ts");
     useDesktopStore.setState({ isExporting: false });
   });
+  await expect(page.getByText("4 ranked rows")).toBeVisible();
 });
 
 test("stat-lock controls explain the empty lock list and Custom stats mode", async ({ page }) => {
@@ -200,7 +204,7 @@ test("Affinity Watch lines differ by dash pattern, not colour alone", async ({ p
   await page.getByRole("button", { name: "Watch affinities", exact: true }).click();
   await expect(page.locator(".analysis-progress:visible")).toHaveAttribute("data-analysis-status", "completed");
   const dashes = await page.locator(".affinity-series").evaluateAll((lines) => lines.map((line) => line.getAttribute("stroke-dasharray")));
-  expect(dashes).toEqual([null, "12 6", "3 5"]);
+  expect(dashes).toEqual([null, "14 6", "6 6"]);
   const swatches = await page.locator(".affinity-swatch line").evaluateAll((lines) => lines.map((line) => line.getAttribute("stroke-dasharray")));
   expect(swatches).toEqual(dashes);
 });

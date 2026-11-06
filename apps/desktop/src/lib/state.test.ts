@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { defaultRequest, persistProfileQueries, useDesktopStore } from "./state";
-import { applyProfileRules, buildOptimizeRequest } from "./session";
+import { applyProfileRules, buildOptimizeRequest, stableSignature } from "./session";
 import { parsePresetText } from "./presets";
 import { api } from "./api";
 import { STARTING_CLASS_METADATA } from "./session";
@@ -808,6 +808,23 @@ describe("saved result activation boundary", () => {
     expect(state.compareBench).toEqual([row]);
     expect(Object.keys(state.request).sort()).toEqual(Object.keys(defaultRequest).sort());
     expect(state.request.filters).toEqual({ version: 1, entries: [] });
+  });
+
+  it("keeps a loaded build current when a search on its unchanged inputs stops", async () => {
+    const preset = activationPreset();
+    preset.selectedBuild = row;
+    const solve = vi.spyOn(api, "solveBuild").mockResolvedValue(row);
+    try {
+      await useDesktopStore.getState().loadBuildPreset(preset);
+      const loaded = useDesktopStore.getState();
+      const signature = stableSignature(buildOptimizeRequest(loaded.catalog, loaded.request, loaded.lockedStatMode));
+      loaded.beginSearch(signature);
+      expect(useDesktopStore.getState().resultsStale).toBe(true);
+      useDesktopStore.getState().recheckResultsStale(signature);
+      expect(useDesktopStore.getState()).toMatchObject({ rows: [row], resultsStale: false });
+    } finally {
+      solve.mockRestore();
+    }
   });
 
   it("replaces current pins with a loaded build's pins and says so", async () => {

@@ -13,7 +13,7 @@ import { DraftNumberInput } from "../query-strip/DraftNumberInput";
 import { WorkspaceHeading } from "../shared/WorkspaceHeading";
 import { WorkspaceGate } from "../shared/WorkspaceGate";
 import { ChartDataTable } from "../../lib/ChartDataTable";
-import { affinityLineStyle } from "./affinity-style";
+import { AFFINITY_STROKE_WIDTH, AFFINITY_SWATCH_WIDTH, affinityLineStyle } from "./affinity-style";
 
 export function AffinityWatchView() {
   const catalog = useDesktopStore((state) => state.catalog);
@@ -158,8 +158,9 @@ const AffinityChart = memo(function AffinityChart({ payload, objective, unit }: 
               const style = affinityLineStyle(index);
               return (
                 <span key={line.affinity}>
-                  <svg className="affinity-swatch" width="24" height="6" viewBox="0 0 24 6" aria-hidden="true">
-                    <line x1="0" x2="24" y1="3" y2="3" stroke={style.color} strokeWidth="2.5" strokeDasharray={style.dash} />
+                  <svg className="affinity-swatch" width={AFFINITY_SWATCH_WIDTH} height="6" viewBox={`0 0 ${AFFINITY_SWATCH_WIDTH} 6`} aria-hidden="true">
+                    <line x1={AFFINITY_STROKE_WIDTH / 2} x2={AFFINITY_SWATCH_WIDTH - AFFINITY_STROKE_WIDTH / 2} y1="3" y2="3" stroke={style.color}
+                      strokeWidth={AFFINITY_STROKE_WIDTH} strokeLinecap="round" strokeDasharray={style.dash} />
                   </svg>
                   <strong>{line.affinity}</strong>
                   <small>{endpointMetric(line.startMetric)} → {endpointMetric(line.endMetric)} {unit}</small>

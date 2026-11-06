@@ -20,7 +20,7 @@ import {
   SolvedBuildDto,
   WorkspaceTab,
 } from "./types";
-import { applyProfileRules, classMeta, CUSTOM_STATS_CLASS, currentStatTotal, EIGHT_STAT_KEYS, hasCombatStatLocks, knownWithoutCatalog, rowFingerprint, stableSignature, usesFixedStats } from "./session";
+import { applyProfileRules, buildOptimizeRequest, classMeta, CUSTOM_STATS_CLASS, currentStatTotal, EIGHT_STAT_KEYS, hasCombatStatLocks, knownWithoutCatalog, rowFingerprint, stableSignature, usesFixedStats } from "./session";
 
 export interface DesktopState {
   activeWorkspace: WorkspaceTab;
@@ -72,6 +72,8 @@ export interface DesktopState {
   error: string | null;
   isSearching: boolean;
   isExporting: boolean;
+  /** A search was asked for during a CSV export and runs when it finishes. */
+  searchWaitingForExport: boolean;
   searchGeneration: number;
   activeSearchSignature: string | null;
   activeJobId: string | null;
@@ -102,8 +104,9 @@ export interface DesktopState {
   setError: (error: string | null) => void;
   setSearching: (isSearching: boolean) => void;
   /** A search ended without rows: the retained rows stay current only if they came from this request. */
-  settleStaleness: (signature: string) => void;
+  recheckResultsStale: (signature: string) => void;
   setExporting: (isExporting: boolean) => void;
+  setSearchWaitingForExport: (waiting: boolean) => void;
   beginSearch: (signature: string) => number;
   setActiveJobId: (activeJobId: string | null) => void;
   setProgress: (progress: SearchProgressDto | null) => void;
@@ -325,6 +328,7 @@ export const useDesktopStore = create<DesktopState>()((set, get) => ({
       rowsSignature: null,
       rankBaseline: null,
       resultsStale: false,
+      searchWaitingForExport: false,
       selected: null,
       compareTarget: null,
       compareBench: [],
@@ -560,7 +564,10 @@ export const useDesktopStore = create<DesktopState>()((set, get) => ({
       const replacedPins = keepPins || !state.compareBench.length ? ""
         : ` Its pinned builds replaced the ${state.compareBench.length} you had pinned.`;
       const persistenceNotices = keepPins ? [] : writeCompareBench(catalog, verified.compareBench);
+      // The verified build answers the loaded inputs, so a stopped search on them keeps it current.
+      const loaded = get();
       set({ rows: verified.selectedBuild ? [verified.selectedBuild] : [], selected: verified.selectedBuild,
+        rowsSignature: stableSignature(buildOptimizeRequest(catalog, loaded.request, loaded.lockedStatMode)),
         compareTarget: verified.compareTarget, restoredCompareTarget: verified.compareTarget,
         ...(keepPins ? {} : { compareBench: verified.compareBench }), selectedFingerprint: rowFingerprint(verified.selectedBuild),
         notices: [{ scope: "global", tone: "success",
@@ -584,6 +591,8 @@ export const useDesktopStore = create<DesktopState>()((set, get) => ({
   },
   isExporting: false,
   setExporting: (isExporting) => set({ isExporting }),
+  searchWaitingForExport: false,
+  setSearchWaitingForExport: (searchWaitingForExport) => set({ searchWaitingForExport }),
   rows: [],
   rowsObjective: null,
   rowsSetups: null,
@@ -626,7 +635,7 @@ export const useDesktopStore = create<DesktopState>()((set, get) => ({
       };
     }),
   setSearching: (isSearching) => set({ isSearching }),
-  settleStaleness: (signature) =>
+  recheckResultsStale: (signature) =>
     set((state) => ({ resultsStale: state.rows.length > 0 && state.rowsSignature !== signature })),
   beginSearch: (activeSearchSignature) => {
     let generation = 0;
