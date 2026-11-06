@@ -40,6 +40,8 @@ export interface DesktopState {
   /** The ranking a search replaced, so rows can show how far they moved. */
   rankBaseline: { objective: ObjectiveId; rows: SolvedBuildDto[] } | null;
   resultsStale: boolean;
+  /** Signature of the request whose search produced the current rows; null when they did not come from one. */
+  rowsSignature: string | null;
   selected: SolvedBuildDto | null;
   compareTarget: SolvedBuildDto | null;
   restoredCompareTarget: SolvedBuildDto | null;
@@ -48,6 +50,8 @@ export interface DesktopState {
   lockedStatMode: boolean;
   compareControls: CompareControls;
   pathHorizon: number;
+  /** A trace asked for from outside Paths (the palette) that Paths has not started yet. */
+  pathTraceRequested: boolean;
   pathMode: PathModeId;
   affinityHorizon: number;
   notices: Notice[];
@@ -87,6 +91,9 @@ export interface DesktopState {
   clearCompareBench: () => void;
   patchCompareControls: (patch: Partial<CompareControls>) => void;
   setPathHorizon: (horizon: number) => void;
+  requestPathTrace: (horizon: number) => void;
+  /** Claims a pending trace request; true for the one caller that should start the trace. */
+  consumePathTraceRequest: () => boolean;
   setPathMode: (mode: PathModeId) => void;
   setAffinityHorizon: (horizon: number) => void;
   setLockedStatMode: (lockedStatMode: boolean) => void;
@@ -94,6 +101,8 @@ export interface DesktopState {
   pushNotice: (notice: Notice) => void;
   setError: (error: string | null) => void;
   setSearching: (isSearching: boolean) => void;
+  /** A search ended without rows: the retained rows stay current only if they came from this request. */
+  settleStaleness: (signature: string) => void;
   setExporting: (isExporting: boolean) => void;
   beginSearch: (signature: string) => number;
   setActiveJobId: (activeJobId: string | null) => void;
@@ -243,6 +252,7 @@ function invalidatePathJob(state: DesktopState) {
     pathProgress: null,
     paths: [],
     pathSignature: null,
+    pathTraceRequested: false,
   };
 }
 
@@ -312,6 +322,7 @@ export const useDesktopStore = create<DesktopState>()((set, get) => ({
       rows: [],
       rowsObjective: null,
       rowsSetups: null,
+      rowsSignature: null,
       rankBaseline: null,
       resultsStale: false,
       selected: null,
@@ -444,6 +455,18 @@ export const useDesktopStore = create<DesktopState>()((set, get) => ({
       ...invalidatePathJob(state),
       pathHorizon,
     })),
+  pathTraceRequested: false,
+  requestPathTrace: (pathHorizon) =>
+    set((state) => ({
+      ...invalidatePathJob(state),
+      pathHorizon,
+      pathTraceRequested: true,
+    })),
+  consumePathTraceRequest: () => {
+    const requested = get().pathTraceRequested;
+    if (requested) set({ pathTraceRequested: false });
+    return requested;
+  },
   setPathMode: (pathMode) =>
     set((state) => ({
       ...invalidatePathJob(state),
@@ -514,7 +537,7 @@ export const useDesktopStore = create<DesktopState>()((set, get) => ({
       ...invalidateAllJobs(state),
       loadoutSelectionRevision: state.loadoutSelectionRevision + 1,
       request: applyProfileRules(request, catalog.dataManifest.rules),
-      lockedStatMode: hasCombatStatLocks(request), rows: [], rowsObjective: null, rowsSetups: null, rankBaseline: null, resultsStale: false,
+      lockedStatMode: hasCombatStatLocks(request), rows: [], rowsObjective: null, rowsSetups: null, rowsSignature: null, rankBaseline: null, resultsStale: false,
       selected: null, compareTarget: null, restoredCompareTarget: null,
       compareControls: { ...defaultCompareControls }, compareBench: keepPins ? state.compareBench : [], selectedFingerprint: null,
       error: null,
@@ -564,6 +587,7 @@ export const useDesktopStore = create<DesktopState>()((set, get) => ({
   rows: [],
   rowsObjective: null,
   rowsSetups: null,
+  rowsSignature: null,
   rankBaseline: null,
   resultsStale: false,
   selected: null,
@@ -583,6 +607,7 @@ export const useDesktopStore = create<DesktopState>()((set, get) => ({
         rows,
         rowsObjective: state.request.objective,
         rowsSetups: setups,
+        rowsSignature: state.activeSearchSignature,
         rankBaseline: state.rows.length && state.rowsObjective ? { objective: state.rowsObjective, rows: state.rows } : null,
         resultsStale: false,
         selected,
@@ -595,11 +620,14 @@ export const useDesktopStore = create<DesktopState>()((set, get) => ({
       if (selectedFingerprint === state.selectedFingerprint) return { selected };
       return {
         ...invalidateAnalysisJobs(state),
+        compareTarget: null,
         selected,
         selectedFingerprint,
       };
     }),
   setSearching: (isSearching) => set({ isSearching }),
+  settleStaleness: (signature) =>
+    set((state) => ({ resultsStale: state.rows.length > 0 && state.rowsSignature !== signature })),
   beginSearch: (activeSearchSignature) => {
     let generation = 0;
     set((state) => {

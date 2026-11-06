@@ -64,7 +64,7 @@ export function QueryStrip({ profile, coverage, onProfileChange }: {
   const lockedStatMode = useDesktopStore((state) => state.lockedStatMode);
   const setLockedStatMode = useDesktopStore((state) => state.setLockedStatMode);
   const setWorkspace = useDesktopStore((state) => state.setWorkspace);
-  const setPathHorizon = useDesktopStore((state) => state.setPathHorizon);
+  const requestPathTrace = useDesktopStore((state) => state.requestPathTrace);
   const runner = useSearchRunner();
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [paletteLoaded, setPaletteLoaded] = useState(false);
@@ -158,7 +158,7 @@ export function QueryStrip({ profile, coverage, onProfileChange }: {
   }, [catalog, paletteLoaded]);
 
   function startSearch() {
-    if (searchBusy || isExporting || !catalog) return;
+    if (searchBusy || !catalog) return;
     setWorkspace("rankings");
     void runner.runSearch();
   }
@@ -260,7 +260,7 @@ export function QueryStrip({ profile, coverage, onProfileChange }: {
         setWorkspace(action.workspace);
         break;
       case "planLevels":
-        setPathHorizon(action.horizon);
+        requestPathTrace(action.horizon);
         setWorkspace("paths");
         break;
       case "profile":

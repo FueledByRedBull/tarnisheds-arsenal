@@ -149,6 +149,41 @@ describe("desktop result lifecycle", () => {
     expect(changed.isPathBusy).toBe(false);
   });
 
+  it("drops the comparison target when a different build is selected and keeps it for the same build", () => {
+    const state = useDesktopStore.getState();
+    state.setRows([row], 1);
+    const rival = { ...row, affinity: "Standard" };
+    state.setCompareTarget(rival);
+
+    state.selectRow({ ...row });
+    expect(useDesktopStore.getState().compareTarget).toEqual(rival);
+
+    state.selectRow({ ...row, stats: { ...row.stats, dex: row.stats.dex + 1 } });
+    expect(useDesktopStore.getState().compareTarget).toBeNull();
+  });
+
+  it("hands a requested path trace to Paths once, at the requested horizon", () => {
+    const state = useDesktopStore.getState();
+    state.setRows([row], 1);
+    state.beginPath("old-path");
+    state.setPaths([{ title: "Selected", solved: row, steps: [] }], "old-path");
+
+    state.requestPathTrace(12);
+    expect(useDesktopStore.getState()).toMatchObject({ pathHorizon: 12, isPathBusy: false, paths: [], pathSignature: null });
+
+    expect(useDesktopStore.getState().consumePathTraceRequest()).toBe(true);
+    expect(useDesktopStore.getState().consumePathTraceRequest()).toBe(false);
+  });
+
+  it.each(["committed edit", "replacement search"])("drops an unclaimed path trace request on %s", (action) => {
+    const state = useDesktopStore.getState();
+    state.setRows([row], 1);
+    state.requestPathTrace(12);
+    if (action === "committed edit") state.patchRequest({ twoHanding: true });
+    else state.beginSearch("replacement");
+    expect(useDesktopStore.getState().consumePathTraceRequest()).toBe(false);
+  });
+
   it.each(["committed edit", "replacement search"])("invalidates analysis ownership and retained results on %s", (action) => {
     const state = useDesktopStore.getState();
     state.setRows([row], 1);

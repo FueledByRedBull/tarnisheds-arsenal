@@ -403,6 +403,7 @@ export function RankingsBoard() {
       {isExporting ? <div className="estimate-strip" role="status">
         <span>Exporting CSV</span>
         <strong>{exportProgress ? `${exportProgress.checked.toLocaleString()} / ${exportProgress.total.toLocaleString()}` : "Preparing search…"}</strong>
+        <small id="export-busy-hint">Locking stats and the updated search are available when the CSV export finishes.</small>
       </div> : null}
       {resultsStale && rows.length > 0 ? (
         <div className="stale-results-banner" id="stale-results-message" role="status">
@@ -410,7 +411,7 @@ export function RankingsBoard() {
             <strong>Inputs changed</strong>
             <span>These rankings are retained from the previous query until the updated search finishes.</span>
           </div>
-          <button type="button" onClick={() => void runSearchFromStore()} disabled={isSearching || isExporting}>
+          <button type="button" onClick={() => void runSearchFromStore()} disabled={isSearching || isExporting} aria-describedby={isExporting ? "export-busy-hint" : undefined}>
             <RefreshCcw size={14} />{isSearching ? "Updating…" : "Run updated search"}
           </button>
         </div>
@@ -722,7 +723,8 @@ const ResultRow = memo(function ResultRow({
           tabIndex={-1}
           aria-keyshortcuts="L"
           aria-label={`Lock stats to ${row.weaponName}, ${row.affinity}, rank ${index + 1}`}
-          title="Lock stats to this result (L)"
+          title={lockDisabled ? "Available when the CSV export finishes" : "Lock stats to this result (L)"}
+          aria-describedby={lockDisabled ? "export-busy-hint" : undefined}
           disabled={lockDisabled}
           onClick={(event) => {
             event.stopPropagation();

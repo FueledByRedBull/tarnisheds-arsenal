@@ -13,6 +13,7 @@ import { DraftNumberInput } from "../query-strip/DraftNumberInput";
 import { WorkspaceHeading } from "../shared/WorkspaceHeading";
 import { WorkspaceGate } from "../shared/WorkspaceGate";
 import { ChartDataTable } from "../../lib/ChartDataTable";
+import { affinityLineStyle } from "./affinity-style";
 
 export function AffinityWatchView() {
   const catalog = useDesktopStore((state) => state.catalog);
@@ -153,15 +154,18 @@ const AffinityChart = memo(function AffinityChart({ payload, objective, unit }: 
       {hasLines ? (
         <>
           <div className="affinity-legend chart-legend" role="group" aria-label="Affinity chart legend">
-            {payload?.lines.map((line, index) => (
-              <span key={line.affinity}>
-                <svg className="affinity-swatch" width="24" height="6" viewBox="0 0 24 6" aria-hidden="true">
-                  <line x1="0" x2="24" y1="3" y2="3" stroke={affinityColor(index)} strokeWidth="2.5" strokeDasharray={AFFINITY_DASHES[index % AFFINITY_DASHES.length]} />
-                </svg>
-                <strong>{line.affinity}</strong>
-                <small>{endpointMetric(line.startMetric)} → {endpointMetric(line.endMetric)} {unit}</small>
-              </span>
-            ))}
+            {payload?.lines.map((line, index) => {
+              const style = affinityLineStyle(index);
+              return (
+                <span key={line.affinity}>
+                  <svg className="affinity-swatch" width="24" height="6" viewBox="0 0 24 6" aria-hidden="true">
+                    <line x1="0" x2="24" y1="3" y2="3" stroke={style.color} strokeWidth="2.5" strokeDasharray={style.dash} />
+                  </svg>
+                  <strong>{line.affinity}</strong>
+                  <small>{endpointMetric(line.startMetric)} → {endpointMetric(line.endMetric)} {unit}</small>
+                </span>
+              );
+            })}
             <span className="affinity-crossover-key"><i /> Best-affinity crossover</span>
           </div>
           <div className="affinity-plot" aria-hidden="true">
@@ -182,33 +186,36 @@ const AffinityChart = memo(function AffinityChart({ payload, objective, unit }: 
                   </g>
                 );
               })}
-              {payload?.lines.map((line, index) => (
-                <g className={`affinity-series-group series-${index}`} key={line.affinity}>
-                  {contiguousMetricSegments(line.points).map((segment, segmentIndex) => (
-                    <polyline
-                      className="affinity-series"
-                      points={linePoints(segment, plotFirstLevel, plotLastLevel, domain)}
-                      stroke={affinityColor(index)}
-                      strokeDasharray={AFFINITY_DASHES[index % AFFINITY_DASHES.length]}
-                      key={`${line.affinity}-segment-${segmentIndex}`}
-                    />
-                  ))}
-                  {/* Hover markers are sampled to about 50 per line; the data table keeps every value. */}
-                  {line.points.filter((point, pointIndex) => point.metric !== null
-                    && (pointIndex % Math.ceil(line.points.length / 50) === 0 || pointIndex === line.points.length - 1)).map((point) => (
-                    <circle
-                      className="affinity-series-point"
-                      cx={chartX(point.level, plotFirstLevel, plotLastLevel)}
-                      cy={chartY(point.metric, domain)}
-                      fill={affinityColor(index)}
-                      key={`${line.affinity}-${point.level}`}
-                      r="3.5"
-                    >
-                      <title>{line.affinity} level {point.level}: {fixed1(point.metric)}</title>
-                    </circle>
-                  ))}
-                </g>
-              ))}
+              {payload?.lines.map((line, index) => {
+                const style = affinityLineStyle(index);
+                return (
+                  <g className={`affinity-series-group series-${index}`} key={line.affinity}>
+                    {contiguousMetricSegments(line.points).map((segment, segmentIndex) => (
+                      <polyline
+                        className="affinity-series"
+                        points={linePoints(segment, plotFirstLevel, plotLastLevel, domain)}
+                        stroke={style.color}
+                        strokeDasharray={style.dash}
+                        key={`${line.affinity}-segment-${segmentIndex}`}
+                      />
+                    ))}
+                    {/* Hover markers are sampled to about 50 per line; the data table keeps every value. */}
+                    {line.points.filter((point, pointIndex) => point.metric !== null
+                      && (pointIndex % Math.ceil(line.points.length / 50) === 0 || pointIndex === line.points.length - 1)).map((point) => (
+                      <circle
+                        className="affinity-series-point"
+                        cx={chartX(point.level, plotFirstLevel, plotLastLevel)}
+                        cy={chartY(point.metric, domain)}
+                        fill={style.color}
+                        key={`${line.affinity}-${point.level}`}
+                        r="3.5"
+                      >
+                        <title>{line.affinity} level {point.level}: {fixed1(point.metric)}</title>
+                      </circle>
+                    ))}
+                  </g>
+                );
+              })}
             </svg>
             <div className="affinity-x-axis">
               <span>Lv {firstLevel}</span>
@@ -228,27 +235,6 @@ const AffinityChart = memo(function AffinityChart({ payload, objective, unit }: 
     </figure>
   );
 });
-
-// Series hues stay clear of the status colours (danger red, warning ember, success green).
-// Dash patterns repeat every five lines, so neighbouring lines never share colour and dash.
-const AFFINITY_DASHES = [undefined, "12 6", "3 5", "14 4 3 4", "6 6"] as const;
-
-const AFFINITY_COLORS = [
-  "#e0b967",
-  "#79bfd0",
-  "#b59ad8",
-  "#d7d2b6",
-  "#729fe0",
-  "#d889b3",
-  "#b7cb72",
-  "#8f86d8",
-  "#a7c7e7",
-  "#c9a0dc",
-];
-
-function affinityColor(index: number): string {
-  return AFFINITY_COLORS[index % AFFINITY_COLORS.length];
-}
 
 function linePoints(
   points: AffinityWatchPayloadDto["lines"][number]["points"],

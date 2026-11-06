@@ -116,14 +116,16 @@ export function CompareView() {
     ...compareControls.filters.entries.map((entry) => {
       const dimension = entry.dimension === "affinity" ? affinityDimension : typeDimension;
       const name = dimension?.options.find((option) => option.id === entry.id)?.label ?? entry.id;
+      const remaining = compareControls.filters.entries.filter((other) => other !== entry);
       return {
         key: `${entry.dimension}:${entry.mode}:${entry.id}`,
         kind: entry.dimension === "affinity" ? "Affinity" : "Type",
         label: entry.mode === "exclude" ? `Not ${name}` : name,
         patch: {
           aowName: null,
-          matchSelectedAow: false,
-          filters: { version: 1 as const, entries: compareControls.filters.entries.filter((other) => other !== entry) },
+          // Adding a filter drops skill matching; removing the last one restores it.
+          matchSelectedAow: remaining.length === 0,
+          filters: { version: 1 as const, entries: remaining },
         },
       };
     }),

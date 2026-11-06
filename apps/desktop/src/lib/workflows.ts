@@ -19,9 +19,23 @@ export function cancelSearchFromStore(generation: number): void {
   if (activeSearch?.generation === generation) activeSearch.controller.abort();
 }
 
+// A search asked for during a CSV export waits for it. At most one waits, and the latest request replaces it.
+let stopWaitingForExport: (() => void) | null = null;
+
 export async function runSearchFromStore(requestOverride?: OptimizeRequestDto): Promise<boolean> {
   const state = useDesktopStore.getState();
-  if (state.isExporting) return false;
+  if (state.isExporting) {
+    stopWaitingForExport?.();
+    const unsubscribe = useDesktopStore.subscribe((current) => {
+      if (current.isExporting) return;
+      unsubscribe();
+      stopWaitingForExport = null;
+      // A profile switch ends the export too; its inputs are not searchable until its data loads.
+      if (current.catalogStatus === "ready") void runSearchFromStore(requestOverride);
+    });
+    stopWaitingForExport = unsubscribe;
+    return false;
+  }
   const request = requestOverride ?? buildOptimizeRequest(state.catalog, state.request, state.lockedStatMode);
   const signature = stableSignature(request);
   const generation = state.beginSearch(signature);
@@ -46,6 +60,7 @@ export async function runSearchFromStore(requestOverride?: OptimizeRequestDto): 
     return true;
   } catch (error) {
     if (isCurrent()) {
+      useDesktopStore.getState().settleStaleness(signature);
       if (isCancelled(error)) {
         useDesktopStore.getState().pushNotice({
           scope: "rankings", tone: "warning", message: "Search stopped. Previous results were retained.",

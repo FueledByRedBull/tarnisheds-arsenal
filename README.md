@@ -31,7 +31,7 @@ comparisons and progression previews.
 </div>
 
 Each Rankings row shows the loadout, weapon scaling, combat stats, AR, and skill
-damage, with the selected build’s full breakdown on the right. **Columns** explains
+damage, with the selected build’s full breakdown on the right. **Column guide** explains
 each one.
 
 ![Rankings with weapon setups, combat stats, scaling, and the selected build’s damage breakdown](docs/images/tarnisheds-arsenal-rankings.png)
@@ -111,11 +111,11 @@ original index on this device, and leaves unreadable records untouched. Exported
 backups exclude unreadable records. If storage access or space is unavailable,
 the app reports the failure instead of replacing your library with an empty one.
 
-**Why this build?** explains the selected result's objective, its lead over the
-next result and the largest AR difference behind it, its damage split, and active
-constraints. **Stat changes** lists each combat stat the build sets differently
-from the stats you entered. These are calculation summaries, not estimates of
-each stat's causal damage contribution.
+**Why this build?** explains the selected result's objective, its damage split,
+and active constraints. For the top-ranked result it also gives the lead over the
+next result and the largest AR difference behind it. **Stat changes** lists each
+combat stat the build sets differently from the stats you entered. These are
+calculation summaries, not estimates of each stat's causal damage contribution.
 
 ## Interface
 

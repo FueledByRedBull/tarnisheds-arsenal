@@ -26,7 +26,7 @@ const CSV_COLUMNS: CsvColumn[] = [
   { header: "weapon", value: (row) => row.weaponName },
   { header: "weapon_type", value: (row) => row.weaponTypeName ?? null },
   { header: "affinity", value: (row) => row.affinity },
-  { header: "aow", value: (row) => row.aowName ?? "Unspecified skill" },
+  { header: "aow", value: (row) => row.aowName ?? "No skill" },
   { header: "upgrade", value: (row) => row.upgrade },
   { header: "upgrade_path", value: (row, _index, metadata) => metadata.separateUpgradeCaps === false ? "unified" : row.isSomber ? "somber" : "standard" },
   { header: "is_somber", value: (row, _index, metadata) => metadata.separateUpgradeCaps === false ? null : row.isSomber },
