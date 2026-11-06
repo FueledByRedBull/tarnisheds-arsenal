@@ -61,10 +61,11 @@ export function QueryStrip({ profile, coverage, onProfileChange }: {
   const hasSelection = useDesktopStore((state) => state.selected !== null);
   const isSearching = useDesktopStore((state) => state.isSearching);
   const isExporting = useDesktopStore((state) => state.isExporting);
+  const searchWaitingForExport = useDesktopStore((state) => state.searchWaitingForExport);
   const lockedStatMode = useDesktopStore((state) => state.lockedStatMode);
   const setLockedStatMode = useDesktopStore((state) => state.setLockedStatMode);
   const setWorkspace = useDesktopStore((state) => state.setWorkspace);
-  const setPathHorizon = useDesktopStore((state) => state.setPathHorizon);
+  const requestPathTrace = useDesktopStore((state) => state.requestPathTrace);
   const runner = useSearchRunner();
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [paletteLoaded, setPaletteLoaded] = useState(false);
@@ -158,7 +159,7 @@ export function QueryStrip({ profile, coverage, onProfileChange }: {
   }, [catalog, paletteLoaded]);
 
   function startSearch() {
-    if (searchBusy || isExporting || !catalog) return;
+    if (searchBusy || !catalog) return;
     setWorkspace("rankings");
     void runner.runSearch();
   }
@@ -260,7 +261,7 @@ export function QueryStrip({ profile, coverage, onProfileChange }: {
         setWorkspace(action.workspace);
         break;
       case "planLevels":
-        setPathHorizon(action.horizon);
+        requestPathTrace(action.horizon);
         setWorkspace("paths");
         break;
       case "profile":
@@ -449,7 +450,7 @@ export function QueryStrip({ profile, coverage, onProfileChange }: {
             aria-keyshortcuts={searchBusy ? undefined : "Control+Enter"}
             onClick={searchBusy ? runner.cancelSearch : startSearch}
             aria-describedby={isExporting ? "search-export-hint" : undefined}
-            disabled={isExporting || runner.searchCancellationRequested || (!isSearching && !catalog)}
+            disabled={runner.searchCancellationRequested || (!isSearching && !catalog)}
           >
             {searchBusy ? <RotateCcw size={16} aria-hidden="true" /> : <Play size={16} aria-hidden="true" />}
             {searchBusy
@@ -546,7 +547,9 @@ export function QueryStrip({ profile, coverage, onProfileChange }: {
           {runner.isPreparingSearch ? <small className="ribbon-checking" role="status">Checking loadout…</small> : (
             <SearchProgress searching={isSearching} searchStartedAt={runner.searchStartedAt} objective={objectiveLabel(request.objective)} />
           )}
-          {isExporting ? <small className="ribbon-checking" id="search-export-hint">Search resumes when the CSV export finishes.</small> : null}
+          {isExporting ? <small className="ribbon-checking" id="search-export-hint">{searchWaitingForExport
+            ? "Search queued. It runs when the CSV export finishes."
+            : "A search started now runs when the CSV export finishes."}</small> : null}
           {coverage}
         </div>
       </fieldset>

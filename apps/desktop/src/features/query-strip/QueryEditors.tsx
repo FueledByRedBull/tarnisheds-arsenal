@@ -255,7 +255,7 @@ export function UpgradeEditor({ request, patchRequest, separateUpgradeCaps, stan
               onCommit={(upgrade) => patchRequest({ standardMaxUpgrade: upgrade, somberMaxUpgrade: upgrade })}
             />
           </label>
-          <small className="editor-note" id={unifiedNoteId}>Convergence uses one +0 to +15 reinforcement path for every weapon.</small>
+          <small className="editor-note" id={unifiedNoteId}>Convergence uses one +0 to +{standardUpgradeLimit} reinforcement path for every weapon.</small>
         </>
       )}
       <div className="segmented" role="group" aria-label="Upgrade search policy">

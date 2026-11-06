@@ -253,8 +253,22 @@ try {
   await page.getByRole("button", { name: "Watch affinities", exact: true }).click();
   await expect.poll(() => affinityHold.calls).toContain("start_affinity_watch");
   await switchWorkspaceAndBack(page, { key: "Control+4", tab: "Affinity Watch" });
+  // Exports download through a blob link, as csv.ts does; the native page-load hook stops every
+  // job, so a download that counted as a page load would end this run as stopped.
+  markSmokeStage("download a file while Affinity Watch runs");
+  await page.evaluate(() => {
+    const url = URL.createObjectURL(new Blob(["smoke\n"], { type: "text/csv;charset=utf-8" }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "tarnisheds-arsenal-smoke.csv";
+    document.body.append(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 30_000);
+  });
   if ((await releaseStatus(page, affinityHold)).includes("cancel_affinity_watch")) throw new Error("a tab switch cancelled Affinity Watch");
-  markSmokeStage("wait for Affinity Watch");
+  // Natively stopped work reaches the UI as a stopped run, not as a cancel request.
+  markSmokeStage("wait for Affinity Watch to finish after the tab switch and the download");
   await page.getByRole("table", { name: "Affinity watch rankings" }).locator('[role="row"]').nth(1).waitFor({ timeout: 120_000 });
   await expect(page.getByText("Affinity watch stopped.", { exact: true })).toHaveCount(0);
 

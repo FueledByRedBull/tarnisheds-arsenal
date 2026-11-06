@@ -145,7 +145,7 @@ export const SavedBuildPanel = memo(function SavedBuildPanel({ selected }: { sel
       setName(migrated.name);
       refresh();
       pushNotice({ scope: "global", tone: migration.issues.length ? "warning" : "success",
-        message: `Migrated ${migrated.name} and verified its saved configurations on current data.${migration.issues.length ? ` Cleared filters: ${migration.issues.join("; ")}.` : ""}` });
+        message: `Migrated ${migrated.name} and verified its saved configurations on current data.${migration.issues.length ? ` Cleared missing names: ${migration.issues.join("; ")}.` : ""}` });
       return migrated;
     } catch (error) {
       if (!controller.signal.aborted) setError(errorMessage(error));

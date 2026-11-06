@@ -1,5 +1,5 @@
 import { Pause, Play } from "lucide-react";
-import { memo, useState } from "react";
+import { memo, useEffect, useEffectEvent, useState } from "react";
 import { api } from "../../lib/api";
 import { analysisStatus } from "../../lib/analysis-status";
 import { AnalysisProgress } from "../shared/AnalysisProgress";
@@ -34,6 +34,7 @@ export function PathsView() {
   const isPathBusy = useDesktopStore((state) => state.isPathBusy);
   const pathProgress = useDesktopStore((state) => state.pathProgress);
   const pushNotice = useDesktopStore((state) => state.pushNotice);
+  const pathTraceRequested = useDesktopStore((state) => state.pathTraceRequested);
   const base = useBuiltRequest(catalog, request, lockedStatMode);
   const effectiveHorizon = clampHorizon(request, horizon);
   const signature = stableSignature({
@@ -73,6 +74,14 @@ export function PathsView() {
       effectiveHorizon < horizon ? { scope: "paths", tone: "info", message: `Horizon capped at Current +${effectiveHorizon}.` } : undefined,
     );
   }
+
+  // The palette's "Plan levels" command asks for a trace; claim it once and run it.
+  const traceRequested = useEffectEvent(() => {
+    if (useDesktopStore.getState().consumePathTraceRequest()) void refresh();
+  });
+  useEffect(() => {
+    if (pathTraceRequested) traceRequested();
+  }, [pathTraceRequested]);
 
   if (resultsStale) {
     return <WorkspaceGate panelClass="paths-panel" title="Paths" requirement="Requires current ranked results"
@@ -188,7 +197,7 @@ function LaneSummary({ title, path, row }: { title: string; path: PathPreviewDto
           <small>{path ? `${path.steps.length} steps, final ${fixed1(path.steps.at(-1)?.metric)}` : "Ready to trace"}</small>
         </>
       ) : (
-        <span>No compare lane selected.</span>
+        <span>No compare lane selected. Choose a comparison in Compare.</span>
       )}
     </div>
   );

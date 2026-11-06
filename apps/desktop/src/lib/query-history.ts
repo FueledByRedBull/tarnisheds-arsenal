@@ -130,8 +130,14 @@ function changedKeys(before: QuerySnapshot, after: QuerySnapshot): Array<keyof O
 // "STR 12 → 40" for one change, otherwise the changed names: "Class, VIG, MND and 6 more".
 export function describeStep(step: QueryStep): string {
   const { before, after } = step;
-  const keys = changedKeys(before, after);
-  const changes = keys.map((key) => ({ key, label: LABELS[key]! }));
+  // A profile with one shared cap (Convergence) edits both fields as one setting.
+  const sharedCap = useDesktopStore.getState().catalog?.dataManifest.rules.separateUpgradeCaps === false;
+  const keys = changedKeys(before, after)
+    .filter((key, _index, all) => !(sharedCap && key === "somberMaxUpgrade" && all.includes("standardMaxUpgrade")));
+  const changes = keys.map((key) => ({
+    key,
+    label: sharedCap && (key === "standardMaxUpgrade" || key === "somberMaxUpgrade") ? "Upgrade cap" : LABELS[key]!,
+  }));
   if (before.lockedStatMode !== after.lockedStatMode) {
     changes.push({ key: "lockStr", label: after.lockedStatMode ? "Locked stats on" : "Locked stats off" });
   }
