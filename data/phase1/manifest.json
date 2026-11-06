@@ -1,8 +1,8 @@
 {
   "schemaVersion": 6,
-  "datasetVersion": "vanilla-1.17.2",
+  "datasetVersion": "vanilla-1.17.2-r2",
   "modelVersion": "aow-routes-effects-v9",
-  "id": "vanilla-1.17.2",
+  "id": "vanilla-1.17.2-r2",
   "label": "Vanilla dataset - 1.17.2",
   "appVersion": "1.17.2",
   "source": "regulation.bin",
@@ -31,7 +31,7 @@
     "extendedScalingGrades": false,
     "statusBuildupScales": true
   },
-  "generatedAt": "2026-10-21",
+  "generatedAt": "2026-11-06",
   "extractorVersion": "phase1-python-v15-f32-shortest-floats",
   "provenance": "profile-bound regulation, names, motion data, and numeric PARAM effect graph",
   "runtimeFiles": [
@@ -92,8 +92,8 @@
     },
     {
       "path": "weapons.csv",
-      "size": 781198,
-      "sha256": "e43fce7ff82f2b8e96f07c0a336d369661c0fdad365d2086d6caff9e56eec300"
+      "size": 781200,
+      "sha256": "7f005f13444a7d2b01003ac70730bf9fff06790303c0e4b01f2f3ed8fed60d8a"
     }
   ],
   "diagnosticFiles": [

@@ -216,6 +216,9 @@ PROFILES: Mapping[str, ProfileDefinition] = {
             status_buildup_scales=True,
         ),
         use_workbook_weapon_metadata=True,
+        # Revision 2 reads weapon base poise from the regulation: the workbook's rows for
+        # Black Steel Greathammer and Hookclaws are the Heavy param's.
+        dataset_revision=2,
         weapon_name_overrides={
             3_560_000: "Leontiel's Greatsword",
             8_530_000: "Hefty Scimitar",

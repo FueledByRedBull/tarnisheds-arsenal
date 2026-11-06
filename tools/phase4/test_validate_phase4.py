@@ -101,7 +101,7 @@ class ValidatePhase4Tests(unittest.TestCase):
 
     def test_vanilla_poise_must_match_weapondata(self) -> None:
         read_csv = validation.read_csv
-        for field, invalid in (("base_poise", "0"), ("move_count", "0"), ("two_hand_heavy_poise", "")):
+        for field, invalid in (("move_count", "0"), ("two_hand_heavy_poise", "")):
             with self.subTest(field=field):
                 def read(path: Path) -> list[dict[str, str]]:
                     rows = read_csv(path)
