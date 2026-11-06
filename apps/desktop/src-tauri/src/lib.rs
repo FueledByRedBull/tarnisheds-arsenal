@@ -641,11 +641,16 @@ impl AppState {
                 scope.spawn(move || {
                     let (data, manifest) = load_profile(profile_id)?;
                     let catalog_index = commands::data::CatalogIndex::build(&data);
-                    Ok::<_, String>(Arc::new(ProfileData {
+                    let profile = Arc::new(ProfileData {
                         data: Arc::new(data),
                         catalog_index: Arc::new(catalog_index),
                         data_manifest: manifest.into(),
-                    }))
+                    });
+                    // The class list depends on the manifest's game version; an unreadable
+                    // one fails the load here instead of at the first catalog request.
+                    commands::data::try_class_metadata(&profile)
+                        .map_err(|error| format!("{profile_id}: {}", error.message))?;
+                    Ok::<_, String>(profile)
                 })
             });
             workers.map(|worker| {

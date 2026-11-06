@@ -8,7 +8,7 @@ use std::collections::HashSet;
 use er_optimizer_core::model::COMBAT_STAT_COUNT;
 use er_optimizer_core::{FilterDimension, OptimizeRequest, SomberFilter, StableFilter};
 
-use crate::commands::data::{class_metadata, uses_class_budget, weapon_upgrade_cap};
+use crate::commands::data::{is_class_available, uses_class_budget, weapon_upgrade_cap};
 use crate::dto::{CombatStateDto, OptimizeRequestDto, check_len};
 use crate::errors::AppError;
 use crate::{JobRegistry, ProfileData};
@@ -29,10 +29,7 @@ pub fn validate(
             "profileId is not an available game profile. Reload the catalog and choose an available profile.",
         ));
     }
-    if !class_metadata(profile)
-        .iter()
-        .any(|class_info| class_info.name.eq_ignore_ascii_case(&request.class_name))
-    {
+    if !is_class_available(profile, &request.class_name)? {
         return Err(AppError::new(format!(
             "the starting class is not available for profile '{profile_id}'"
         )));

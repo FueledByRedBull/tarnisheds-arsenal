@@ -501,8 +501,9 @@ fn tarnished_pack_hidden(profile: &ProfileData) -> Result<bool, AppError> {
     }
 }
 
-/// `try_class_metadata` for profiles whose manifest game version is already known to be
-/// valid; `shipped_profiles_expose_their_classes` checks the embedded ones.
+/// `try_class_metadata` for the shipped profiles, whose game versions
+/// `shipped_profiles_expose_their_classes` checks.
+#[cfg(test)]
 pub fn class_metadata(profile: &ProfileData) -> Vec<ClassMetadataDto> {
     try_class_metadata(profile).expect("profile manifest game version must be major.minor")
 }

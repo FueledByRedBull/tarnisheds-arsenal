@@ -1956,7 +1956,13 @@ mod hostile_request_tests {
         let state = crate::test_app_state();
         let secret = "secret-client-text";
         type TextSetter = fn(&mut crate::dto::OptimizeRequestDto, &str);
-        let cases: [(&str, TextSetter); 7] = [
+        let cases: [(&str, TextSetter); 9] = [
+            ("profile_id", |request, text| {
+                request.profile_id = text.into()
+            }),
+            ("affinity", |request, text| {
+                request.affinity = Some(text.into());
+            }),
             ("class_name", |request, text| {
                 request.class_name = text.into();
             }),

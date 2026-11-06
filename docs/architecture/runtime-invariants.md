@@ -43,7 +43,10 @@ Status: accepted. These rules describe contracts that tests and future refactors
 - Native validation bounds every request text field to 256 bytes and never echoes
   rejected text in an error. Each command has a table-driven hostile-request test
   that expects an error, not a panic, for out-of-range stats, levels, upgrades and
-  oversized text.
+  oversized text. These native bounds are the outer limit for any caller: `topK`
+  allows 2,000 rows so CSV exports fit. Saved presets and builds are checked against
+  tighter frontend limits (500 results, names up to 200 characters), and native
+  validation still applies when they are searched.
 - The main window may navigate only within the app origin; the Vite dev server is
   allowed only in development builds. New-window requests (`window.open`,
   `target="_blank"`) are denied: the app registers no new-window handler, and wry
