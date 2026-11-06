@@ -136,7 +136,9 @@ are excluded from skill-damage objectives. No combined +90 status buff is claime
 Unsupported conditional effects present in the extracted effect graph carry
 explicit warnings. Skills with unsupported effects on evaluated attack rows cannot
 compete in skill-damage objectives. Choosing an exhaustive evaluator does not implement a missing effect;
-`PerHitAttackPower` remains unsupported.
+`PerHitAttackPower` remains unsupported. It is the one exception to that rule:
+Ash choices whose rows carry it are skipped for every objective, Max AR included,
+because each objective scores the chosen Ash's route.
 
 The effect graph is not exhaustive: War Cry and Barbaric Roar's attack-power
 self-buffs are not currently modeled or individually flagged. Their altered

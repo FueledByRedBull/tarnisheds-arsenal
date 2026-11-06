@@ -173,6 +173,8 @@ $$
 
 The coefficient $\sigma_{i,d}$ is the attack-element overwrite rate when present;
 otherwise it is weapon scaling $s_i$ times the attack-element influence rate.
+`math/correction.rs` is the single reader of this weapon rule and of the skill rule
+below; the exact, bound, estimate and preparation paths all go through it.
 Ordinary records have no overwrite and an influence rate of 1. An explicit zero
 overwrite suppresses scaling, while a positive overwrite can supply scaling even
 when $s_i=0$. Only STR changes under two-handing: $x_{\mathrm{STR}}'=\tau(x_{\mathrm{STR}})$.
@@ -206,6 +208,12 @@ which rejects negative and non-finite values. A snapshot that violates this fail
 evaluation instead of being ranked. Every $\beta_d$, $\theta_{i,d}$, $\kappa_{i,d}$,
 and $\gamma_d$ is therefore nonnegative at runtime, which the upper bound in Section 4 and the
 first-hit identity rely on.
+
+Preparation keeps a stat when its overwrite, or its scaling times influence, is
+positive. That can keep a stat the skill rule treats as constant (a positive
+overwrite with zero influence), which only enlarges the active set; it never drops
+a stat that scales. No row in either shipped snapshot hits that case, and a test
+fails if one appears.
 
 ### Non-additive corrections
 
@@ -618,6 +626,9 @@ support. The compiler is not a general nonseparability detector. A future
 cross-stat product, multi-stat clamp, damage-dependent transition, or proc
 threshold requires a new proof or an explicitly supported exhaustive path. Routing
 to exhaustive search does not itself implement an unsupported evaluator mechanic.
+Every objective scores the chosen Ash's route, so preparation skips Ash choices
+whose rows carry such an effect for all objectives, not only skill-damage
+objectives; no result row is produced for them.
 
 ## 6. Result ordering
 
