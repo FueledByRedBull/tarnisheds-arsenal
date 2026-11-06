@@ -84,7 +84,7 @@ fn verify_against_manifest(manifest: &serde_json::Value, table: &str, bytes: &[u
             record["size"]
         );
     }
-    let digest = format!("{:x}", Sha256::digest(bytes));
+    let digest = lower_hex(&Sha256::digest(bytes));
     if record["sha256"].as_str() != Some(digest.as_str()) {
         panic!(
             "{} has SHA-256 {digest} but its manifest says {}; regenerate the snapshot",
@@ -92,4 +92,15 @@ fn verify_against_manifest(manifest: &serde_json::Value, table: &str, bytes: &[u
             record["sha256"]
         );
     }
+}
+
+/// Lowercase hexadecimal, as the manifests record SHA-256 digests.
+fn lower_hex(bytes: &[u8]) -> String {
+    use std::fmt::Write;
+    bytes
+        .iter()
+        .fold(String::with_capacity(bytes.len() * 2), |mut hex, byte| {
+            write!(hex, "{byte:02x}").expect("writing to a String cannot fail");
+            hex
+        })
 }
