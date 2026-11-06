@@ -6421,7 +6421,7 @@ fn compact_compatibility_preserves_every_pre_migration_pair() {
             digest.update(format!("{ash}:{weapon}\n"));
         }
         assert_eq!(
-            format!("{:x}", digest.finalize()),
+            crate::snapshot::lower_hex(&digest.finalize()),
             expected_digest,
             "{}",
             data.profile_id

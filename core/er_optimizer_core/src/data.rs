@@ -1803,7 +1803,7 @@ mod tests {
                     .find(|file| file["path"] == "weapons.csv")
                     .unwrap();
                 record["size"] = invalid.len().into();
-                record["sha256"] = format!("{:x}", Sha256::digest(invalid)).into();
+                record["sha256"] = crate::snapshot::lower_hex(&Sha256::digest(invalid)).into();
                 let content = |name: &str| {
                     if name == "weapons.csv" {
                         Some(invalid)
@@ -1845,7 +1845,7 @@ mod tests {
                 .find(|file| file["path"] == "weapon_passives.csv")
                 .unwrap();
             record["size"] = invalid.len().into();
-            record["sha256"] = format!("{:x}", Sha256::digest(invalid)).into();
+            record["sha256"] = crate::snapshot::lower_hex(&Sha256::digest(invalid)).into();
             let content = |name: &str| {
                 if name == "weapon_passives.csv" {
                     Some(invalid)
@@ -2058,7 +2058,7 @@ mod tests {
             }
             println!(
                 "LOADER {}",
-                serde_json::json!({"profile":profile,"loadMs":elapsed,"fingerprint":format!("{:x}", hash.finalize())})
+                serde_json::json!({"profile":profile,"loadMs":elapsed,"fingerprint":crate::snapshot::lower_hex(&hash.finalize())})
             );
         }
     }

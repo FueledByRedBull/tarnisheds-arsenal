@@ -28,10 +28,9 @@ fn main() -> Result<(), String> {
     let affinities = benchmark_affinities(&data, config.all_affinities);
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
     let executable = env::current_exe().map_err(|e| e.to_string())?;
-    let executable_hash = format!(
-        "{:x}",
-        Sha256::digest(std::fs::read(executable).map_err(|e| e.to_string())?)
-    );
+    let executable_hash = lower_hex(&Sha256::digest(
+        std::fs::read(executable).map_err(|e| e.to_string())?,
+    ));
     println!(
         "{}",
         json!({
@@ -280,4 +279,15 @@ fn equivalence_checks_secondary_metrics_and_extra_rows() {
     let mut changed = original.clone();
     changed[0].1[0].rows.push(original[0].1[0].rows[0].clone());
     assert!(assert_equivalent(&original, &changed).is_err());
+}
+
+/// Lowercase hexadecimal, as the manifests record SHA-256 digests.
+fn lower_hex(bytes: &[u8]) -> String {
+    use std::fmt::Write;
+    bytes
+        .iter()
+        .fold(String::with_capacity(bytes.len() * 2), |mut hex, byte| {
+            write!(hex, "{byte:02x}").expect("writing to a String cannot fail");
+            hex
+        })
 }

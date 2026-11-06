@@ -365,6 +365,17 @@ fn validate_safe_file_name(value: &str) -> Result<(), String> {
     Ok(())
 }
 
+/// Lowercase hexadecimal, as the manifests record SHA-256 digests.
+pub(crate) fn lower_hex(bytes: &[u8]) -> String {
+    use std::fmt::Write;
+    bytes
+        .iter()
+        .fold(String::with_capacity(bytes.len() * 2), |mut hex, byte| {
+            write!(hex, "{byte:02x}").expect("writing to a String cannot fail");
+            hex
+        })
+}
+
 fn validate_sha256(value: &str, path: &str) -> Result<(), String> {
     if value.len() != 64 || !value.bytes().all(|byte| byte.is_ascii_hexdigit()) {
         return Err(format!(
@@ -418,7 +429,7 @@ fn validate_bytes(kind: &str, record: &SnapshotFile, content: &[u8]) -> Result<(
             record.size
         ));
     }
-    let actual = format!("{:x}", Sha256::digest(content));
+    let actual = lower_hex(&Sha256::digest(content));
     if actual != record.sha256.to_ascii_lowercase() {
         return Err(format!(
             "invalid data snapshot {kind} {}: SHA-256 mismatch",
@@ -539,7 +550,7 @@ mod tests {
     }
 
     fn sha256(content: &[u8]) -> String {
-        format!("{:x}", Sha256::digest(content))
+        super::lower_hex(&Sha256::digest(content))
     }
 
     #[test]
