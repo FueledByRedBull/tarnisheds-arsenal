@@ -43,9 +43,14 @@ Status: accepted. These rules describe contracts that tests and future refactors
 - Native validation bounds every request text field to 256 bytes and never echoes
   rejected text in an error. Each command has a table-driven hostile-request test
   that expects an error, not a panic, for out-of-range stats, levels, upgrades and
-  oversized text.
+  oversized text. These native bounds are the outer limit for any caller: `topK`
+  allows 2,000 rows so CSV exports fit. Saved presets and builds are checked against
+  tighter frontend limits (500 results, names up to 200 characters), and native
+  validation still applies when they are searched.
 - The main window may navigate only within the app origin; the Vite dev server is
-  allowed only in development builds. The CSP also forbids form submission, and
+  allowed only in development builds. New-window requests (`window.open`,
+  `target="_blank"`) are denied: the app registers no new-window handler, and wry
+  cancels such requests without one. The CSP also forbids form submission, and
   JavaScript prototypes are frozen.
 - React Hooks rules, including the React Compiler checks, are lint errors. Async effects
   must retain generation/cancellation guards when dependencies change. Comparison
@@ -171,8 +176,8 @@ Status: accepted. These rules describe contracts that tests and future refactors
 ## Data snapshots
 
 - Each runtime profile is one immutable manifest snapshot. Every required runtime file must be listed exactly once with its byte length and SHA-256 hash.
-- External loading is all-or-nothing. Missing, modified, duplicate, unlisted, mixed-version, or path-traversing entries fail startup; files never fall back individually to embedded data.
-- The embedded snapshot is validated against the same manifest contract before parsing.
+- The desktop app, debug builds included, loads only the embedded snapshots, validated against the manifest contract before parsing.
+- Loading a snapshot from disk (core examples and validation tools) is all-or-nothing. Missing, modified, duplicate, unlisted, mixed-version, or path-traversing entries fail the load; files never fall back individually to embedded data.
 - CSV headers are resolved once per table. Required numeric, handling and
   compatibility columns must exist even in empty tables; optional descriptions
   cannot supply defaults for missing calculation inputs.

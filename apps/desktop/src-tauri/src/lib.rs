@@ -8,6 +8,7 @@ use tauri::Manager;
 mod commands;
 mod dto;
 mod errors;
+mod request;
 
 // Worker panics become a retryable job error only while panics unwind.
 #[cfg(panic = "abort")]
@@ -37,9 +38,9 @@ where
     })
 }
 
-pub struct AsyncJobHandle<T> {
-    pub cancel: CancelFlag,
-    pub status: Arc<Mutex<T>>,
+pub(crate) struct AsyncJobHandle<T> {
+    pub(crate) cancel: CancelFlag,
+    pub(crate) status: Arc<Mutex<T>>,
 }
 
 pub struct JobRegistry<T> {
@@ -111,7 +112,7 @@ impl<T: Clone + Send + 'static> JobRegistry<T> {
             .is_some_and(|(id, supervisor)| id == job_id && supervisor.inner().is_finished())
     }
 
-    pub fn insert_if_idle(
+    pub(crate) fn insert_if_idle(
         &self,
         job_id: String,
         handle: AsyncJobHandle<T>,
@@ -142,12 +143,12 @@ impl<T: Clone + Send + 'static> JobRegistry<T> {
     }
 
     /// Cancels the running job whatever its id, for a page that lost its job ids.
-    pub fn cancel_active(&self) {
-        if let Ok(guard) = self.handle.lock()
-            && let Some((_, handle)) = guard.as_ref()
-        {
+    pub fn cancel_active(&self) -> Result<(), errors::AppError> {
+        let guard = self.handle.lock().map_err(|_| self.lock_error())?;
+        if let Some((_, handle)) = guard.as_ref() {
             self.request_cancel(handle);
         }
+        Ok(())
     }
 
     fn request_cancel(&self, handle: &AsyncJobHandle<T>) -> bool {
@@ -174,7 +175,8 @@ impl<T: Clone + Send + 'static> JobRegistry<T> {
                 _ => return Ok(None),
             }
         };
-        // Clone a possibly large terminal payload without blocking start and cancel.
+        // The clone runs outside the registry lock, but under the status lock that cancel and
+        // start take, so a large terminal payload can delay them for the length of the copy.
         let status = status.lock().map_err(|_| self.status_error())?.clone();
         Ok(Some(status))
     }
@@ -251,7 +253,7 @@ mod job_registry_tests {
             )
             .unwrap();
         assert!(!registry.cancel("finished").unwrap());
-        registry.cancel_active();
+        registry.cancel_active().unwrap();
         assert!(!cancel.load(Ordering::Relaxed));
     }
 
@@ -259,7 +261,7 @@ mod job_registry_tests {
     fn active_job_is_cancelled_without_its_id() {
         let registry = registry();
         let cancel = Arc::new(AtomicBool::new(false));
-        registry.cancel_active();
+        registry.cancel_active().unwrap();
         registry
             .insert_if_idle(
                 "orphan".into(),
@@ -269,8 +271,24 @@ mod job_registry_tests {
                 },
             )
             .unwrap();
-        registry.cancel_active();
+        registry.cancel_active().unwrap();
         assert!(cancel.load(Ordering::Relaxed));
+    }
+
+    #[test]
+    fn poisoned_registry_reports_an_error_when_cancelling_without_an_id() {
+        let registry = Arc::new(registry());
+        let poisoning = Arc::clone(&registry);
+        assert!(
+            std::thread::spawn(move || {
+                let _guard = poisoning.handle.lock().unwrap();
+                panic!("injected registry failure");
+            })
+            .join()
+            .is_err()
+        );
+        assert!(registry.cancel("any").is_err());
+        assert!(registry.cancel_active().is_err());
     }
 
     fn register_running<T: Clone + Send + 'static>(
@@ -320,7 +338,7 @@ mod job_registry_tests {
                 },
             ),
         ];
-        state.cancel_all_jobs();
+        state.cancel_all_jobs().unwrap();
         assert!(flags.iter().all(|cancel| cancel.load(Ordering::Relaxed)));
     }
 
@@ -600,6 +618,13 @@ pub struct ProfileData {
     pub data_manifest: dto::DataManifestDto,
 }
 
+/// Every job status DTO publishes its terminal result in `finished`.
+macro_rules! job_registry {
+    ($kind:literal, $id_prefix:literal) => {
+        JobRegistry::new($kind, $id_prefix, |status| status.finished.is_some())
+    };
+}
+
 impl AppState {
     fn load(
         load_profile: impl Fn(&str) -> Result<(GameData, SnapshotManifest), String> + Sync,
@@ -616,11 +641,16 @@ impl AppState {
                 scope.spawn(move || {
                     let (data, manifest) = load_profile(profile_id)?;
                     let catalog_index = commands::data::CatalogIndex::build(&data);
-                    Ok::<_, String>(Arc::new(ProfileData {
+                    let profile = Arc::new(ProfileData {
                         data: Arc::new(data),
                         catalog_index: Arc::new(catalog_index),
                         data_manifest: manifest.into(),
-                    }))
+                    });
+                    // The class list depends on the manifest's game version; an unreadable
+                    // one fails the load here instead of at the first catalog request.
+                    commands::data::try_class_metadata(&profile)
+                        .map_err(|error| format!("{profile_id}: {}", error.message))?;
+                    Ok::<_, String>(profile)
                 })
             });
             workers.map(|worker| {
@@ -635,14 +665,10 @@ impl AppState {
         }
         Ok(Self {
             profiles,
-            analysis_jobs: JobRegistry::new("analysis", "analysis", |status| {
-                status.finished.is_some()
-            }),
-            search_jobs: JobRegistry::new("search", "search", |status| status.finished.is_some()),
-            path_jobs: JobRegistry::new("path", "path", |status| status.finished.is_some()),
-            affinity_jobs: JobRegistry::new("affinity watch", "affinity", |status| {
-                status.finished.is_some()
-            }),
+            analysis_jobs: job_registry!("analysis", "analysis"),
+            search_jobs: job_registry!("search", "search"),
+            path_jobs: job_registry!("path", "path"),
+            affinity_jobs: job_registry!("affinity watch", "affinity"),
             next_job: AtomicU64::new(1),
         })
     }
@@ -650,17 +676,22 @@ impl AppState {
     pub fn profile(&self, profile_id: &str) -> Result<&Arc<ProfileData>, errors::AppError> {
         dto::check_len("profileId", profile_id)?;
         self.profiles.get(profile_id).ok_or_else(|| {
-            errors::AppError::new(format!(
-                "Unknown game profile {profile_id:?}. Reload the catalog and choose an available profile."
-            ))
+            errors::AppError::new(
+                "profileId is not an available game profile. Reload the catalog and choose an available profile.",
+            )
         })
     }
 
-    fn cancel_all_jobs(&self) {
-        self.analysis_jobs.cancel_active();
-        self.search_jobs.cancel_active();
-        self.path_jobs.cancel_active();
-        self.affinity_jobs.cancel_active();
+    /// Asks every registry to cancel, even after one fails.
+    fn cancel_all_jobs(&self) -> Result<(), errors::AppError> {
+        [
+            self.analysis_jobs.cancel_active(),
+            self.search_jobs.cancel_active(),
+            self.path_jobs.cancel_active(),
+            self.affinity_jobs.cancel_active(),
+        ]
+        .into_iter()
+        .collect()
     }
 }
 
@@ -691,7 +722,8 @@ fn start() -> Result<(), String> {
         }
     }
     // Load before any window exists, so a slow or failed load never shows a blank window.
-    let state = AppState::load(load_desktop_profile).map_err(|error| error.message)?;
+    let state = AppState::load(er_optimizer_core::load_embedded_game_profile_with_manifest)
+        .map_err(|error| error.message)?;
 
     // Tauri panics instead of returning an error when it cannot create the window,
     // for example when the WebView2 runtime is missing.
@@ -702,7 +734,8 @@ fn start() -> Result<(), String> {
             .on_page_load(|webview, payload| {
                 // A reloaded page lost its job ids; stop the work it can no longer own.
                 if payload.event() == tauri::webview::PageLoadEvent::Started {
-                    webview.state::<AppState>().cancel_all_jobs();
+                    // A poisoned registry reports its own error from every command.
+                    let _ = webview.state::<AppState>().cancel_all_jobs();
                 }
             })
             .invoke_handler(tauri::generate_handler![
@@ -830,34 +863,6 @@ fn report_startup_failure(message: &str) {
                 MB_ICONERROR,
             );
         }
-    }
-}
-
-fn load_desktop_profile(profile_id: &str) -> Result<(GameData, SnapshotManifest), String> {
-    // Debug builds read the repository snapshot, so data edits apply without a rebuild.
-    #[cfg(debug_assertions)]
-    {
-        let relative = if profile_id == er_optimizer_core::VANILLA_PROFILE_ID {
-            std::path::PathBuf::from("phase1")
-        } else {
-            std::path::PathBuf::from("profiles").join(profile_id)
-        };
-        let data_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../../../data")
-            .join(relative);
-        let (data, manifest) = er_optimizer_core::load_game_data_with_manifest(&data_dir)?;
-        if manifest.profile.id != profile_id {
-            return Err(format!(
-                "{} holds profile {:?}, expected {profile_id:?}",
-                data_dir.display(),
-                manifest.profile.id
-            ));
-        }
-        Ok((data, manifest))
-    }
-    #[cfg(not(debug_assertions))]
-    {
-        er_optimizer_core::load_embedded_game_profile_with_manifest(profile_id)
     }
 }
 
@@ -1026,18 +1031,13 @@ pub(crate) fn assert_rejected_quickly<T: std::fmt::Debug>(
     );
 }
 
-/// Applies each hostile value (except the skipped ones, which the entry point resets
-/// before they matter) to the test request and requires the entry point to reject it.
+/// Applies each hostile value to the test request and requires the entry point to reject it.
 #[cfg(test)]
 pub(crate) fn assert_hostile_values_rejected(
     entry_point: &str,
-    skipped: &[&str],
     run: impl Fn(dto::OptimizeRequestDto) -> Result<(), errors::AppError>,
 ) {
-    for (label, apply) in HOSTILE_OPTIMIZE_VALUES
-        .iter()
-        .filter(|(label, _)| !skipped.contains(label))
-    {
+    for (label, apply) in HOSTILE_OPTIMIZE_VALUES {
         let mut request = test_optimize_request();
         apply(&mut request);
         assert_rejected_quickly(&format!("{entry_point}: {label}"), || run(request));
