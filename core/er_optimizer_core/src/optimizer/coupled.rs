@@ -17,7 +17,8 @@ use crate::math::exact_value::ExactRational;
 use crate::model::COMBAT_STAT_COUNT;
 
 pub(super) type Combat = [u8; COMBAT_STAT_COUNT];
-const KEY: usize = 5;
+/// Components of an objective key: score, then four tie-break values.
+pub(super) const KEY: usize = 5;
 
 /// Where a key component's head comes from.
 #[derive(Clone, Copy, PartialEq, Eq)]
