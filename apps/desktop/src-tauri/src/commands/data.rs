@@ -508,6 +508,20 @@ pub fn class_metadata(profile: &ProfileData) -> Vec<ClassMetadataDto> {
     try_class_metadata(profile).expect("profile manifest game version must be major.minor")
 }
 
+/// The profile's starting classes that its game version offers.
+fn offered_starting_classes(
+    profile: &ProfileData,
+) -> Result<impl Iterator<Item = &er_optimizer_core::math::StartingClass>, AppError> {
+    let hide_tarnished_pack = tarnished_pack_hidden(profile)?;
+    Ok(profile
+        .data
+        .starting_classes
+        .iter()
+        .filter(move |class_info| {
+            !(hide_tarnished_pack && is_tarnished_pack_class(class_info.name.as_ref()))
+        }))
+}
+
 /// Whether `class_name` is one of the profile's classes (case-insensitive), without
 /// building the class list.
 pub fn is_class_available(profile: &ProfileData, class_name: &str) -> Result<bool, AppError> {
@@ -516,11 +530,9 @@ pub fn is_class_available(profile: &ProfileData, class_name: &str) -> Result<boo
     if !profile.data.capabilities.class_budget {
         return Ok(is_custom_stats);
     }
-    let hide_tarnished_pack = tarnished_pack_hidden(profile)?;
-    Ok(profile.data.starting_classes.iter().any(|class_info| {
-        class_info.name.eq_ignore_ascii_case(class_name)
-            && !(hide_tarnished_pack && is_tarnished_pack_class(class_info.name.as_ref()))
-    }) || (is_custom_stats && profile.data.offers_custom_stats()))
+    Ok(offered_starting_classes(profile)?
+        .any(|class_info| class_info.name.eq_ignore_ascii_case(class_name))
+        || (is_custom_stats && profile.data.offers_custom_stats()))
 }
 
 /// The profile's classes, or an error when its manifest game version cannot be read.
@@ -528,14 +540,7 @@ pub fn try_class_metadata(profile: &ProfileData) -> Result<Vec<ClassMetadataDto>
     if !profile.data.capabilities.class_budget {
         return Ok(vec![custom_stats_class()]);
     }
-    let hide_tarnished_pack = tarnished_pack_hidden(profile)?;
-    let mut classes = profile
-        .data
-        .starting_classes
-        .iter()
-        .filter(|class_info| {
-            !(hide_tarnished_pack && is_tarnished_pack_class(class_info.name.as_ref()))
-        })
+    let mut classes = offered_starting_classes(profile)?
         .map(|class_info| ClassMetadataDto {
             name: class_info.name.to_string(),
             base_level: class_info.base_level,
@@ -725,6 +730,23 @@ fn finalize_pair_set_map(
 #[cfg(test)]
 mod compatibility_tests {
     use super::*;
+
+    #[test]
+    fn every_catalog_skill_passes_the_ash_of_war_check() {
+        let state = crate::test_app_state();
+        for profile_id in [
+            er_optimizer_core::VANILLA_PROFILE_ID,
+            er_optimizer_core::CONVERGENCE_PROFILE_ID,
+        ] {
+            let profile = state.profile(profile_id).unwrap();
+            let names = &profile.catalog_index.aow_names;
+            assert!(!names.is_empty(), "{profile_id}");
+            for name in names {
+                crate::request::check_aow_known(profile, name)
+                    .unwrap_or_else(|error| panic!("{profile_id} {name}: {}", error.message));
+            }
+        }
+    }
 
     #[test]
     fn catalog_facets_count_supported_rows_without_double_counting_native_skills() {

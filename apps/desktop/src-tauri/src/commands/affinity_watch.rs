@@ -735,7 +735,7 @@ mod hostile_request_tests {
     fn affinity_watch_rejects_every_hostile_base_value() {
         let state = crate::test_app_state();
         let seed = seed(&state);
-        assert_hostile_values_rejected("start_affinity_watch", &[], |base| {
+        assert_hostile_values_rejected("start_affinity_watch", |base| {
             let mut request = seed.clone();
             request.base = base;
             run(&state, request)

@@ -63,8 +63,8 @@ fn split_outcome<T>(
     }
 }
 
-/// Pins the validated request to one loadout, locks the stats of a Custom stats request
-/// to the ones it states, and fits the upgrade caps to the weapon.
+/// Pins the validated request to one loadout and fits the upgrade caps to the weapon.
+/// A Custom stats request is already locked to its stats: validation requires it.
 fn pinned_build(
     mut request: OptimizeRequest,
     profile: &ProfileData,
@@ -73,9 +73,6 @@ fn pinned_build(
     aow_name: Option<&str>,
 ) -> Result<OptimizeRequest, AppError> {
     request::pin_loadout(&mut request, weapon_name, affinity, aow_name);
-    if !uses_class_budget(profile, &request.class_name) {
-        request::lock_to_current_stats(&mut request);
-    }
     request::settle_upgrade_caps(&mut request, profile)?;
     Ok(request)
 }
@@ -1831,7 +1828,7 @@ mod hostile_request_tests {
     #[test]
     fn search_rejects_every_hostile_value() {
         let state = crate::test_app_state();
-        assert_hostile_values_rejected("start_search", &[], |request| {
+        assert_hostile_values_rejected("start_search", |request| {
             run_search_inner(request, &state).map(|_| ())
         });
     }
@@ -1851,7 +1848,7 @@ mod hostile_request_tests {
             )
             .map(|_| ())
         };
-        assert_hostile_values_rejected("start_solve_build", &[], |base| {
+        assert_hostile_values_rejected("start_solve_build", |base| {
             solve(base, "Uchigatana", Some("Keen".into()), None)
         });
         let base = crate::test_optimize_request;
@@ -1886,7 +1883,7 @@ mod hostile_request_tests {
             )
             .map(|_| ())
         };
-        assert_hostile_values_rejected("start_upgrade_series", &[], |base| {
+        assert_hostile_values_rejected("start_upgrade_series", |base| {
             series(base, solved.clone(), 25)
         });
         let hostile_stats: [fn(&mut CombatStateDto); 5] = [
@@ -1936,7 +1933,7 @@ mod hostile_request_tests {
                 prepare_ar_bleed_frontier(&ArBleedFrontierRequestDto { base, solved }, &state)?;
             evaluate_ar_bleed_frontier(&request, &data, || true).map(|_| ())
         };
-        assert_hostile_values_rejected("start_ar_bleed_frontier", &[], |base| {
+        assert_hostile_values_rejected("start_ar_bleed_frontier", |base| {
             frontier(base, solved.clone())
         });
         let mut hostile = solved.clone();

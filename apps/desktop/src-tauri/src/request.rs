@@ -95,7 +95,9 @@ fn check_custom_stats(profile_id: &str, request: &OptimizeRequest) -> Result<(),
     Ok(())
 }
 
-/// Rejects an Ash of War the profile does not have, as the core would, without echoing it.
+/// Rejects an Ash of War the profile does not have, without echoing it. A native skill
+/// is named as the core names it: the weapon's own name, else its rows' first name, else
+/// the first name in the skill's shared rows.
 pub fn check_aow_known(profile: &ProfileData, name: &str) -> Result<(), AppError> {
     let data = &profile.data;
     let known = data
@@ -110,6 +112,11 @@ pub fn check_aow_known(profile: &ProfileData, name: &str) -> Result<(), AppError
                     .or_else(|| {
                         data.native_skill_attack_rows(weapon.weapon_id)
                             .first()
+                            .or_else(|| {
+                                weapon
+                                    .native_skill_id
+                                    .and_then(|id| data.aow_attack_rows(id).first())
+                            })
                             .map(|row| row.aow_name.as_str())
                     })
                     .is_some_and(|skill| skill.eq_ignore_ascii_case(name))
@@ -166,10 +173,6 @@ pub fn pin_loadout(
 
 pub fn lock_to_stats(request: &mut OptimizeRequest, stats: CombatStateDto) {
     request.locked_combat_stats = stats.to_array().map(Some);
-}
-
-pub fn lock_to_current_stats(request: &mut OptimizeRequest) {
-    request.locked_combat_stats = request.current_stats.combat_array().map(Some);
 }
 
 pub fn unlock_stats(request: &mut OptimizeRequest) {

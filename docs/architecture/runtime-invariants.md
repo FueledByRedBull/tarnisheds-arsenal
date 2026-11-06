@@ -176,8 +176,8 @@ Status: accepted. These rules describe contracts that tests and future refactors
 ## Data snapshots
 
 - Each runtime profile is one immutable manifest snapshot. Every required runtime file must be listed exactly once with its byte length and SHA-256 hash.
-- External loading is all-or-nothing. Missing, modified, duplicate, unlisted, mixed-version, or path-traversing entries fail startup; files never fall back individually to embedded data.
-- The embedded snapshot is validated against the same manifest contract before parsing.
+- The desktop app, debug builds included, loads only the embedded snapshots, validated against the manifest contract before parsing.
+- Loading a snapshot from disk (core examples and validation tools) is all-or-nothing. Missing, modified, duplicate, unlisted, mixed-version, or path-traversing entries fail the load; files never fall back individually to embedded data.
 - CSV headers are resolved once per table. Required numeric, handling and
   compatibility columns must exist even in empty tables; optional descriptions
   cannot supply defaults for missing calculation inputs.

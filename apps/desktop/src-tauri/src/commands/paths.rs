@@ -1429,7 +1429,7 @@ mod hostile_request_tests {
         let state = crate::test_app_state();
         let lane = seed(&state);
         for mode in [PathMode::NoRespec, PathMode::OptimumEnvelope] {
-            assert_hostile_values_rejected(&format!("start_path_preview {mode:?}"), &[], |base| {
+            assert_hostile_values_rejected(&format!("start_path_preview {mode:?}"), |base| {
                 let mut lane = lane.clone();
                 lane.mode = mode;
                 lane.base = base;

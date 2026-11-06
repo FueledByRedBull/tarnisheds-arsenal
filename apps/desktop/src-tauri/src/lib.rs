@@ -1031,18 +1031,13 @@ pub(crate) fn assert_rejected_quickly<T: std::fmt::Debug>(
     );
 }
 
-/// Applies each hostile value (except the skipped ones, which the entry point resets
-/// before they matter) to the test request and requires the entry point to reject it.
+/// Applies each hostile value to the test request and requires the entry point to reject it.
 #[cfg(test)]
 pub(crate) fn assert_hostile_values_rejected(
     entry_point: &str,
-    skipped: &[&str],
     run: impl Fn(dto::OptimizeRequestDto) -> Result<(), errors::AppError>,
 ) {
-    for (label, apply) in HOSTILE_OPTIMIZE_VALUES
-        .iter()
-        .filter(|(label, _)| !skipped.contains(label))
-    {
+    for (label, apply) in HOSTILE_OPTIMIZE_VALUES {
         let mut request = test_optimize_request();
         apply(&mut request);
         assert_rejected_quickly(&format!("{entry_point}: {label}"), || run(request));
