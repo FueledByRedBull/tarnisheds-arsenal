@@ -15,6 +15,11 @@ pub const MAX_LEVELS_AHEAD: u16 = 200;
 pub const MAX_PATH_BATCH: usize = 2;
 /// Longest accepted text value, in bytes; the longest catalog name is well below it.
 pub const MAX_TEXT_LEN: usize = 256;
+pub const MAX_FILTER_ENTRIES: usize = 512;
+/// Longest accepted filter ID, in bytes.
+pub const MAX_FILTER_ID_LEN: usize = 128;
+/// Highest value of any character stat.
+pub const MAX_STAT: u8 = 99;
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -93,41 +98,90 @@ fn default_result_grouping() -> String {
 }
 
 impl OptimizeRequestDto {
-    pub fn standard_upgrade_cap(&self) -> u8 {
-        self.standard_max_upgrade.unwrap_or(25)
-    }
-
-    pub fn somber_upgrade_cap(&self) -> u8 {
-        self.somber_max_upgrade.unwrap_or(10)
-    }
-
     pub fn exact_upgrade_enabled(&self) -> bool {
         self.exact_upgrade.unwrap_or(false)
     }
 
-    pub fn set_exact_upgrade(&mut self, upgrade: u8, is_somber: bool) {
-        if is_somber {
-            self.somber_max_upgrade = Some(upgrade);
-        } else {
-            self.standard_max_upgrade = Some(upgrade);
-        }
-        self.exact_upgrade = Some(true);
+    /// Checks every field's shape and returns the core's request. A cap the client left
+    /// out takes the given default, which the caller reads from the profile's rules.
+    pub fn to_core(
+        &self,
+        default_standard_max_upgrade: u8,
+        default_somber_max_upgrade: u8,
+    ) -> Result<OptimizeRequest, AppError> {
+        validate_optimize_request(self)?;
+        Ok(OptimizeRequest {
+            class_name: self.class_name.clone(),
+            character_level: self.character_level,
+            current_stats: Stats {
+                vig: self.vig,
+                mnd: self.mnd,
+                end: self.end,
+                str: self.str_stat,
+                dex: self.dex,
+                int: self.int_stat,
+                fai: self.fai,
+                arc: self.arc,
+            },
+            min_combat_stats: [
+                self.min_str,
+                self.min_dex,
+                self.min_int,
+                self.min_fai,
+                self.min_arc,
+            ],
+            locked_combat_stats: [
+                self.lock_str,
+                self.lock_dex,
+                self.lock_int,
+                self.lock_fai,
+                self.lock_arc,
+            ],
+            standard_max_upgrade: self
+                .standard_max_upgrade
+                .unwrap_or(default_standard_max_upgrade),
+            somber_max_upgrade: self
+                .somber_max_upgrade
+                .unwrap_or(default_somber_max_upgrade),
+            exact_upgrade: self.exact_upgrade_enabled(),
+            two_handing: self.two_handing,
+            dlc_scaling: self.dlc_scaling,
+            scadutree_level: self.scadutree_level,
+            weapon_name: self.weapon_name.clone(),
+            affinity: self.affinity.clone(),
+            aow_name: self.aow_name.clone(),
+            weapon_type_key: self.weapon_type_key.clone(),
+            somber_filter: parse_somber_filter(&self.somber_filter)?,
+            filters: parse_stable_filters(&self.filters)?,
+            result_grouping: ResultGrouping::parse(&self.result_grouping).map_err(|_| {
+                invalid_choice("resultGrouping", &["automatic", "weapon", "loadout"])
+            })?,
+            objective: OptimizeObjective::parse(&self.objective).map_err(|_| {
+                invalid_choice(
+                    "objective",
+                    &OptimizeObjective::ALL.map(OptimizeObjective::as_str),
+                )
+            })?,
+            top_k: self.top_k,
+        })
     }
+}
 
-    /// Fixes the request to one loadout and drops the discovery query around it.
-    pub fn pin_loadout(
-        &mut self,
-        weapon_name: String,
-        affinity: Option<String>,
-        aow_name: Option<String>,
-    ) {
-        self.weapon_name = Some(weapon_name);
-        self.affinity = affinity;
-        self.aow_name = aow_name;
-        self.weapon_type_key = None;
-        self.somber_filter = SomberFilter::All.as_str().to_string();
-        self.filters.entries.clear();
-        self.top_k = 1;
+/// For a request whose upgrade caps are already set, as in the test fixtures.
+#[cfg(test)]
+impl TryFrom<&OptimizeRequestDto> for OptimizeRequest {
+    type Error = AppError;
+
+    fn try_from(value: &OptimizeRequestDto) -> Result<Self, Self::Error> {
+        let missing = |field| AppError::new(format!("{field} is required"));
+        value.to_core(
+            value
+                .standard_max_upgrade
+                .ok_or_else(|| missing("standardMaxUpgrade"))?,
+            value
+                .somber_max_upgrade
+                .ok_or_else(|| missing("somberMaxUpgrade"))?,
+        )
     }
 }
 
@@ -139,6 +193,24 @@ pub struct CombatStateDto {
     pub int_stat: u8,
     pub fai: u8,
     pub arc: u8,
+}
+
+impl CombatStateDto {
+    /// The stats in the core's combat order: Strength, Dexterity, Intelligence, Faith, Arcane.
+    pub fn to_array(self) -> [u8; COMBAT_STAT_COUNT] {
+        [self.str_stat, self.dex, self.int_stat, self.fai, self.arc]
+    }
+
+    pub fn from_array(stats: [u8; COMBAT_STAT_COUNT]) -> Self {
+        let [str_stat, dex, int_stat, fai, arc] = stats;
+        Self {
+            str_stat,
+            dex,
+            int_stat,
+            fai,
+            arc,
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Serialize)]
@@ -683,57 +755,6 @@ pub struct CompatibleAowsForAffinityRequestDto {
     pub affinity: Option<String>,
 }
 
-impl TryFrom<&OptimizeRequestDto> for OptimizeRequest {
-    type Error = AppError;
-
-    fn try_from(value: &OptimizeRequestDto) -> Result<Self, Self::Error> {
-        validate_optimize_request(value)?;
-        Ok(Self {
-            class_name: value.class_name.clone(),
-            character_level: value.character_level,
-            current_stats: Stats {
-                vig: value.vig,
-                mnd: value.mnd,
-                end: value.end,
-                str: value.str_stat,
-                dex: value.dex,
-                int: value.int_stat,
-                fai: value.fai,
-                arc: value.arc,
-            },
-            min_combat_stats: [
-                value.min_str,
-                value.min_dex,
-                value.min_int,
-                value.min_fai,
-                value.min_arc,
-            ],
-            locked_combat_stats: [
-                value.lock_str,
-                value.lock_dex,
-                value.lock_int,
-                value.lock_fai,
-                value.lock_arc,
-            ],
-            standard_max_upgrade: value.standard_upgrade_cap(),
-            somber_max_upgrade: value.somber_upgrade_cap(),
-            exact_upgrade: value.exact_upgrade_enabled(),
-            two_handing: value.two_handing,
-            dlc_scaling: value.dlc_scaling,
-            scadutree_level: value.scadutree_level,
-            weapon_name: value.weapon_name.clone(),
-            affinity: value.affinity.clone(),
-            aow_name: value.aow_name.clone(),
-            weapon_type_key: value.weapon_type_key.clone(),
-            somber_filter: parse_somber_filter(&value.somber_filter)?,
-            filters: parse_stable_filters(&value.filters)?,
-            result_grouping: ResultGrouping::parse(&value.result_grouping)?,
-            objective: OptimizeObjective::parse(&value.objective)?,
-            top_k: value.top_k,
-        })
-    }
-}
-
 impl From<DamageBreakdown> for DamageBreakdownDto {
     fn from(value: DamageBreakdown) -> Self {
         Self {
@@ -877,10 +898,10 @@ impl From<OptimizeResult> for SolvedBuildDto {
     }
 }
 
-impl From<ProgressSnapshot> for SearchProgressDto {
-    fn from(value: ProgressSnapshot) -> Self {
+impl SearchProgressDto {
+    pub fn new(job_id: String, value: ProgressSnapshot) -> Self {
         Self {
-            job_id: String::new(),
+            job_id,
             checked: value.checked,
             total: value.total,
             eligible: value.eligible,
@@ -888,6 +909,63 @@ impl From<ProgressSnapshot> for SearchProgressDto {
             elapsed_ms: value.elapsed_ms,
         }
     }
+}
+
+/// A job's terminal payload, as the registry publishes it.
+pub trait JobFinished {
+    fn has_error(&self) -> bool;
+    /// Marks the job cancelled and drops its payload.
+    fn cancel(&mut self);
+}
+
+impl JobFinished for SearchFinishedDto {
+    fn has_error(&self) -> bool {
+        self.error.is_some()
+    }
+
+    fn cancel(&mut self) {
+        self.cancelled = true;
+        self.rows.clear();
+    }
+}
+
+impl JobFinished for AnalysisFinishedDto {
+    fn has_error(&self) -> bool {
+        self.error.is_some()
+    }
+
+    fn cancel(&mut self) {
+        self.cancelled = true;
+        self.result = None;
+        self.points.clear();
+        self.frontier.clear();
+    }
+}
+
+impl JobFinished for AffinityWatchFinishedDto {
+    fn has_error(&self) -> bool {
+        self.error.is_some()
+    }
+
+    fn cancel(&mut self) {
+        self.cancelled = true;
+        self.payload = None;
+    }
+}
+
+/// The terminal payload to publish for a worker outcome. A worker that stopped without
+/// a result becomes `failed`; a cancellation requested before publication clears a
+/// completed payload, but an error outranks it.
+pub fn finish<T: JobFinished>(
+    outcome: Result<T, String>,
+    cancelled: bool,
+    failed: impl FnOnce(String) -> T,
+) -> T {
+    let mut finished = outcome.unwrap_or_else(failed);
+    if cancelled && !finished.has_error() {
+        finished.cancel();
+    }
+    finished
 }
 
 /// Rejects an oversized text value without echoing it.
@@ -900,7 +978,13 @@ pub fn check_len(field: &str, value: &str) -> Result<(), AppError> {
     Ok(())
 }
 
-pub fn validate_optimize_request(request: &OptimizeRequestDto) -> Result<(), AppError> {
+/// The rejection of a value outside a fixed set, which names the field and the set but
+/// never the value.
+fn invalid_choice(field: &str, accepted: &[&str]) -> AppError {
+    AppError::new(format!("{field} must be one of {}", accepted.join(", ")))
+}
+
+fn validate_optimize_request(request: &OptimizeRequestDto) -> Result<(), AppError> {
     for (field, value) in [
         ("profileId", Some(request.profile_id.as_str())),
         ("className", Some(request.class_name.as_str())),
@@ -914,6 +998,32 @@ pub fn validate_optimize_request(request: &OptimizeRequestDto) -> Result<(), App
     ] {
         if let Some(value) = value {
             check_len(field, value)?;
+        }
+    }
+    for (field, value) in [
+        ("vig", request.vig),
+        ("mnd", request.mnd),
+        ("end", request.end),
+        ("strStat", request.str_stat),
+        ("dex", request.dex),
+        ("intStat", request.int_stat),
+        ("fai", request.fai),
+        ("arc", request.arc),
+        ("minStr", request.min_str),
+        ("minDex", request.min_dex),
+        ("minInt", request.min_int),
+        ("minFai", request.min_fai),
+        ("minArc", request.min_arc),
+        ("lockStr", request.lock_str.unwrap_or(0)),
+        ("lockDex", request.lock_dex.unwrap_or(0)),
+        ("lockInt", request.lock_int.unwrap_or(0)),
+        ("lockFai", request.lock_fai.unwrap_or(0)),
+        ("lockArc", request.lock_arc.unwrap_or(0)),
+    ] {
+        if value > MAX_STAT {
+            return Err(AppError::new(format!(
+                "{field} must be {MAX_STAT} or lower; got {value}"
+            )));
         }
     }
     if request.top_k > MAX_TOP_K {
@@ -935,10 +1045,10 @@ pub fn validate_optimize_request(request: &OptimizeRequestDto) -> Result<(), App
             request.filters.version
         )));
     }
-    if request.filters.entries.len() > 512 {
-        return Err(AppError::new(
-            "filters.entries must contain at most 512 entries",
-        ));
+    if request.filters.entries.len() > MAX_FILTER_ENTRIES {
+        return Err(AppError::new(format!(
+            "filters.entries must contain at most {MAX_FILTER_ENTRIES} entries"
+        )));
     }
     Ok(())
 }
@@ -948,18 +1058,30 @@ fn parse_stable_filters(filters: &StableFilterSetDto) -> Result<Vec<StableFilter
         .entries
         .iter()
         .map(|filter| {
-            if filter.id.is_empty() || filter.id.len() > 128 {
-                return Err(AppError::new(
-                    "filter ids must contain 1 through 128 characters",
-                ));
+            if filter.id.is_empty() || filter.id.len() > MAX_FILTER_ID_LEN {
+                return Err(AppError::new(format!(
+                    "filters.entries.id must contain 1 through {MAX_FILTER_ID_LEN} bytes"
+                )));
             }
-            // The parsers echo what they reject.
             check_len("filters.entries.dimension", &filter.dimension)?;
             check_len("filters.entries.mode", &filter.mode)?;
             Ok(StableFilter {
-                dimension: FilterDimension::parse(&filter.dimension)?,
+                dimension: FilterDimension::parse(&filter.dimension).map_err(|_| {
+                    invalid_choice(
+                        "filters.entries.dimension",
+                        &[
+                            "weapon_family",
+                            "weapon_type",
+                            "affinity",
+                            "aow",
+                            "reinforcement",
+                            "coverage",
+                        ],
+                    )
+                })?,
                 id: filter.id.clone(),
-                mode: FilterMode::parse(&filter.mode)?,
+                mode: FilterMode::parse(&filter.mode)
+                    .map_err(|_| invalid_choice("filters.entries.mode", &["include", "exclude"]))?,
             })
         })
         .collect()
@@ -974,16 +1096,10 @@ pub fn validate_levels_ahead(levels_ahead: u16) -> Result<(), AppError> {
     Ok(())
 }
 
-/// Checks a path lane's own fields and its base request before anything echoes them.
+/// Checks a path lane's own fields; its base request is validated against the profile.
 pub fn validate_path_lane(lane: &PathPreviewRequestDto) -> Result<(), AppError> {
-    validate_optimize_request(&lane.base)?;
     validate_levels_ahead(lane.levels_ahead)?;
     check_len("title", &lane.title)
-}
-
-pub fn validate_affinity_watch_request(request: &AffinityWatchRequestDto) -> Result<(), AppError> {
-    validate_optimize_request(&request.base)?;
-    validate_levels_ahead(request.levels_ahead)
 }
 
 pub fn validate_path_batch(count: usize) -> Result<(), AppError> {
@@ -999,11 +1115,7 @@ fn parse_somber_filter(raw: &str) -> Result<SomberFilter, AppError> {
     SomberFilter::ALL
         .into_iter()
         .find(|filter| filter.as_str() == raw)
-        .ok_or_else(|| {
-            AppError::new(format!(
-                "invalid somber_filter '{raw}', expected all, standard_only, or somber_only"
-            ))
-        })
+        .ok_or_else(|| invalid_choice("somberFilter", &SomberFilter::ALL.map(SomberFilter::as_str)))
 }
 
 pub fn metric_for_objective(solved: &SolvedBuildDto, objective: OptimizeObjective) -> f32 {
@@ -1016,28 +1128,13 @@ pub fn metric_for_objective(solved: &SolvedBuildDto, objective: OptimizeObjectiv
     }
 }
 
+#[cfg(test)]
 pub fn lock_request_to_stats(request: &mut OptimizeRequestDto, stats: CombatStateDto) {
     request.lock_str = Some(stats.str_stat);
     request.lock_dex = Some(stats.dex);
     request.lock_int = Some(stats.int_stat);
     request.lock_fai = Some(stats.fai);
     request.lock_arc = Some(stats.arc);
-}
-
-pub fn unlock_combat_stats(request: &mut OptimizeRequestDto) {
-    request.lock_str = None;
-    request.lock_dex = None;
-    request.lock_int = None;
-    request.lock_fai = None;
-    request.lock_arc = None;
-}
-
-pub fn set_min_combat_stats(request: &mut OptimizeRequestDto, mins: [u8; COMBAT_STAT_COUNT]) {
-    request.min_str = mins[0];
-    request.min_dex = mins[1];
-    request.min_int = mins[2];
-    request.min_fai = mins[3];
-    request.min_arc = mins[4];
 }
 
 #[cfg(test)]
@@ -1316,8 +1413,8 @@ mod tests {
         assert_eq!(request.profile_id, "vanilla");
         assert_eq!(request.str_stat, 12);
         assert_eq!(request.int_stat, 9);
-        assert_eq!(request.standard_upgrade_cap(), 25);
-        assert_eq!(request.somber_upgrade_cap(), 10);
+        assert_eq!(request.standard_max_upgrade, Some(25));
+        assert_eq!(request.somber_max_upgrade, Some(10));
         assert!(request.exact_upgrade_enabled());
         assert_eq!(request.scadutree_level, 20);
     }

@@ -1,29 +1,44 @@
 use std::sync::Arc;
 use std::sync::atomic::Ordering;
+use std::time::{Duration, Instant};
 
 use er_optimizer_core::model::COMBAT_STAT_COUNT;
 use er_optimizer_core::{
     OptimizeRequest, OptimizeResult, PreparedLoadoutEvaluator, effective_str,
-    prepare_loadout_evaluator_with_cancel,
+    optimize_level_range_with_progress, prepare_loadout_evaluator_with_cancel,
 };
 use tauri::State;
 
+use crate::commands::data::uses_class_budget;
 use crate::commands::optimize::{solved_weapon, validate_solved_loadout};
 use crate::dto::{
-    CombatStateDto, PathFinishedDto, PathJobStatusDto, PathMode, PathPreviewDto,
+    CombatStateDto, MAX_STAT, PathFinishedDto, PathJobStatusDto, PathMode, PathPreviewDto,
     PathPreviewRequestDto, PathProgressDto, PathStepDto, SolvedBuildDto,
-    StartPathPreviewRequestDto, StartSearchResponseDto, lock_request_to_stats,
-    set_min_combat_stats, unlock_combat_stats, validate_path_batch, validate_path_lane,
+    StartPathPreviewRequestDto, StartSearchResponseDto, validate_path_batch, validate_path_lane,
 };
 use crate::errors::AppError;
+use crate::request::{self, STAT_LABELS, cancel_job, job_status};
 use crate::{AppState, ProfileData};
+
+/// The shortest time between published path progress updates.
+const PATH_PROGRESS_INTERVAL: Duration = Duration::from_millis(50);
+
+/// A path lane that passed validation.
+#[derive(Clone)]
+struct PathLane {
+    base: OptimizeRequest,
+    solved: SolvedBuildDto,
+    levels_ahead: u16,
+    title: String,
+    mode: PathMode,
+}
 
 #[tauri::command]
 pub fn start_path_preview(
     request: StartPathPreviewRequestDto,
     state: State<'_, AppState>,
 ) -> Result<StartSearchResponseDto, AppError> {
-    let profile = prepare_path_preview(&request, &state)?;
+    let (profile, lanes) = prepare_path_preview(&request, &state)?;
     state.path_jobs.start(
         &state.next_job,
         PathJobStatusDto {
@@ -32,7 +47,7 @@ pub fn start_path_preview(
         },
         move |job_id, cancel_flag, status| {
             run_path_preview_job(
-                request.requests,
+                lanes,
                 &profile,
                 job_id,
                 || !cancel_flag.load(Ordering::Relaxed),
@@ -50,43 +65,51 @@ pub fn start_path_preview(
 fn prepare_path_preview(
     request: &StartPathPreviewRequestDto,
     state: &AppState,
-) -> Result<Arc<ProfileData>, AppError> {
+) -> Result<(Arc<ProfileData>, Vec<PathLane>), AppError> {
     validate_path_batch(request.requests.len())?;
-    for lane in &request.requests {
-        validate_path_lane(lane)?;
-    }
     let Some(first_lane) = request.requests.first() else {
         return Err(AppError::new("At least one path lane is required."));
     };
-    let profile_id = first_lane.base.profile_id.clone();
+    let profile_id = &first_lane.base.profile_id;
     if request
         .requests
         .iter()
-        .any(|lane| lane.base.profile_id != profile_id)
+        .any(|lane| lane.base.profile_id != *profile_id)
     {
         return Err(AppError::new(
             "All path lanes must use the same game profile.",
         ));
     }
-    let profile = Arc::clone(state.profile(&profile_id)?);
-    if request
+    let profile = Arc::clone(state.profile(profile_id)?);
+    let lanes = request
         .requests
         .iter()
-        .any(|lane| !crate::commands::data::uses_class_budget(&profile, &lane.base.class_name))
-    {
+        .map(|lane| prepare_lane(lane, &profile))
+        .collect::<Result<_, _>>()?;
+    Ok((profile, lanes))
+}
+
+fn prepare_lane(lane: &PathPreviewRequestDto, profile: &ProfileData) -> Result<PathLane, AppError> {
+    validate_path_lane(lane)?;
+    let base = request::validate(&lane.base, profile)?;
+    if !uses_class_budget(profile, &base.class_name) {
         return Err(AppError::new(
             "Paths requires verified profile class budgets.",
         ));
     }
-    for lane in &request.requests {
-        validate_solved_loadout(&profile, &lane.solved)?;
-    }
-    Ok(profile)
+    validate_solved_loadout(profile, &lane.solved)?;
+    Ok(PathLane {
+        base,
+        solved: lane.solved.clone(),
+        levels_ahead: lane.levels_ahead,
+        title: lane.title.clone(),
+        mode: lane.mode,
+    })
 }
 
 #[tauri::command]
 pub fn cancel_path_preview(job_id: String, state: State<'_, AppState>) -> Result<bool, AppError> {
-    state.path_jobs.cancel(&job_id)
+    cancel_job(&state.path_jobs, &job_id)
 }
 
 #[tauri::command(async)]
@@ -94,11 +117,11 @@ pub fn get_path_preview_status(
     job_id: String,
     state: State<'_, AppState>,
 ) -> Result<Option<PathJobStatusDto>, AppError> {
-    state.path_jobs.status(&job_id)
+    job_status(&state.path_jobs, &job_id)
 }
 
 fn run_path_preview_job(
-    requests: Vec<PathPreviewRequestDto>,
+    lanes: Vec<PathLane>,
     profile: &ProfileData,
     job_id: String,
     should_continue: impl Fn() -> bool + Sync,
@@ -108,18 +131,18 @@ fn run_path_preview_job(
     let mut progress = PathProgressDto {
         job_id: job_id.clone(),
         checked: 0,
-        total: requests.iter().map(path_level_count).sum::<u64>() + 1,
-        title: requests
+        total: lanes.iter().map(path_level_count).sum::<u64>() + 1,
+        title: lanes
             .first()
             .map_or_else(String::new, |lane| lane.title.clone()),
-        level: requests.first().map_or(0, |lane| lane.base.character_level),
+        level: lanes.first().map_or(0, |lane| lane.base.character_level),
     };
     publish(progress.clone());
-    let mut last_published = std::time::Instant::now();
+    let mut last_published = Instant::now();
     let mut paths = Vec::new();
     let mut error = None;
     let mut cancelled = false;
-    for lane in requests {
+    for lane in lanes {
         if !should_continue() {
             cancelled = true;
             break;
@@ -132,9 +155,9 @@ fn run_path_preview_job(
             progress.checked += 1;
             progress.title.clone_from(&title);
             progress.level = level;
-            if last_published.elapsed() >= std::time::Duration::from_millis(50) {
+            if last_published.elapsed() >= PATH_PROGRESS_INTERVAL {
                 publish(progress.clone());
-                last_published = std::time::Instant::now();
+                last_published = Instant::now();
             }
         }) {
             Ok(path) => {
@@ -169,13 +192,9 @@ fn run_path_preview_job(
     }
 }
 
-fn path_level_count(request: &PathPreviewRequestDto) -> u64 {
+fn path_level_count(lane: &PathLane) -> u64 {
     u64::from(
-        request
-            .base
-            .character_level
-            .saturating_add(request.levels_ahead)
-            - request.base.character_level,
+        lane.base.character_level.saturating_add(lane.levels_ahead) - lane.base.character_level,
     ) + 1
 }
 
@@ -218,33 +237,23 @@ fn publish_path_result(
 }
 
 fn build_path_preview_inner(
-    request: PathPreviewRequestDto,
+    lane: PathLane,
     profile: &ProfileData,
     should_continue: impl Fn() -> bool + Sync,
     mut level_complete: impl FnMut(u16),
 ) -> Result<PathPreviewDto, AppError> {
-    validate_path_lane(&request)?;
-    if profile.data_manifest.profile.id != request.base.profile_id {
-        return Err(AppError::new(format!(
-            "Unknown game profile {:?}. Reload the catalog and choose an available profile.",
-            request.base.profile_id
-        )));
+    if lane.mode == PathMode::OptimumEnvelope {
+        return build_optimum_envelope(lane, profile, should_continue, level_complete);
     }
-    if request.mode == PathMode::OptimumEnvelope {
-        return build_optimum_envelope(request, profile, should_continue, level_complete);
-    }
-    let start_state = request.solved.stats;
-    let target_level = request
-        .base
-        .character_level
-        .saturating_add(request.levels_ahead);
+    let start_state = lane.solved.stats;
+    let target_level = lane.base.character_level.saturating_add(lane.levels_ahead);
     if !should_continue() {
         return Err(AppError::new("cancelled"));
     }
-    let evaluator = prepare_path_evaluator(&request, target_level, profile, &should_continue)?;
+    let evaluator = prepare_path_evaluator(&lane, target_level, profile, &should_continue)?;
     let first = evaluate_step(
-        &request,
-        request.base.character_level,
+        &lane,
+        lane.base.character_level,
         start_state,
         None,
         profile,
@@ -252,28 +261,28 @@ fn build_path_preview_inner(
         &should_continue,
     )?;
     let mut steps = vec![first.dto];
-    level_complete(request.base.character_level);
+    level_complete(lane.base.character_level);
 
     if !should_continue() {
         return Err(AppError::new("cancelled"));
     }
-    let target = path_target_build(&request, target_level, &evaluator, &should_continue)?;
+    let target = path_target_build(&lane, target_level, &evaluator, &should_continue)?;
     if !should_continue() {
         return Err(AppError::new("cancelled"));
     }
     let Some(target) = target else {
         return Ok(PathPreviewDto {
-            title: request.title,
-            solved: request.solved,
+            title: lane.title,
+            solved: lane.solved,
             steps,
         });
     };
 
     let mut current_state = start_state;
-    for delta in 1..=target_level - request.base.character_level {
-        let level = request.base.character_level.saturating_add(delta);
+    for delta in 1..=target_level - lane.base.character_level {
+        let level = lane.base.character_level.saturating_add(delta);
         let Some(next) = choose_next_step(
-            &request,
+            &lane,
             level,
             current_state,
             target.stats,
@@ -290,50 +299,48 @@ fn build_path_preview_inner(
     }
 
     Ok(PathPreviewDto {
-        title: request.title,
-        solved: request.solved,
+        title: lane.title,
+        solved: lane.solved,
         steps,
     })
 }
 
 fn build_optimum_envelope(
-    request: PathPreviewRequestDto,
+    lane: PathLane,
     profile: &ProfileData,
     should_continue: impl Fn() -> bool + Sync,
     mut level_complete: impl FnMut(u16),
 ) -> Result<PathPreviewDto, AppError> {
-    let first_level = request.base.character_level;
-    let last_level = first_level.saturating_add(request.levels_ahead);
+    let first_level = lane.base.character_level;
+    let last_level = first_level.saturating_add(lane.levels_ahead);
     let levels = (first_level..=last_level).collect::<Vec<_>>();
-    let mut template = request.base.clone();
-    set_path_loadout(&mut template, &request.solved);
-    unlock_combat_stats(&mut template);
-    let rows = crate::commands::optimize::run_level_range_inner_with_progress(
-        template,
+    let mut template = lane.base.clone();
+    set_path_loadout(&mut template, &lane.solved);
+    request::unlock_stats(&mut template);
+    request::settle_upgrade_caps(&mut template, profile)?;
+    let rows = optimize_level_range_with_progress(
+        &template,
         &levels,
-        profile,
+        &profile.data,
         |level| {
             level_complete(level);
             true
         },
         should_continue,
-    )?;
-    let mut previous = request.solved.stats;
+    )
+    .map_err(AppError::from)?;
+    let mut previous = lane.solved.stats;
     let steps = rows
         .into_iter()
         .map(|entry| {
             let solved = entry.rows.into_iter().next();
-            let stats = solved.as_ref().map_or(previous, |row| CombatStateDto {
-                str_stat: row.stats.str,
-                dex: row.stats.dex,
-                int_stat: row.stats.int,
-                fai: row.stats.fai,
-                arc: row.stats.arc,
+            let stats = solved.as_ref().map_or(previous, |row| {
+                CombatStateDto::from_array(row.stats.combat_array())
             });
             let requirement_gap = if solved.is_some() {
                 0
             } else {
-                requirement_gap(&request.base, &request.solved, stats, profile)?
+                requirement_gap(&lane.base, &lane.solved, stats, profile)?
             };
             let added_stat = describe_allocation_change(previous, stats);
             previous = stats;
@@ -347,26 +354,18 @@ fn build_optimum_envelope(
         })
         .collect::<Result<_, AppError>>()?;
     Ok(PathPreviewDto {
-        title: request.title,
-        solved: request.solved,
+        title: lane.title,
+        solved: lane.solved,
         steps,
     })
 }
 
 fn describe_allocation_change(previous: CombatStateDto, next: CombatStateDto) -> Option<String> {
-    let deltas = [
-        (
-            "str",
-            i16::from(next.str_stat) - i16::from(previous.str_stat),
-        ),
-        ("dex", i16::from(next.dex) - i16::from(previous.dex)),
-        (
-            "int",
-            i16::from(next.int_stat) - i16::from(previous.int_stat),
-        ),
-        ("fai", i16::from(next.fai) - i16::from(previous.fai)),
-        ("arc", i16::from(next.arc) - i16::from(previous.arc)),
-    ];
+    let deltas = STAT_LABELS
+        .into_iter()
+        .zip(previous.to_array().into_iter().zip(next.to_array()))
+        .map(|(label, (previous, next))| (label, i16::from(next) - i16::from(previous)))
+        .collect::<Vec<_>>();
     let changed = deltas
         .iter()
         .filter(|(_, delta)| *delta != 0)
@@ -381,42 +380,40 @@ fn describe_allocation_change(previous: CombatStateDto, next: CombatStateDto) ->
 }
 
 fn prepare_path_evaluator<'a>(
-    request: &PathPreviewRequestDto,
+    lane: &PathLane,
     target_level: u16,
     profile: &'a ProfileData,
     should_continue: &(impl Fn() -> bool + Sync),
 ) -> Result<PreparedLoadoutEvaluator<'a>, AppError> {
-    let mut template = request.base.clone();
+    let mut template = lane.base.clone();
     template.character_level = target_level;
-    set_path_loadout(&mut template, &request.solved);
-    let core_request = OptimizeRequest::try_from(&template)?;
-    prepare_loadout_evaluator_with_cancel(&core_request, &profile.data, should_continue)
+    set_path_loadout(&mut template, &lane.solved);
+    prepare_loadout_evaluator_with_cancel(&template, &profile.data, should_continue)
         .map_err(AppError::from)
 }
 
 fn path_target_build(
-    request: &PathPreviewRequestDto,
+    lane: &PathLane,
     target_level: u16,
     evaluator: &PreparedLoadoutEvaluator<'_>,
     should_continue: &(impl Fn() -> bool + Sync),
 ) -> Result<Option<SolvedBuildDto>, AppError> {
-    let mut target_request = request.base.clone();
+    let mut target_request = lane.base.clone();
     target_request.character_level = target_level;
-    set_path_loadout(&mut target_request, &request.solved);
-    unlock_combat_stats(&mut target_request);
-    set_min_combat_stats(
+    set_path_loadout(&mut target_request, &lane.solved);
+    request::unlock_stats(&mut target_request);
+    request::set_min_stats(
         &mut target_request,
-        floor_mins(&request.base, request.solved.stats),
+        floor_mins(&lane.base, lane.solved.stats),
     );
-    let core_request = OptimizeRequest::try_from(&target_request)?;
     evaluator
-        .evaluate_with_cancel(&core_request, should_continue)
+        .evaluate_with_cancel(&target_request, should_continue)
         .map(|mut rows| rows.pop().map(SolvedBuildDto::from))
         .map_err(AppError::from)
 }
 
 fn choose_next_step(
-    request: &PathPreviewRequestDto,
+    lane: &PathLane,
     level: u16,
     current_state: CombatStateDto,
     target_state: CombatStateDto,
@@ -424,9 +421,10 @@ fn choose_next_step(
     evaluator: &PreparedLoadoutEvaluator<'_>,
     should_continue: &(impl Fn() -> bool + Sync),
 ) -> Result<Option<EvaluatedPathStep>, AppError> {
+    let (current, target) = (current_state.to_array(), target_state.to_array());
     let mut candidates = Vec::new();
-    for stat in ["str", "dex", "int", "fai", "arc"] {
-        if combat_value(current_state, stat) >= combat_value(target_state, stat) {
+    for stat in 0..COMBAT_STAT_COUNT {
+        if current[stat] >= target[stat] {
             continue;
         }
         let Some(next_state) = add_point(current_state, stat) else {
@@ -436,10 +434,10 @@ fn choose_next_step(
             return Err(AppError::new("cancelled"));
         }
         candidates.push(evaluate_step(
-            request,
+            lane,
             level,
             next_state,
-            Some(stat.to_string()),
+            Some(stat),
             profile,
             evaluator,
             should_continue,
@@ -452,54 +450,57 @@ fn choose_next_step(
     Ok(candidates.pop())
 }
 
+/// Evaluates the lane's loadout at `level` with exactly `stats`; `added_stat` is the
+/// index of the point that led there.
 fn evaluate_step(
-    path: &PathPreviewRequestDto,
+    lane: &PathLane,
     level: u16,
     stats: CombatStateDto,
-    added_stat: Option<String>,
+    added_stat: Option<usize>,
     profile: &ProfileData,
     evaluator: &PreparedLoadoutEvaluator<'_>,
     should_continue: &(impl Fn() -> bool + Sync),
 ) -> Result<EvaluatedPathStep, AppError> {
-    let mut request = path.base.clone();
+    let mut request = lane.base.clone();
     request.character_level = level;
-    set_path_loadout(&mut request, &path.solved);
-    set_min_combat_stats(&mut request, [0; COMBAT_STAT_COUNT]);
-    lock_request_to_stats(&mut request, stats);
+    set_path_loadout(&mut request, &lane.solved);
+    request::set_min_stats(&mut request, [0; COMBAT_STAT_COUNT]);
+    request::lock_to_stats(&mut request, stats);
 
-    let core_request = OptimizeRequest::try_from(&request)?;
     let solved = evaluator
-        .evaluate_with_cancel(&core_request, should_continue)
+        .evaluate_with_cancel(&request, should_continue)
         .map_err(AppError::from)?
         .pop();
     let requirement_gap = if solved.is_some() {
         0
     } else {
-        requirement_gap(&path.base, &path.solved, stats, profile)?
+        requirement_gap(&lane.base, &lane.solved, stats, profile)?
     };
     Ok(EvaluatedPathStep {
         dto: PathStepDto {
             level,
             stats,
             metric: solved.as_ref().map(|solved| solved.score),
-            added_stat,
+            added_stat: added_stat.map(|stat| STAT_LABELS[stat].to_string()),
             requirement_gap,
         },
+        added_stat,
         solved,
     })
 }
 
-fn set_path_loadout(request: &mut crate::dto::OptimizeRequestDto, solved: &SolvedBuildDto) {
-    request.pin_loadout(
-        solved.weapon_name.clone(),
-        Some(solved.affinity.clone()),
-        solved.aow_name.clone(),
+fn set_path_loadout(request: &mut OptimizeRequest, solved: &SolvedBuildDto) {
+    request::pin_loadout(
+        request,
+        &solved.weapon_name,
+        Some(&solved.affinity),
+        solved.aow_name.as_deref(),
     );
-    request.set_exact_upgrade(solved.upgrade, solved.is_somber);
+    request::set_exact_upgrade(request, solved.upgrade, solved.is_somber);
 }
 
 fn requirement_gap(
-    base: &crate::dto::OptimizeRequestDto,
+    base: &OptimizeRequest,
     solved: &SolvedBuildDto,
     stats: CombatStateDto,
     profile: &ProfileData,
@@ -518,45 +519,25 @@ fn requirement_gap(
         + u16::from(reqs[4].saturating_sub(stats.arc)))
 }
 
-fn floor_mins(
-    base: &crate::dto::OptimizeRequestDto,
-    state: CombatStateDto,
-) -> [u8; COMBAT_STAT_COUNT] {
-    [
-        state.str_stat.max(base.min_str),
-        state.dex.max(base.min_dex),
-        state.int_stat.max(base.min_int),
-        state.fai.max(base.min_fai),
-        state.arc.max(base.min_arc),
-    ]
+fn floor_mins(base: &OptimizeRequest, state: CombatStateDto) -> [u8; COMBAT_STAT_COUNT] {
+    let state = state.to_array();
+    std::array::from_fn(|stat| state[stat].max(base.min_combat_stats[stat]))
 }
 
-fn add_point(state: CombatStateDto, stat: &str) -> Option<CombatStateDto> {
-    if combat_value(state, stat) >= 99 {
+/// The state with one more point in `stat`, unless it is already at the stat limit.
+fn add_point(state: CombatStateDto, stat: usize) -> Option<CombatStateDto> {
+    let mut values = state.to_array();
+    if values[stat] >= MAX_STAT {
         return None;
     }
-    Some(CombatStateDto {
-        str_stat: state.str_stat + u8::from(stat == "str"),
-        dex: state.dex + u8::from(stat == "dex"),
-        int_stat: state.int_stat + u8::from(stat == "int"),
-        fai: state.fai + u8::from(stat == "fai"),
-        arc: state.arc + u8::from(stat == "arc"),
-    })
-}
-
-fn combat_value(state: CombatStateDto, stat: &str) -> u8 {
-    match stat {
-        "str" => state.str_stat,
-        "dex" => state.dex,
-        "int" => state.int_stat,
-        "fai" => state.fai,
-        "arc" => state.arc,
-        _ => 0,
-    }
+    values[stat] += 1;
+    Some(CombatStateDto::from_array(values))
 }
 
 struct EvaluatedPathStep {
     dto: PathStepDto,
+    /// The index of the stat that gained a point, if any.
+    added_stat: Option<usize>,
     solved: Option<OptimizeResult>,
 }
 
@@ -568,21 +549,12 @@ fn compare_steps(left: &EvaluatedPathStep, right: &EvaluatedPathStep) -> std::cm
         (None, None) => std::cmp::Ordering::Equal,
     }
     .then_with(|| right.dto.requirement_gap.cmp(&left.dto.requirement_gap))
-    .then_with(|| {
-        stat_priority(right.dto.added_stat.as_deref())
-            .cmp(&stat_priority(left.dto.added_stat.as_deref()))
-    })
+    .then_with(|| stat_priority(right.added_stat).cmp(&stat_priority(left.added_stat)))
 }
 
-fn stat_priority(stat: Option<&str>) -> i16 {
-    match stat {
-        Some("str") => 0,
-        Some("dex") => 1,
-        Some("int") => 2,
-        Some("fai") => 3,
-        Some("arc") => 4,
-        _ => 5,
-    }
+/// Ties between added stats go to the earlier stat; no added stat ranks last.
+fn stat_priority(stat: Option<usize>) -> usize {
+    stat.unwrap_or(COMBAT_STAT_COUNT)
 }
 
 #[cfg(test)]
@@ -685,7 +657,7 @@ mod integration_tests {
         }
     }
 
-    fn request(state: &AppState) -> PathPreviewRequestDto {
+    fn request_dto(state: &AppState) -> PathPreviewRequestDto {
         let base = crate::test_optimize_request();
         let solved = run_search_inner(base.clone(), state)
             .expect("seed search succeeds")
@@ -698,6 +670,19 @@ mod integration_tests {
             title: "Selected".to_string(),
             mode: PathMode::NoRespec,
         }
+    }
+
+    fn lane(profile: &ProfileData, request: &PathPreviewRequestDto) -> PathLane {
+        prepare_lane(request, profile).expect("lane validates")
+    }
+
+    fn request(state: &AppState) -> PathLane {
+        lane(
+            state
+                .profile(er_optimizer_core::VANILLA_PROFILE_ID)
+                .expect("Vanilla profile exists"),
+            &request_dto(state),
+        )
     }
 
     #[test]
@@ -757,13 +742,16 @@ mod integration_tests {
             .profile(er_optimizer_core::CONVERGENCE_PROFILE_ID)
             .expect("Convergence profile exists");
         let path = build_path_preview_inner(
-            PathPreviewRequestDto {
-                base,
-                solved,
-                levels_ahead: 3,
-                title: "Selected".to_string(),
-                mode: PathMode::NoRespec,
-            },
+            lane(
+                profile,
+                &PathPreviewRequestDto {
+                    base,
+                    solved,
+                    levels_ahead: 3,
+                    title: "Selected".to_string(),
+                    mode: PathMode::NoRespec,
+                },
+            ),
             profile,
             || true,
             |_| {},
@@ -800,7 +788,7 @@ mod integration_tests {
         let profile = state
             .profile(er_optimizer_core::VANILLA_PROFILE_ID)
             .expect("Vanilla profile exists");
-        let mut path_request = request(&state);
+        let mut path_request = request_dto(&state);
         let selected_weapon = profile
             .data
             .weapons
@@ -837,10 +825,10 @@ mod integration_tests {
         ];
 
         for mode in [PathMode::NoRespec, PathMode::OptimumEnvelope] {
-            let mut lane = path_request.clone();
-            lane.mode = mode;
-            lane.levels_ahead = 2;
-            let path = build_path_preview_inner(lane, profile, || true, |_| {})
+            let mut dto = path_request.clone();
+            dto.mode = mode;
+            dto.levels_ahead = 2;
+            let path = build_path_preview_inner(lane(profile, &dto), profile, || true, |_| {})
                 .expect("fixed selected loadout remains evaluable");
             assert!(
                 path.steps.iter().all(|step| step.metric.is_some()),
@@ -1020,8 +1008,9 @@ mod integration_tests {
         for mode in [PathMode::NoRespec, PathMode::OptimumEnvelope] {
             let mut lane = seed.clone();
             lane.mode = mode;
+            // Past the level limit, so the calculation fails before completing a level.
             let mut invalid = lane.clone();
-            invalid.base.profile_id = "unknown".to_string();
+            invalid.base.character_level = 713;
             let status = run_path_preview_job(
                 vec![lane.clone(), invalid],
                 profile,
@@ -1062,8 +1051,10 @@ mod integration_tests {
         let profile = state
             .profile(er_optimizer_core::VANILLA_PROFILE_ID)
             .unwrap();
+        // An upgrade level the weapon lacks fails the envelope before its first check.
         let mut invalid = request(&state);
-        invalid.base.profile_id = "unknown".to_string();
+        invalid.mode = PathMode::OptimumEnvelope;
+        invalid.solved.upgrade = 26;
         let polls = std::sync::atomic::AtomicUsize::new(0);
         // The lane starts, fails, and the job is cancelled before the batch returns.
         let status = run_path_preview_job(
@@ -1080,7 +1071,7 @@ mod integration_tests {
     }
 
     /// The seed lane retargeted to a weapon its stats cannot wield.
-    fn unreachable_lane(state: &AppState, profile: &ProfileData) -> PathPreviewRequestDto {
+    fn unreachable_lane(state: &AppState, profile: &ProfileData) -> PathLane {
         let mut lane = request(state);
         lane.solved.weapon_id = profile
             .data
@@ -1358,11 +1349,15 @@ mod integration_tests {
         requests: Vec<PathPreviewRequestDto>,
         profile: &ProfileData,
     ) -> (std::time::Duration, Vec<PathPreviewDto>) {
+        let lanes = requests
+            .iter()
+            .map(|request| lane(profile, request))
+            .collect::<Vec<_>>();
         let started = std::time::Instant::now();
-        let paths = requests
+        let paths = lanes
             .into_iter()
-            .map(|request| {
-                build_path_preview_inner(request, profile, || true, |_| {})
+            .map(|lane| {
+                build_path_preview_inner(lane, profile, || true, |_| {})
                     .expect("benchmark path succeeds")
             })
             .collect();
@@ -1421,12 +1416,8 @@ mod hostile_request_tests {
 
     /// The validation of `start_path_preview` followed by the lane calculation.
     fn run(state: &AppState, lanes: Vec<PathPreviewRequestDto>) -> Result<(), AppError> {
-        let profile = prepare_path_preview(
-            &StartPathPreviewRequestDto {
-                requests: lanes.clone(),
-            },
-            state,
-        )?;
+        let (profile, lanes) =
+            prepare_path_preview(&StartPathPreviewRequestDto { requests: lanes }, state)?;
         for lane in lanes {
             build_path_preview_inner(lane, &profile, || true, |_| {})?;
         }
@@ -1437,37 +1428,25 @@ mod hostile_request_tests {
     fn paths_reject_every_hostile_base_value() {
         let state = crate::test_app_state();
         let lane = seed(&state);
-        // The lane pins its loadout to the solved build, fixes that build's upgrade cap and
-        // unlocks every stat before calculating.
-        let skipped = [
-            "top_k",
-            "filters.entries",
-            "filters.entries.dimension",
-            "filters.entries.mode",
-            "somber_filter",
-            "weapon_name",
-            "affinity",
-            "aow_name",
-            "weapon_type_key",
-            "standard_max_upgrade",
-            "lock_str",
-            "lock_dex",
-            "lock_int",
-            "lock_fai",
-            "lock_arc",
-        ];
         for mode in [PathMode::NoRespec, PathMode::OptimumEnvelope] {
-            assert_hostile_values_rejected(
-                &format!("start_path_preview {mode:?}"),
-                &skipped,
-                |base| {
-                    let mut lane = lane.clone();
-                    lane.mode = mode;
-                    lane.base = base;
-                    run(&state, vec![lane])
-                },
-            );
+            assert_hostile_values_rejected(&format!("start_path_preview {mode:?}"), |base| {
+                let mut lane = lane.clone();
+                lane.mode = mode;
+                lane.base = base;
+                run(&state, vec![lane])
+            });
         }
+    }
+
+    #[test]
+    fn path_job_ids_are_bounded() {
+        let state = crate::test_app_state();
+        assert_rejected_quickly("cancel_path_preview", || {
+            cancel_job(&state.path_jobs, &oversized_text())
+        });
+        assert_rejected_quickly("get_path_preview_status", || {
+            job_status(&state.path_jobs, &oversized_text())
+        });
     }
 
     #[test]

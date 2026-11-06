@@ -277,7 +277,7 @@ pub fn get_catalog(profile_id: String, state: State<'_, AppState>) -> Result<Cat
     let index = &profile.catalog_index;
     Ok(CatalogDto {
         weapon_names: index.weapon_names.clone(),
-        classes: class_metadata(profile),
+        classes: try_class_metadata(profile)?,
         weapon_type_options: index.weapon_type_options.clone(),
         aow_names: index.aow_names.clone(),
         affinity_names: index.affinity_names.clone(),
@@ -357,8 +357,16 @@ fn compatible_aows_inner(
         .affinity
         .ok_or_else(|| AppError::new("Choose an affinity to list its Ashes of War."))?;
     check_len("affinity", &affinity)?;
-    Ok(profile
-        .catalog_index
+    let index = &profile.catalog_index;
+    if !index
+        .affinity_names
+        .iter()
+        .any(|name| same_key(name, &affinity))
+    {
+        return Err(AppError::new("affinity is not offered by this profile"));
+    }
+    // A listed affinity with no compatible Ashes is a valid empty answer.
+    Ok(index
         .compatible_aows_by_affinity
         .get(&index_key(&affinity))
         .cloned()
@@ -397,13 +405,13 @@ fn weapon_profile_inner(
         .weapons
         .iter()
         .find(|weapon| {
-            weapon.name.eq_ignore_ascii_case(&request.weapon_name)
+            same_key(&weapon.name, &request.weapon_name)
                 && request
                     .affinity
                     .as_deref()
-                    .is_none_or(|affinity| weapon.affinity.eq_ignore_ascii_case(affinity))
+                    .is_none_or(|affinity| same_key(&weapon.affinity, affinity))
         })
-        .ok_or_else(|| AppError::new(format!("weapon not found: {}", request.weapon_name)))?;
+        .ok_or_else(|| AppError::new("weapon not found"))?;
     let poise = |values: &er_optimizer_core::DisplayPoiseDamage| DisplayPoiseDamageDto {
         light: values.light.clone(),
         heavy: values.heavy.clone(),
@@ -450,8 +458,8 @@ pub fn uses_class_budget(profile: &ProfileData, class_name: &str) -> bool {
             && class_name.eq_ignore_ascii_case(er_optimizer_core::CUSTOM_STATS_CLASS_NAME))
 }
 
-pub fn class_metadata(profile: &ProfileData) -> Vec<ClassMetadataDto> {
-    let custom_stats = || ClassMetadataDto {
+fn custom_stats_class() -> ClassMetadataDto {
+    ClassMetadataDto {
         name: er_optimizer_core::CUSTOM_STATS_CLASS_NAME.to_string(),
         base_level: 0,
         base_total: 0,
@@ -465,30 +473,74 @@ pub fn class_metadata(profile: &ProfileData) -> Vec<ClassMetadataDto> {
             fai: 0,
             arc: 0,
         },
-    };
-    if !profile.data.capabilities.class_budget {
-        return vec![custom_stats()];
     }
-    // Idus Knight and Heavy Knight exist from game version 1.17 onwards.
-    let mut version = profile
-        .data_manifest
-        .profile
-        .game_version
-        .split('.')
-        .map(str::parse::<u16>);
-    let include_tarnished_pack = matches!(
-        (version.next(), version.next()),
-        (Some(Ok(major)), Some(Ok(minor))) if (major, minor) >= (1, 17)
-    );
-    let mut classes = profile
+}
+
+/// Idus Knight and Heavy Knight exist from this game version. The manifest carries no
+/// per-class availability and its schema cannot change here, so the gate stays in code.
+const TARNISHED_PACK_MIN_GAME_VERSION: (u16, u16) = (1, 17);
+
+fn is_tarnished_pack_class(name: &str) -> bool {
+    matches!(name, "Idus Knight" | "Heavy Knight")
+}
+
+/// Whether the profile's game version predates the Tarnished pack classes. Only Vanilla is
+/// gated, and a version that is not `major.minor` is an error rather than a reason to
+/// hide classes.
+fn tarnished_pack_hidden(profile: &ProfileData) -> Result<bool, AppError> {
+    if profile.data.profile_id != er_optimizer_core::VANILLA_PROFILE_ID {
+        return Ok(false);
+    }
+    let game_version = &profile.data_manifest.profile.game_version;
+    let mut parts = game_version.split('.').map(str::parse::<u16>);
+    match (parts.next(), parts.next()) {
+        (Some(Ok(major)), Some(Ok(minor))) => Ok((major, minor) < TARNISHED_PACK_MIN_GAME_VERSION),
+        _ => Err(AppError::new(format!(
+            "profile manifest game version {game_version:?} is not major.minor"
+        ))),
+    }
+}
+
+/// `try_class_metadata` for the shipped profiles, whose game versions
+/// `shipped_profiles_expose_their_classes` checks.
+#[cfg(test)]
+pub fn class_metadata(profile: &ProfileData) -> Vec<ClassMetadataDto> {
+    try_class_metadata(profile).expect("profile manifest game version must be major.minor")
+}
+
+/// The profile's starting classes that its game version offers.
+fn offered_starting_classes(
+    profile: &ProfileData,
+) -> Result<impl Iterator<Item = &er_optimizer_core::math::StartingClass>, AppError> {
+    let hide_tarnished_pack = tarnished_pack_hidden(profile)?;
+    Ok(profile
         .data
         .starting_classes
         .iter()
-        .filter(|class_info| {
-            profile.data.profile_id != er_optimizer_core::VANILLA_PROFILE_ID
-                || include_tarnished_pack
-                || !matches!(class_info.name.as_ref(), "Idus Knight" | "Heavy Knight")
-        })
+        .filter(move |class_info| {
+            !(hide_tarnished_pack && is_tarnished_pack_class(class_info.name.as_ref()))
+        }))
+}
+
+/// Whether `class_name` is one of the profile's classes (case-insensitive), without
+/// building the class list.
+pub fn is_class_available(profile: &ProfileData, class_name: &str) -> Result<bool, AppError> {
+    let is_custom_stats =
+        class_name.eq_ignore_ascii_case(er_optimizer_core::CUSTOM_STATS_CLASS_NAME);
+    if !profile.data.capabilities.class_budget {
+        return Ok(is_custom_stats);
+    }
+    Ok(offered_starting_classes(profile)?
+        .any(|class_info| class_info.name.eq_ignore_ascii_case(class_name))
+        || (is_custom_stats && profile.data.offers_custom_stats()))
+}
+
+/// The profile's classes, or an error when its manifest game version cannot be read.
+pub fn try_class_metadata(profile: &ProfileData) -> Result<Vec<ClassMetadataDto>, AppError> {
+    if !profile.data.capabilities.class_budget {
+        return Ok(vec![custom_stats_class()]);
+    }
+    let mut classes = offered_starting_classes(profile)?
         .map(|class_info| ClassMetadataDto {
             name: class_info.name.to_string(),
             base_level: class_info.base_level,
@@ -507,9 +559,9 @@ pub fn class_metadata(profile: &ProfileData) -> Vec<ClassMetadataDto> {
         .collect::<Vec<_>>();
     // Saved builds and exact-stat entry keep working next to a mod's own classes.
     if profile.data.offers_custom_stats() {
-        classes.push(custom_stats());
+        classes.push(custom_stats_class());
     }
-    classes
+    Ok(classes)
 }
 
 pub fn affinities_for_weapon_inner(index: &CatalogIndex, weapon_name: &str) -> Vec<String> {
@@ -525,16 +577,13 @@ pub fn compatible_aow_names_inner(
     weapon_name: &str,
     affinity: Option<&str>,
 ) -> Vec<String> {
-    match affinity {
-        Some(affinity) => index
-            .compatible_aows_by_weapon_affinity
-            .get(&(index_key(weapon_name), index_key(affinity)))
-            .cloned(),
-        None => index
-            .compatible_aows_by_weapon
-            .get(&index_key(weapon_name))
-            .cloned(),
-    }
+    lookup(
+        &index.compatible_aows_by_weapon,
+        &index.compatible_aows_by_weapon_affinity,
+        weapon_name,
+        affinity,
+    )
+    .cloned()
     .unwrap_or_default()
 }
 
@@ -555,17 +604,14 @@ pub fn weapon_upgrade_cap(
     weapon_name: &str,
     affinity: Option<&str>,
 ) -> Result<u8, AppError> {
-    let cap = match affinity {
-        Some(affinity) => index
-            .upgrade_cap_by_weapon_affinity
-            .get(&(index_key(weapon_name), index_key(affinity)))
-            .copied(),
-        None => index
-            .upgrade_cap_by_weapon
-            .get(&index_key(weapon_name))
-            .copied(),
-    };
-    cap.ok_or_else(|| AppError::new(format!("weapon not found for upgrade cap: {weapon_name}")))
+    lookup(
+        &index.upgrade_cap_by_weapon,
+        &index.upgrade_cap_by_weapon_affinity,
+        weapon_name,
+        affinity,
+    )
+    .copied()
+    .ok_or_else(|| AppError::new("weapon not found for upgrade cap"))
 }
 
 pub fn weapon_requirements(
@@ -573,18 +619,14 @@ pub fn weapon_requirements(
     weapon_name: &str,
     affinity: Option<&str>,
 ) -> Result<[u8; 5], AppError> {
-    let requirements = match affinity {
-        Some(affinity) => index
-            .requirements_by_weapon_affinity
-            .get(&(index_key(weapon_name), index_key(affinity)))
-            .copied(),
-        None => index
-            .requirements_by_weapon
-            .get(&index_key(weapon_name))
-            .copied(),
-    };
-    requirements
-        .ok_or_else(|| AppError::new(format!("weapon not found for requirements: {weapon_name}")))
+    lookup(
+        &index.requirements_by_weapon,
+        &index.requirements_by_weapon_affinity,
+        weapon_name,
+        affinity,
+    )
+    .copied()
+    .ok_or_else(|| AppError::new("weapon not found for requirements"))
 }
 
 pub fn weapon_disables_two_hand_bonus(
@@ -592,18 +634,14 @@ pub fn weapon_disables_two_hand_bonus(
     weapon_name: &str,
     affinity: Option<&str>,
 ) -> bool {
-    match affinity {
-        Some(affinity) => index
-            .disables_two_hand_bonus_by_weapon_affinity
-            .get(&(index_key(weapon_name), index_key(affinity)))
-            .copied()
-            .unwrap_or(false),
-        None => index
-            .disables_two_hand_bonus_by_weapon
-            .get(&index_key(weapon_name))
-            .copied()
-            .unwrap_or(false),
-    }
+    lookup(
+        &index.disables_two_hand_bonus_by_weapon,
+        &index.disables_two_hand_bonus_by_weapon_affinity,
+        weapon_name,
+        affinity,
+    )
+    .copied()
+    .unwrap_or(false)
 }
 
 pub fn weapon_forces_two_handing(index: &CatalogIndex, weapon_name: &str) -> bool {
@@ -616,6 +654,23 @@ pub fn weapon_forces_two_handing(index: &CatalogIndex, weapon_name: &str) -> boo
 
 fn index_key(value: &str) -> String {
     value.trim().to_ascii_lowercase()
+}
+
+/// Equality under the same normalization as `index_key`, without allocating.
+fn same_key(left: &str, right: &str) -> bool {
+    left.trim().eq_ignore_ascii_case(right.trim())
+}
+
+fn lookup<'a, T>(
+    by_weapon: &'a HashMap<String, T>,
+    by_weapon_affinity: &'a HashMap<(String, String), T>,
+    weapon_name: &str,
+    affinity: Option<&str>,
+) -> Option<&'a T> {
+    match affinity {
+        Some(affinity) => by_weapon_affinity.get(&(index_key(weapon_name), index_key(affinity))),
+        None => by_weapon.get(&index_key(weapon_name)),
+    }
 }
 
 fn merge_requirements(current: &mut [u8; 5], next: [u8; 5]) {
@@ -675,6 +730,23 @@ fn finalize_pair_set_map(
 #[cfg(test)]
 mod compatibility_tests {
     use super::*;
+
+    #[test]
+    fn every_catalog_skill_passes_the_ash_of_war_check() {
+        let state = crate::test_app_state();
+        for profile_id in [
+            er_optimizer_core::VANILLA_PROFILE_ID,
+            er_optimizer_core::CONVERGENCE_PROFILE_ID,
+        ] {
+            let profile = state.profile(profile_id).unwrap();
+            let names = &profile.catalog_index.aow_names;
+            assert!(!names.is_empty(), "{profile_id}");
+            for name in names {
+                crate::request::check_aow_known(profile, name)
+                    .unwrap_or_else(|error| panic!("{profile_id} {name}: {}", error.message));
+            }
+        }
+    }
 
     #[test]
     fn catalog_facets_count_supported_rows_without_double_counting_native_skills() {
@@ -819,18 +891,167 @@ mod compatibility_tests {
                 catalog_index: std::sync::Arc::clone(&vanilla.catalog_index),
                 data_manifest,
             };
-            class_metadata(&profile)
-                .iter()
-                .any(|class_info| class_info.name == "Idus Knight")
+            let listed = try_class_metadata(&profile).map(|classes| {
+                classes
+                    .iter()
+                    .any(|class_info| class_info.name == "Idus Knight")
+            });
+            let available = is_class_available(&profile, "idus knight");
+            assert_eq!(listed.is_ok(), available.is_ok(), "{game_version}");
+            if let (Ok(listed), Ok(available)) = (&listed, &available) {
+                assert_eq!(listed, available, "{game_version}");
+            }
+            listed
         };
         for (game_version, expected) in [
             ("1.16.1", false),
             ("1.17", true),
             ("1.17.1", true),
             ("1.18", true),
-            ("unknown", false),
         ] {
-            assert_eq!(with_version(game_version), expected, "{game_version}");
+            assert_eq!(
+                with_version(game_version).unwrap(),
+                expected,
+                "{game_version}"
+            );
+        }
+        for game_version in ["unknown", "", "1", "1.x"] {
+            assert!(with_version(game_version).is_err(), "{game_version:?}");
+        }
+    }
+
+    #[test]
+    fn shipped_profiles_expose_their_classes() {
+        let state = crate::test_app_state();
+        for profile_id in ["vanilla", "convergence"] {
+            let profile = state.profile(profile_id).unwrap();
+            let classes = try_class_metadata(profile).unwrap();
+            let mut expected = profile
+                .data
+                .starting_classes
+                .iter()
+                .map(|class_info| class_info.name.to_string())
+                .collect::<Vec<_>>();
+            if profile.data.offers_custom_stats() {
+                expected.push(er_optimizer_core::CUSTOM_STATS_CLASS_NAME.to_string());
+            }
+            assert_eq!(
+                classes
+                    .iter()
+                    .map(|class_info| class_info.name.clone())
+                    .collect::<Vec<_>>(),
+                expected,
+                "{profile_id}"
+            );
+            assert_eq!(class_metadata(profile).len(), classes.len(), "{profile_id}");
+        }
+        let vanilla = try_class_metadata(state.profile("vanilla").unwrap()).unwrap();
+        for name in ["Idus Knight", "Heavy Knight"] {
+            assert!(vanilla.iter().any(|class_info| class_info.name == name));
+        }
+    }
+
+    #[test]
+    fn class_availability_matches_the_class_list() {
+        let state = crate::test_app_state();
+        for profile_id in ["vanilla", "convergence"] {
+            let profile = state.profile(profile_id).unwrap();
+            let classes = class_metadata(profile);
+            let names = classes
+                .iter()
+                .map(|class_info| class_info.name.clone())
+                .chain([
+                    "Not A Class".to_string(),
+                    String::new(),
+                    " Wretch".to_string(),
+                ])
+                .collect::<Vec<_>>();
+            for name in names {
+                for candidate in [name.clone(), name.to_ascii_uppercase(), name.to_lowercase()] {
+                    let listed = classes
+                        .iter()
+                        .any(|class_info| class_info.name.eq_ignore_ascii_case(&candidate));
+                    assert_eq!(
+                        is_class_available(profile, &candidate).unwrap(),
+                        listed,
+                        "{profile_id}: {candidate:?}"
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn weapon_lookups_agree_on_padding_and_case_and_never_echo_input() {
+        let data = er_optimizer_core::load_embedded_game_profile("vanilla").unwrap();
+        let index = CatalogIndex::build(&data);
+        let request = |weapon_name: &str, affinity: Option<&str>| WeaponProfileRequestDto {
+            profile_id: "vanilla".to_owned(),
+            weapon_name: weapon_name.to_owned(),
+            affinity: affinity.map(str::to_owned),
+        };
+        let exact =
+            weapon_profile_inner(&data, &index, &request("Uchigatana", Some("Keen"))).unwrap();
+        let padded =
+            weapon_profile_inner(&data, &index, &request("  uchigatana ", Some(" KEEN\t")))
+                .unwrap();
+        assert_eq!(
+            serde_json::to_value(&exact).unwrap(),
+            serde_json::to_value(&padded).unwrap()
+        );
+        const MARKER: &str = "zz-marker-zz";
+        for (weapon_name, affinity) in [(MARKER, None), ("Uchigatana", Some(MARKER))] {
+            let error =
+                weapon_profile_inner(&data, &index, &request(weapon_name, affinity)).unwrap_err();
+            assert!(!error.message.contains(MARKER), "{}", error.message);
+        }
+        for error in [
+            weapon_requirements(&index, MARKER, None).unwrap_err(),
+            weapon_upgrade_cap(&index, MARKER, None).unwrap_err(),
+        ] {
+            assert!(!error.message.contains(MARKER), "{}", error.message);
+        }
+    }
+
+    #[test]
+    fn compatible_ashes_reject_unknown_affinities_without_echo() {
+        let state = crate::test_app_state();
+        let ask = |affinity: &str| {
+            compatible_aows_inner(
+                CompatibleAowsForAffinityRequestDto {
+                    profile_id: "vanilla".to_owned(),
+                    affinity: Some(affinity.to_owned()),
+                },
+                &state,
+            )
+        };
+        assert_eq!(ask("keen").unwrap(), ask(" Keen ").unwrap());
+        assert!(!ask("Keen").unwrap().is_empty());
+        let error = ask("zz-marker-zz").unwrap_err();
+        assert!(!error.message.contains("zz-marker-zz"), "{}", error.message);
+    }
+
+    #[test]
+    fn weapon_flag_maps_cover_every_weapon_with_requirements() {
+        for profile in ["vanilla", "convergence"] {
+            let data = er_optimizer_core::load_embedded_game_profile(profile).unwrap();
+            let index = CatalogIndex::build(&data);
+            let keys = |map: &HashMap<String, bool>| map.keys().cloned().collect::<BTreeSet<_>>();
+            let pair_keys = |map: &HashMap<(String, String), bool>| {
+                map.keys().cloned().collect::<BTreeSet<_>>()
+            };
+            let weapons = index.requirements_by_weapon.keys().cloned().collect();
+            assert_eq!(keys(&index.disables_two_hand_bonus_by_weapon), weapons);
+            assert_eq!(keys(&index.forces_two_handing_by_weapon), weapons);
+            assert_eq!(
+                pair_keys(&index.disables_two_hand_bonus_by_weapon_affinity),
+                index
+                    .requirements_by_weapon_affinity
+                    .keys()
+                    .cloned()
+                    .collect::<BTreeSet<_>>(),
+                "{profile}"
+            );
         }
     }
 

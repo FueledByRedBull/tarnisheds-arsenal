@@ -169,8 +169,8 @@ These rendering rules came out of that work and still apply:
   change to the row restyle all of its children.
 
 Measure interactions with GPU compositing on. The packaged smoke harness sets
-`TARNISHEDS_ARSENAL_SMOKE_DEBUG_PORT`, with which the app adds `--disable-gpu` to its
-WebView2 arguments. Instead, launch the release exe without that variable, with
+`TARNISHEDS_ARSENAL_SMOKE_DEBUG_PORT`, with which the app adds `--disable-gpu` and
+`--no-first-run` to its WebView2 arguments. Instead, launch the release exe without that variable, with
 `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS` set to a remote-debugging port and
 `WEBVIEW2_USER_DATA_FOLDER` set to a scratch folder.
 

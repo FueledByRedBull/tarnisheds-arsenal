@@ -5,23 +5,30 @@ use std::sync::{Arc, Mutex};
 use tauri::State;
 
 use crate::commands::data::{affinities_for_weapon_inner, compatible_aow_names_inner};
-use crate::commands::optimize::{run_level_ranges_inner_with_progress, validate_solved_loadout};
+use crate::commands::optimize::validate_solved_loadout;
 use crate::dto::{
     AffinityBreakpointDto, AffinityWatchFinishedDto, AffinityWatchJobStatusDto,
     AffinityWatchLineDto, AffinityWatchPayloadDto, AffinityWatchPointDto, AffinityWatchProgressDto,
-    AffinityWatchRequestDto, SolvedBuildDto, StartSearchResponseDto, unlock_combat_stats,
-    validate_affinity_watch_request,
+    AffinityWatchRequestDto, SolvedBuildDto, StartSearchResponseDto, finish, validate_levels_ahead,
 };
 use crate::errors::AppError;
+use crate::request::{self, cancel_job, job_status};
 use crate::{AppState, ProfileData};
-use er_optimizer_core::{OptimizeObjective, OptimizeResult};
+use er_optimizer_core::{OptimizeRequest, OptimizeResult, optimize_level_ranges_with_progress};
+
+/// An Affinity Watch request that passed validation.
+struct AffinityWatch {
+    base: OptimizeRequest,
+    solved: SolvedBuildDto,
+    levels_ahead: u16,
+}
 
 #[tauri::command]
 pub fn start_affinity_watch(
     request: AffinityWatchRequestDto,
     state: State<'_, AppState>,
 ) -> Result<StartSearchResponseDto, AppError> {
-    let profile = prepare_affinity_watch(&request, &state)?;
+    let (profile, watch) = prepare_affinity_watch(&request, &state)?;
     state.affinity_jobs.start(
         &state.next_job,
         AffinityWatchJobStatusDto {
@@ -29,15 +36,14 @@ pub fn start_affinity_watch(
             finished: None,
         },
         move |job_id, cancel_flag, status| {
-            let affinities = affinity_watch_affinities_for_profile(&request.solved, &profile);
-            let total =
-                (affinities.len() as u64).saturating_mul(u64::from(request.levels_ahead) + 1);
+            let affinities = affinity_watch_affinities_for_profile(&watch.solved, &profile);
+            let total = (affinities.len() as u64).saturating_mul(u64::from(watch.levels_ahead) + 1);
             let progress = AffinityWatchProgressDto {
                 job_id: job_id.clone(),
                 checked: 0,
                 total: total.max(1),
-                affinity: request.solved.affinity.clone(),
-                level: request.base.character_level,
+                affinity: watch.solved.affinity.clone(),
+                level: watch.base.character_level,
             };
             if let Ok(mut guard) = status.lock() {
                 guard.progress = Some(progress);
@@ -46,16 +52,15 @@ pub fn start_affinity_watch(
                 (None, None, true)
             } else {
                 match build_affinity_watch_inner(
-                    request,
+                    watch,
                     &profile,
+                    &job_id,
                     |progress| {
                         if cancel_flag.load(AtomicOrdering::Relaxed) {
                             return false;
                         }
-                        let mut payload = progress;
-                        payload.job_id.clone_from(&job_id);
                         if let Ok(mut guard) = status.lock() {
-                            guard.progress = Some(payload);
+                            guard.progress = Some(progress);
                         }
                         true
                     },
@@ -80,16 +85,24 @@ pub fn start_affinity_watch(
 fn prepare_affinity_watch(
     request: &AffinityWatchRequestDto,
     state: &AppState,
-) -> Result<Arc<ProfileData>, AppError> {
-    validate_affinity_watch_request(request)?;
+) -> Result<(Arc<ProfileData>, AffinityWatch), AppError> {
+    validate_levels_ahead(request.levels_ahead)?;
     let profile = Arc::clone(state.profile(&request.base.profile_id)?);
-    if !crate::commands::data::uses_class_budget(&profile, &request.base.class_name) {
+    let base = request::validate(&request.base, &profile)?;
+    if !crate::commands::data::uses_class_budget(&profile, &base.class_name) {
         return Err(AppError::new(
             "Affinity Watch requires verified profile class budgets.",
         ));
     }
     validate_solved_loadout(&profile, &request.solved)?;
-    Ok(profile)
+    Ok((
+        profile,
+        AffinityWatch {
+            base,
+            solved: request.solved.clone(),
+            levels_ahead: request.levels_ahead,
+        },
+    ))
 }
 
 fn publish_affinity_finished(
@@ -98,22 +111,19 @@ fn publish_affinity_finished(
     job_id: String,
     cancelled: bool,
 ) {
-    let mut finished = outcome.unwrap_or_else(|error| AffinityWatchFinishedDto {
-        job_id,
-        cancelled: false,
-        payload: None,
-        error: Some(error),
-    });
-    if finished.error.is_none() && cancelled {
-        finished.cancelled = true;
-        finished.payload = None;
-    }
-    status.finished = Some(finished);
+    status.finished = Some(finish(outcome, cancelled, |error| {
+        AffinityWatchFinishedDto {
+            job_id,
+            cancelled: false,
+            payload: None,
+            error: Some(error),
+        }
+    }));
 }
 
 #[tauri::command]
 pub fn cancel_affinity_watch(job_id: String, state: State<'_, AppState>) -> Result<bool, AppError> {
-    state.affinity_jobs.cancel(&job_id)
+    cancel_job(&state.affinity_jobs, &job_id)
 }
 
 #[tauri::command(async)]
@@ -121,26 +131,20 @@ pub fn get_affinity_watch_status(
     job_id: String,
     state: State<'_, AppState>,
 ) -> Result<Option<AffinityWatchJobStatusDto>, AppError> {
-    state.affinity_jobs.status(&job_id)
+    job_status(&state.affinity_jobs, &job_id)
 }
 
 fn build_affinity_watch_inner(
-    request: AffinityWatchRequestDto,
+    watch: AffinityWatch,
     profile: &ProfileData,
+    job_id: &str,
     progress_cb: impl FnMut(AffinityWatchProgressDto) -> bool + Send,
     should_continue: impl Fn() -> bool + Sync,
 ) -> Result<AffinityWatchPayloadDto, AppError> {
-    validate_affinity_watch_request(&request)?;
-    if profile.data_manifest.profile.id != request.base.profile_id {
-        return Err(AppError::new(format!(
-            "Unknown game profile {:?}. Reload the catalog and choose an available profile.",
-            request.base.profile_id
-        )));
-    }
-    OptimizeObjective::parse(&request.base.objective)?;
-    let affinities = affinity_watch_affinities_for_profile(&request.solved, profile);
-    let levels: Vec<u16> = (0..=request.levels_ahead)
-        .map(|offset| request.base.character_level.saturating_add(offset))
+    let solved = &watch.solved;
+    let affinities = affinity_watch_affinities_for_profile(solved, profile);
+    let levels: Vec<u16> = (0..=watch.levels_ahead)
+        .map(|offset| watch.base.character_level.saturating_add(offset))
         .collect();
     let total = (affinities.len() as u64)
         .saturating_mul(levels.len() as u64)
@@ -148,23 +152,25 @@ fn build_affinity_watch_inner(
     let row_requests = affinities
         .iter()
         .map(|affinity| {
-            let mut row_request = request.base.clone();
-            row_request.pin_loadout(
-                request.solved.weapon_name.clone(),
-                Some(affinity.clone()),
-                request.solved.aow_name.clone(),
+            let mut row_request = watch.base.clone();
+            request::pin_loadout(
+                &mut row_request,
+                &solved.weapon_name,
+                Some(affinity),
+                solved.aow_name.as_deref(),
             );
-            row_request.set_exact_upgrade(request.solved.upgrade, request.solved.is_somber);
-            unlock_combat_stats(&mut row_request);
-            row_request
+            request::set_exact_upgrade(&mut row_request, solved.upgrade, solved.is_somber);
+            request::unlock_stats(&mut row_request);
+            request::settle_upgrade_caps(&mut row_request, profile)?;
+            Ok(row_request)
         })
-        .collect();
+        .collect::<Result<Vec<_>, AppError>>()?;
     // Affinities run concurrently; one lock keeps published progress counts increasing.
     let progress = Mutex::new((0_u64, progress_cb));
-    let mut ranges = run_level_ranges_inner_with_progress(
-        row_requests,
+    let mut ranges = optimize_level_ranges_with_progress(
+        &row_requests,
         &levels,
-        profile,
+        &profile.data,
         |index, level| {
             // Poisoned only by a panicking progress callback; that panic reaches the job as
             // an error once the siblings stop here.
@@ -174,7 +180,7 @@ fn build_affinity_watch_inner(
             progress.0 = progress.0.saturating_add(1);
             let checked = progress.0;
             (progress.1)(AffinityWatchProgressDto {
-                job_id: String::new(),
+                job_id: job_id.to_owned(),
                 checked,
                 total,
                 affinity: affinities[index].clone(),
@@ -186,16 +192,18 @@ fn build_affinity_watch_inner(
     // Another affinity's error stops the rest with "cancelled"; report the real error.
     if let Some(index) = ranges
         .iter()
-        .position(|range| matches!(range, Err(error) if error.message != "cancelled"))
+        .position(|range| matches!(range, Err(error) if error != "cancelled"))
     {
-        return Err(ranges
-            .swap_remove(index)
-            .expect_err("position matched an error"));
+        return Err(AppError::from(
+            ranges
+                .swap_remove(index)
+                .expect_err("position matched an error"),
+        ));
     }
 
     let mut lines = Vec::new();
     for (affinity, level_rows) in affinities.into_iter().zip(ranges) {
-        let level_rows = level_rows?;
+        let level_rows = level_rows.map_err(AppError::from)?;
         let points: Vec<ExactAffinityWatchPoint> = level_rows
             .into_iter()
             .map(|entry| {
@@ -217,7 +225,6 @@ fn build_affinity_watch_inner(
     let lines = lines.into_iter().map(AffinityWatchLineDto::from).collect();
     Ok(AffinityWatchPayloadDto { lines, breakpoints })
 }
-
 #[derive(Debug)]
 struct ExactAffinityWatchPoint {
     level: u16,
@@ -495,7 +502,7 @@ mod integration_tests {
             .profile(er_optimizer_core::VANILLA_PROFILE_ID)
             .unwrap();
         let payload =
-            build_affinity_watch_inner(request(&state), profile, |_| true, || true).unwrap();
+            build_affinity_watch_inner(request(&state), profile, "", |_| true, || true).unwrap();
         assert!(!payload.lines.is_empty());
         let mut status = AffinityWatchJobStatusDto {
             progress: None,
@@ -539,17 +546,20 @@ mod integration_tests {
         }
     }
 
-    fn request(state: &AppState) -> AffinityWatchRequestDto {
+    fn request(state: &AppState) -> AffinityWatch {
         let base = crate::test_optimize_request();
         let solved = run_search_inner(base.clone(), state)
             .expect("seed search succeeds")
             .pop()
             .expect("seed build exists");
-        AffinityWatchRequestDto {
+        let request = AffinityWatchRequestDto {
             base,
             solved,
             levels_ahead: 0,
-        }
+        };
+        prepare_affinity_watch(&request, state)
+            .expect("seed request validates")
+            .1
     }
 
     #[test]
@@ -560,7 +570,7 @@ mod integration_tests {
         let profile = state
             .profile(er_optimizer_core::VANILLA_PROFILE_ID)
             .expect("Vanilla profile exists");
-        let payload = build_affinity_watch_inner(request, profile, |_| true, || true)
+        let payload = build_affinity_watch_inner(request, profile, "", |_| true, || true)
             .expect("real affinity watch succeeds");
         assert!(!payload.lines.is_empty());
         assert!(payload.lines.iter().all(|line| line.points.len() == 3));
@@ -577,7 +587,7 @@ mod integration_tests {
         let profile = state
             .profile(er_optimizer_core::VANILLA_PROFILE_ID)
             .expect("Vanilla profile exists");
-        let error = build_affinity_watch_inner(request(&state), profile, |_| false, || true)
+        let error = build_affinity_watch_inner(request(&state), profile, "", |_| false, || true)
             .expect_err("cancelled affinity watch must fail closed");
         assert_eq!(error.message, "cancelled");
     }
@@ -585,8 +595,11 @@ mod integration_tests {
     #[test]
     fn real_affinity_command_propagates_nested_cancellation_without_partial_payload() {
         let state = crate::test_app_state();
-        let mut nested_request = request(&state);
-        nested_request.levels_ahead = 20;
+        let nested_request = || {
+            let mut watch = request(&state);
+            watch.levels_ahead = 20;
+            watch
+        };
         let profile = state
             .profile(er_optimizer_core::VANILLA_PROFILE_ID)
             .expect("Vanilla profile exists");
@@ -594,8 +607,9 @@ mod integration_tests {
         // well inside nested level evaluation, whatever preparation's batching.
         let total_polls = std::sync::atomic::AtomicUsize::new(0);
         build_affinity_watch_inner(
-            nested_request.clone(),
+            nested_request(),
             profile,
+            "",
             |_| true,
             || {
                 total_polls.fetch_add(1, AtomicOrdering::Relaxed);
@@ -604,11 +618,12 @@ mod integration_tests {
         )
         .expect("uncancelled affinity watch completes");
         let cancel_after = total_polls.into_inner() - 8;
-        let affinities = affinity_watch_affinities_for_profile(&nested_request.solved, profile);
+        let affinities = affinity_watch_affinities_for_profile(&nested_request().solved, profile);
         let polls = std::sync::atomic::AtomicUsize::new(0);
         let error = build_affinity_watch_inner(
-            nested_request,
+            nested_request(),
             profile,
+            "",
             |_| true,
             || polls.fetch_add(1, AtomicOrdering::Relaxed) + 1 < cancel_after,
         )
@@ -647,7 +662,7 @@ mod integration_tests {
                 benchmark_request.solved.aow_name = None;
                 let started = std::time::Instant::now();
                 let payload =
-                    build_affinity_watch_inner(benchmark_request, profile, |_| true, || true)
+                    build_affinity_watch_inner(benchmark_request, profile, "", |_| true, || true)
                         .expect("benchmark affinity watch succeeds");
                 let elapsed = started.elapsed().as_secs_f64() * 1_000.0;
                 affinity_count = payload.lines.len();
@@ -712,37 +727,29 @@ mod hostile_request_tests {
 
     /// The validation of `start_affinity_watch` followed by the calculation.
     fn run(state: &AppState, request: AffinityWatchRequestDto) -> Result<(), AppError> {
-        let profile = prepare_affinity_watch(&request, state)?;
-        build_affinity_watch_inner(request, &profile, |_| true, || true).map(|_| ())
+        let (profile, watch) = prepare_affinity_watch(&request, state)?;
+        build_affinity_watch_inner(watch, &profile, "", |_| true, || true).map(|_| ())
     }
 
     #[test]
     fn affinity_watch_rejects_every_hostile_base_value() {
         let state = crate::test_app_state();
         let seed = seed(&state);
-        // Each affinity row pins its loadout, fixes the solved build's upgrade cap and
-        // unlocks every stat before calculating.
-        let skipped = [
-            "top_k",
-            "filters.entries",
-            "filters.entries.dimension",
-            "filters.entries.mode",
-            "somber_filter",
-            "weapon_name",
-            "affinity",
-            "aow_name",
-            "weapon_type_key",
-            "standard_max_upgrade",
-            "lock_str",
-            "lock_dex",
-            "lock_int",
-            "lock_fai",
-            "lock_arc",
-        ];
-        assert_hostile_values_rejected("start_affinity_watch", &skipped, |base| {
+        assert_hostile_values_rejected("start_affinity_watch", |base| {
             let mut request = seed.clone();
             request.base = base;
             run(&state, request)
+        });
+    }
+
+    #[test]
+    fn affinity_watch_job_ids_are_bounded() {
+        let state = crate::test_app_state();
+        assert_rejected_quickly("cancel_affinity_watch", || {
+            cancel_job(&state.affinity_jobs, &oversized_text())
+        });
+        assert_rejected_quickly("get_affinity_watch_status", || {
+            job_status(&state.affinity_jobs, &oversized_text())
         });
     }
 
