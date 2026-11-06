@@ -270,12 +270,19 @@ export function upgradeCapPatch(
   return isSomber ? { somberMaxUpgrade: cap } : { standardMaxUpgrade: cap };
 }
 
-export function upgradeCapForRow(row: Pick<SolvedBuildDto, "isSomber">, request: OptimizeRequestDto): number {
-  return row.isSomber ? request.somberMaxUpgrade : request.standardMaxUpgrade;
+/** The cap the core applies to one row: the standard field alone on a single path. */
+export function upgradeCapForRow(
+  row: Pick<SolvedBuildDto, "isSomber">,
+  request: OptimizeRequestDto,
+  separateUpgradeCaps: boolean,
+): number {
+  return separateUpgradeCaps && row.isSomber ? request.somberMaxUpgrade : request.standardMaxUpgrade;
 }
 
-export function compareUpgradeHorizon(request: OptimizeRequestDto): number {
-  return Math.max(request.standardMaxUpgrade, request.somberMaxUpgrade);
+export function compareUpgradeHorizon(request: OptimizeRequestDto, separateUpgradeCaps: boolean): number {
+  return separateUpgradeCaps
+    ? Math.max(request.standardMaxUpgrade, request.somberMaxUpgrade)
+    : request.standardMaxUpgrade;
 }
 
 function clampUpgrade(value: number, max: number): number {

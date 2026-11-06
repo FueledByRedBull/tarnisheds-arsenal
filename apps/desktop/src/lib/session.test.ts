@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { buildOptimizeRequest, classLabel, classMeta, derivedLevel, EIGHT_STAT_KEYS, optimalStartingClass, replaceFilterEntries, respecChanges, rowFingerprint, scalingLetter, stableSignature, STARTING_CLASS_METADATA, startingClassLevel, upgradeCapPatch } from "./session";
+import { buildOptimizeRequest, classLabel, compareUpgradeHorizon, classMeta, derivedLevel, EIGHT_STAT_KEYS, optimalStartingClass, replaceFilterEntries, respecChanges, rowFingerprint, scalingLetter, stableSignature, STARTING_CLASS_METADATA, startingClassLevel, upgradeCapForRow, upgradeCapPatch } from "./session";
 import { solvedBuild } from "./test-fixtures";
 import { defaultRequest } from "./state";
 import type { CatalogDto } from "./types";
@@ -131,6 +131,15 @@ describe("upgrade cap patch", () => {
   it("states the one cap in both fields when the profile has a single path", () => {
     expect(upgradeCapPatch(false, false, 7)).toEqual({ standardMaxUpgrade: 7, somberMaxUpgrade: 7 });
     expect(upgradeCapPatch(false, true, 7)).toEqual({ standardMaxUpgrade: 7, somberMaxUpgrade: 7 });
+  });
+
+  it("reads the cap the core applies, ignoring the somber field on a single path", () => {
+    const stored = { ...defaultRequest, standardMaxUpgrade: 3, somberMaxUpgrade: 15 };
+    expect(upgradeCapForRow({ isSomber: true }, stored, true)).toBe(15);
+    expect(upgradeCapForRow({ isSomber: false }, stored, true)).toBe(3);
+    expect(upgradeCapForRow({ isSomber: true }, stored, false)).toBe(3);
+    expect(compareUpgradeHorizon(stored, true)).toBe(15);
+    expect(compareUpgradeHorizon(stored, false)).toBe(3);
   });
 });
 

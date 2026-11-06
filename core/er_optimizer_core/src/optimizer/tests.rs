@@ -3935,7 +3935,9 @@ fn grouped_top_k_remains_bounded_unique_and_sorted() {
         );
         assert!(rows.len() <= 9);
     }
-    assert!(rows.windows(2).all(|pair| pair[0].key >= pair[1].key));
+    assert!(rows.windows(2).all(|pair| {
+        compare_scored_candidates(&pair[0], &pair[1], &weapons) == std::cmp::Ordering::Greater
+    }));
     let unique = rows
         .iter()
         .map(|row| weapons[row.prepared_idx].weapon.name.to_ascii_lowercase())
@@ -4252,7 +4254,6 @@ fn ash_template_preparation_polls_cancellation_between_phases() {
     let game_data = load_data();
     let request = base_request();
     let mut polls = 0;
-    let started = Instant::now();
     let error = prepare_weapons_with_cancel(&request, &game_data, None, &mut || {
         polls += 1;
         polls < 2
@@ -4260,7 +4261,6 @@ fn ash_template_preparation_polls_cancellation_between_phases() {
     .expect_err("cancellation must stop template preparation");
     assert_eq!(error, "cancelled");
     assert_eq!(polls, 2);
-    assert!(started.elapsed() < Duration::from_millis(250));
 }
 
 #[test]

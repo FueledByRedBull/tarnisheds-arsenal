@@ -403,7 +403,7 @@ async function mockSearchCombinationCount(request: OptimizeRequestDto | null): P
   const upgradeCount = previewRows(request).filter((row) => matchesPreviewRow(row, request)).reduce((total, row) => {
     if (!request) return total + 26;
     if (request.exactUpgrade) return total + 1;
-    const cap = row.isSomber ? request.somberMaxUpgrade : request.standardMaxUpgrade;
+    const cap = upgradeCapForRow(row, request, mockDataManifest(request.profileId).rules.separateUpgradeCaps);
     return total + Math.max(Number(cap) + 1, 1);
   }, 0);
   return Math.max(upgradeCount, 1);
@@ -458,7 +458,7 @@ function matchesPreviewRow(row: SolvedBuildDto, request: OptimizeRequestDto | nu
       .map((entry) => entry.id);
     if (included.length && !included.includes(id)) return false;
   }
-  const cap = upgradeCapForRow(row, request);
+  const cap = upgradeCapForRow(row, request, mockDataManifest(request.profileId).rules.separateUpgradeCaps);
   if (request.exactUpgrade && row.upgrade !== cap) return false;
   if (!request.exactUpgrade && row.upgrade > cap) return false;
   return true;

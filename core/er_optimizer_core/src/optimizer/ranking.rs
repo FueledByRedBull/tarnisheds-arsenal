@@ -62,7 +62,7 @@ pub(super) fn push_scored_top_k(
     results.truncate(top_k);
 }
 
-fn compare_scored_candidates(
+pub(super) fn compare_scored_candidates(
     left: &ScoredCandidate,
     right: &ScoredCandidate,
     weapons: &[PreparedWeapon<'_>],

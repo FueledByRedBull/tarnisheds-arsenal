@@ -39,13 +39,13 @@ pub const SCADUTREE_ATTACK_MULTIPLIERS: [f32; 21] = [
     1.925, 1.95, 1.975, 2.00, 2.025, 2.05,
 ];
 
-/// Callers validate the level first (`validate_profile_capabilities`, the request DTO); a
-/// level above `SCADUTREE_MAX_LEVEL` is a bug and panics when DLC scaling is on.
+/// Callers validate the level first (`validate_profile_capabilities`, the request DTO).
 pub fn scadutree_attack_multiplier(dlc_scaling: bool, scadutree_level: u8) -> f32 {
+    debug_assert!(scadutree_level <= SCADUTREE_MAX_LEVEL);
     if !dlc_scaling {
         return 1.0;
     }
-    SCADUTREE_ATTACK_MULTIPLIERS[usize::from(scadutree_level)]
+    SCADUTREE_ATTACK_MULTIPLIERS[usize::from(scadutree_level.min(SCADUTREE_MAX_LEVEL))]
 }
 
 pub fn meets_requirements(weapon: &Weapon, effective_str: u16, stats: &Stats) -> bool {

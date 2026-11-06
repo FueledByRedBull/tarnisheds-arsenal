@@ -257,7 +257,7 @@ export function CompareView() {
         if (!lane.row) return;
         const row = lane.row;
         try {
-          const points = await cachedUpgradeSeries(baseRequest, row, upgradeCapForRow(row, request), controller.signal);
+          const points = await cachedUpgradeSeries(baseRequest, row, upgradeCapForRow(row, request, separateUpgradeCaps), controller.signal);
           if (!currentRequest.isCurrent(token)) return;
           setSeries(current => current.map((entry, i) => i === index ? { ...entry, points, chartStatus: "ready" } : entry));
         } catch (error) {
@@ -287,7 +287,7 @@ export function CompareView() {
     };
   }, [baseRequest, compareBench, compareControls, compareTargetLabel, customCompare, includeSmithing, includeSomber, isExporting, request, restoredTarget, resultsStale, rows, selected, separateUpgradeCaps, setCompareTarget, setError]);
 
-  const matrixHorizon = compareUpgradeHorizon(request);
+  const matrixHorizon = compareUpgradeHorizon(request, separateUpgradeCaps);
   const chartsLoading = series.some(lane => lane.chartStatus === "loading");
 
   if (!selected) {
