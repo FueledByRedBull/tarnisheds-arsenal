@@ -45,7 +45,9 @@ Status: accepted. These rules describe contracts that tests and future refactors
   that expects an error, not a panic, for out-of-range stats, levels, upgrades and
   oversized text.
 - The main window may navigate only within the app origin; the Vite dev server is
-  allowed only in development builds. The CSP also forbids form submission, and
+  allowed only in development builds. New-window requests (`window.open`,
+  `target="_blank"`) are denied: the app registers no new-window handler, and wry
+  cancels such requests without one. The CSP also forbids form submission, and
   JavaScript prototypes are frozen.
 - React Hooks rules, including the React Compiler checks, are lint errors. Async effects
   must retain generation/cancellation guards when dependencies change. Comparison
