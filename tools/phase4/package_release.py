@@ -18,6 +18,7 @@ ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+from tools.phase1.profiles import PROFILE_DIRECTORIES  # noqa: E402
 from tools.phase1.snapshot_manifest import sha256_file as sha256  # noqa: E402
 
 EXPECTED_PRODUCT_NAME = "Tarnished’s Arsenal"
@@ -926,17 +927,14 @@ def main() -> int:
         release_dir / "SHA256SUMS.txt",
         "".join(f"{row['sha256']}  {row['name']}\n" for row in artifact_rows),
     )
-    profile_manifest_paths = [
-        root / "data/phase1/manifest.json",
-        root / "data/profiles/convergence/manifest.json",
-    ]
     data_manifests = [
-        json.loads(path.read_text(encoding="utf-8")) for path in profile_manifest_paths
+        json.loads((root / folder / "manifest.json").read_text(encoding="utf-8"))
+        for folder in PROFILE_DIRECTORIES.values()
     ]
     data_manifest_ids = {
         manifest["profile"]["id"]: manifest["id"] for manifest in data_manifests
     }
-    if set(data_manifest_ids) != {"vanilla", "convergence"}:
+    if set(data_manifest_ids) != set(PROFILE_DIRECTORIES):
         raise RuntimeError(f"release profile manifests are incomplete: {data_manifest_ids}")
     write_text(
         release_dir / "build-report.json",

@@ -23,7 +23,7 @@ from tools.phase1.phase1_dump import (  # noqa: E402
     read_csv_strict as read_csv,
     weapon_series_id,
 )
-from tools.phase1.profiles import ProfileDefinition, profile_definition  # noqa: E402
+from tools.phase1.profiles import PROFILE_DIRECTORIES, ProfileDefinition, profile_definition  # noqa: E402
 from tools.phase1.snapshot_manifest import (  # noqa: E402
     SKILL_ANIMATION_SOURCE,
     SnapshotManifest,
@@ -93,7 +93,7 @@ def validate_profile_source_provenance(
             None,
         )
         expected_relative_path = MOTION_WORKBOOK_NAME
-        expected_path = ROOT / "data" / "phase1" / expected_relative_path
+        expected_path = ROOT / PROFILE_DIRECTORIES[profile.id] / expected_relative_path
         if workbook_record is None:
             issues.append(ValidationIssue("error", "workbook manifest provenance is missing"))
         elif (
@@ -1199,10 +1199,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Validate both extracted profile data snapshots.")
     parser.add_argument("--report", type=Path, help="Write a machine-readable validation report.")
     args = parser.parse_args()
-    profile_dirs = {
-        "vanilla": ROOT / "data" / "phase1",
-        "convergence": ROOT / "data" / "profiles" / "convergence",
-    }
+    profile_dirs = {profile_id: ROOT / folder for profile_id, folder in PROFILE_DIRECTORIES.items()}
     issues: list[ValidationIssue] = []
     for profile_id, data_dir in profile_dirs.items():
         if not data_dir.exists():
