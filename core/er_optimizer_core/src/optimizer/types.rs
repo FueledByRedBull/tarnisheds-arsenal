@@ -25,10 +25,18 @@ impl OptimizeObjective {
             .into_iter()
             .find(|objective| objective.as_str() == raw)
             .ok_or_else(|| {
-                format!(
-                    "invalid objective '{raw}', expected max_ar, max_physical_ar, max_ar_plus_bleed, aow_first_hit, or aow_full_sequence"
-                )
+                "invalid objective, expected max_ar, max_physical_ar, max_ar_plus_bleed, aow_first_hit, or aow_full_sequence".to_string()
             })
+    }
+
+    /// Whether the score is a skill's damage (first hit or full sequence) rather than
+    /// weapon AR or status buildup.
+    pub(crate) fn scores_skill(self) -> bool {
+        matches!(self, Self::AowFirstHit | Self::AowFullSequence)
+    }
+
+    pub(crate) fn scores_ar(self) -> bool {
+        !self.scores_skill()
     }
 
     pub fn as_str(self) -> &'static str {
@@ -63,9 +71,7 @@ impl ResultGrouping {
             "automatic" => Ok(Self::Automatic),
             "weapon" => Ok(Self::Weapon),
             "loadout" => Ok(Self::Loadout),
-            _ => Err(format!(
-                "invalid result grouping '{raw}', expected automatic, weapon, or loadout"
-            )),
+            _ => Err("invalid result grouping, expected automatic, weapon, or loadout".to_string()),
         }
     }
 }
@@ -89,7 +95,7 @@ impl FilterDimension {
             "aow" => Ok(Self::Aow),
             "reinforcement" => Ok(Self::Reinforcement),
             "coverage" => Ok(Self::Coverage),
-            _ => Err(format!("invalid filter dimension '{raw}'")),
+            _ => Err("invalid filter dimension".to_string()),
         }
     }
 }
@@ -105,7 +111,7 @@ impl FilterMode {
         match raw.trim().to_ascii_lowercase().as_str() {
             "include" => Ok(Self::Include),
             "exclude" => Ok(Self::Exclude),
-            _ => Err(format!("invalid filter mode '{raw}'")),
+            _ => Err("invalid filter mode".to_string()),
         }
     }
 }

@@ -21,8 +21,8 @@ use crate::math::{
 use crate::math::{calculate_aow_routes, evaluate_scalar_aow_route};
 use crate::model::{
     Aow, AowAttackRow, AowRouteResult, COMBAT_STAT_COUNT, DamageBreakdown, DamageType, GameData,
-    STAT_ARC, STAT_DEX, STAT_FAI, STAT_INT, STAT_STR, Stats, StatusBuildup, StatusEffectSource,
-    Weapon, normalize_weapon_type_display,
+    MAX_RUNE_LEVEL, MAX_STAT_VALUE, STANDARD_AFFINITY, STAT_ARC, STAT_DEX, STAT_FAI, STAT_INT,
+    STAT_STR, Stats, StatusBuildup, StatusEffectSource, Weapon, normalize_weapon_type_display,
 };
 
 mod types;
@@ -30,6 +30,7 @@ pub use types::*;
 mod ranking;
 use ranking::*;
 mod coupled;
+use coupled::KEY;
 mod exact_dp;
 mod preparation;
 use preparation::*;
@@ -342,7 +343,7 @@ fn build_ar_bleed_frontier(
             ar_loss_percent: if max_ar.is_zero() {
                 0.0
             } else {
-                project(&(&loss * rational(100.0)? / &max_ar))?
+                project(&(&loss * model_coefficient(100.0)? / &max_ar))?
             },
             minimum_ar_loss_bps: minimum_ar_loss_bps(&loss, &max_ar)?,
             bleed_gain: project(&(&result.exact_key.bleed - &base_bleed))?,
@@ -452,7 +453,7 @@ fn ar_bleed_candidates_with_reuse(
         }
         // ARC contributes a constant key at each slice. All remaining deltas,
         // including route ties, are shared; ranks remain comparable across spends.
-        let solved = exact_dp::solve_exact::<5>(
+        let solved = exact_dp::solve_exact::<KEY>(
             &std::array::from_fn(|_| ExactRational::zero()),
             &deltas,
             other.mins,
@@ -681,11 +682,11 @@ struct DpReuse {
     primary: Mutex<HashMap<DpCacheKey, Arc<PrimaryPreparation>>>,
 }
 
-fn locked<T>(mutex: &Mutex<T>) -> std::sync::MutexGuard<'_, T> {
-    // A panicking worker poisons the lock but leaves the memo tables whole.
+/// A poisoned lock means a worker panicked, so it is an error here as everywhere else.
+fn locked<T>(mutex: &Mutex<T>) -> Result<std::sync::MutexGuard<'_, T>, String> {
     mutex
         .lock()
-        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .map_err(|_| "failed to lock shared DP tables".to_string())
 }
 
 impl DpReuse {
@@ -708,8 +709,8 @@ impl DpReuse {
         }
     }
 
-    fn cached(&self, key: &DpCacheKey) -> Option<Arc<CachedDpResult>> {
-        locked(&self.solved).get(key).cloned()
+    fn cached(&self, key: &DpCacheKey) -> Result<Option<Arc<CachedDpResult>>, String> {
+        Ok(locked(&self.solved)?.get(key).cloned())
     }
 
     fn max_search(&self, search: &RelevantStatSearch) -> Option<RelevantStatSearch> {
@@ -730,7 +731,7 @@ impl DpReuse {
         allowed: Option<&[Vec<Vec<u8>>; COMBAT_STAT_COUNT]>,
         should_continue: &mut impl FnMut() -> bool,
     ) -> Result<Arc<CachedDpResult>, String> {
-        if let Some(result) = self.cached(&key) {
+        if let Some(result) = self.cached(&key)? {
             if !should_continue() {
                 return Err("cancelled".to_string());
             }
@@ -752,7 +753,7 @@ impl DpReuse {
             ranks: Arc::new(result.ranks),
         });
         Ok(Arc::clone(
-            locked(&self.solved).entry(key).or_insert(result),
+            locked(&self.solved)?.entry(key).or_insert(result),
         ))
     }
 }
@@ -862,17 +863,10 @@ fn validate_profile_capabilities(request: &OptimizeRequest, data: &GameData) -> 
                 .iter()
                 .any(|weapon| weapon.family_filter_id().eq_ignore_ascii_case(&filter.id))
         {
-            return Err(format!(
-                "Weapon family filter {} is no longer valid for this profile; remove it and reselect the weapon family",
-                filter.id
-            ));
+            return Err("A weapon family filter is no longer valid for this profile; remove it and reselect the weapon family".to_string());
         }
     }
-    let profile = if data.profile_display_name.trim().is_empty() {
-        "selected profile"
-    } else {
-        data.profile_display_name.as_str()
-    };
+    let profile = data.profile_display_name.as_str();
     if request.scadutree_level > crate::math::SCADUTREE_MAX_LEVEL {
         return Err(format!(
             "Scadutree Blessing level must be {} or lower",
@@ -886,9 +880,9 @@ fn validate_profile_capabilities(request: &OptimizeRequest, data: &GameData) -> 
             .class_name
             .eq_ignore_ascii_case(crate::math::CUSTOM_STATS_CLASS_NAME);
     let max_character_level: u16 = if data.capabilities.class_budget && !custom_stats_total {
-        713
+        MAX_RUNE_LEVEL
     } else {
-        8 * 99
+        8 * u16::from(MAX_STAT_VALUE)
     };
     if request.character_level > max_character_level {
         return Err(format!(
@@ -1026,21 +1020,46 @@ fn validate_reusable_loadout(
     data: &GameData,
 ) -> Result<(), String> {
     validate_profile_capabilities(request, data)?;
-    let compatible = template.class_name == request.class_name
-        && template.standard_max_upgrade == request.standard_max_upgrade
-        && template.somber_max_upgrade == request.somber_max_upgrade
-        && template.exact_upgrade == request.exact_upgrade
-        && template.two_handing == request.two_handing
-        && template.dlc_scaling == request.dlc_scaling
-        && template.scadutree_level == request.scadutree_level
-        && template.weapon_name == request.weapon_name
-        && template.affinity == request.affinity
-        && template.aow_name == request.aow_name
-        && template.weapon_type_key == request.weapon_type_key
-        && template.somber_filter == request.somber_filter
-        && template.filters == request.filters
-        && template.result_grouping == request.result_grouping
-        && template.objective == request.objective;
+    // Listing every field (no `..`) makes a new request field a compile error here until it
+    // is compared or deliberately left out. Level, stats, floors, locks and top_k are the
+    // per-call inputs a prepared evaluator accepts.
+    let OptimizeRequest {
+        class_name,
+        character_level: _,
+        current_stats: _,
+        min_combat_stats: _,
+        locked_combat_stats: _,
+        standard_max_upgrade,
+        somber_max_upgrade,
+        exact_upgrade,
+        two_handing,
+        dlc_scaling,
+        scadutree_level,
+        weapon_name,
+        affinity,
+        aow_name,
+        weapon_type_key,
+        somber_filter,
+        filters,
+        result_grouping,
+        objective,
+        top_k: _,
+    } = template;
+    let compatible = *class_name == request.class_name
+        && *standard_max_upgrade == request.standard_max_upgrade
+        && *somber_max_upgrade == request.somber_max_upgrade
+        && *exact_upgrade == request.exact_upgrade
+        && *two_handing == request.two_handing
+        && *dlc_scaling == request.dlc_scaling
+        && *scadutree_level == request.scadutree_level
+        && *weapon_name == request.weapon_name
+        && *affinity == request.affinity
+        && *aow_name == request.aow_name
+        && *weapon_type_key == request.weapon_type_key
+        && *somber_filter == request.somber_filter
+        && *filters == request.filters
+        && *result_grouping == request.result_grouping
+        && *objective == request.objective;
     if compatible {
         Ok(())
     } else {
@@ -1174,10 +1193,7 @@ fn assemble_prepared_plan<'a>(
         route_bounds: RangeRouteBounds::Off,
     };
     plan.fine_work_units = build_search_work_units(&plan, true, should_continue)?;
-    plan.serial_work_units = if matches!(
-        request.objective,
-        OptimizeObjective::AowFirstHit | OptimizeObjective::AowFullSequence
-    ) {
+    plan.serial_work_units = if request.objective.scores_skill() {
         build_search_work_units(&plan, false, should_continue)?
     } else {
         plan.fine_work_units.clone()
@@ -1320,7 +1336,7 @@ where
     };
     // Lower levels are independent, so they run side by side, one batch per pool width,
     // sharing the cache the highest level filled; results and progress still follow level order.
-    let batch = rayon::current_num_threads().max(1);
+    let batch = rayon::current_num_threads();
     let (lower_levels, _) = ordered_levels.split_at(ordered_levels.len() - 1);
     let mut results = Vec::with_capacity(ordered_levels.len());
     for levels in lower_levels.chunks(batch) {
@@ -1407,14 +1423,6 @@ fn level_range_reuse_enabled(request: &OptimizeRequest) -> bool {
         && request.exact_upgrade
         && request.weapon_name.is_some()
         && request.affinity.is_some()
-        && matches!(
-            request.objective,
-            OptimizeObjective::MaxAr
-                | OptimizeObjective::MaxPhysicalAr
-                | OptimizeObjective::BleedThenAr
-                | OptimizeObjective::AowFirstHit
-                | OptimizeObjective::AowFullSequence
-        )
 }
 
 fn level_plan_can_reuse(plan: &PreparedSearchPlan<'_>, reuse: &DpReuse) -> bool {
@@ -1592,10 +1600,7 @@ fn build_search_work_units(
 ) -> Result<Vec<SearchWorkUnit>, String> {
     let mut units = Vec::new();
     for (group_idx, group) in plan.groups.iter().enumerate() {
-        let chunk_size = if matches!(
-            plan.request.objective,
-            OptimizeObjective::AowFirstHit | OptimizeObjective::AowFullSequence
-        ) {
+        let chunk_size = if plan.request.objective.scores_skill() {
             if split_aows {
                 1
             } else {
@@ -1620,12 +1625,7 @@ fn build_search_work_units(
             });
         }
     }
-    if matches!(
-        plan.request.objective,
-        OptimizeObjective::MaxAr
-            | OptimizeObjective::MaxPhysicalAr
-            | OptimizeObjective::BleedThenAr
-    ) {
+    if plan.request.objective.scores_ar() {
         // Float estimates only schedule work; every pruning decision uses exact bounds.
         let estimates = plan
             .groups
@@ -1919,10 +1919,7 @@ where
                     visit_result = Err(error);
                     return false;
                 }
-                if matches!(
-                    request.objective,
-                    OptimizeObjective::AowFirstHit | OptimizeObjective::AowFullSequence
-                ) && candidate.key.score <= ExactRational::zero()
+                if request.objective.scores_skill() && candidate.key.score <= ExactRational::zero()
                 {
                     continue;
                 }
@@ -1963,10 +1960,7 @@ where
     let aow_indices = &group.aow_indices[unit.aow_start..unit.aow_end];
     let reused_search = reuse.and_then(|reuse| reuse.max_search(&group.search));
     let dp_search = reused_search.as_ref().unwrap_or(&group.search);
-    let skill_objective = matches!(
-        request.objective,
-        OptimizeObjective::AowFirstHit | OptimizeObjective::AowFullSequence
-    );
+    let skill_objective = request.objective.scores_skill();
     // A unit compares upgrades only when every one of its Ashes has positive routes.
     if skill_objective
         && let (RangeRouteBounds::Recorded(record), Some(cutoff)) = (&plan.route_bounds, cutoff)
@@ -1999,12 +1993,7 @@ where
 
     if matches!(group_mode, ResultGroupMode::WeaponOnly)
         && request.damage_multiplier() > 0.0
-        && matches!(
-            request.objective,
-            OptimizeObjective::MaxAr
-                | OptimizeObjective::MaxPhysicalAr
-                | OptimizeObjective::BleedThenAr
-        )
+        && request.objective.scores_ar()
     {
         // With the same bleed effect, flat buffs order the shared primary pair independently of stats.
         let mut best_buffs = HashMap::new();
@@ -2057,13 +2046,7 @@ where
         progress.advance(skipped, skipped, None)?;
     }
 
-    let share_primary = group.search.remaining_free > 0
-        && matches!(
-            request.objective,
-            OptimizeObjective::MaxAr
-                | OptimizeObjective::MaxPhysicalAr
-                | OptimizeObjective::BleedThenAr
-        );
+    let share_primary = group.search.remaining_free > 0 && request.objective.scores_ar();
     // Higher upgrades usually score best, so visiting them first lets the weapon-best bound
     // below skip lower levels early. Ranking is a total order, so visit order never changes
     // which candidate wins.
@@ -2164,7 +2147,9 @@ where
                 buff_upper = Some(maximum);
             }
             let buff_upper = buff_upper.as_ref().expect("buff bound is computed");
-            if (base_upper + buff_upper) * rational(request.damage_multiplier())? < cutoff.score {
+            if (base_upper + buff_upper) * model_coefficient(request.damage_multiplier())?
+                < cutoff.score
+            {
                 let count = group
                     .search
                     .candidate_count
@@ -2498,6 +2483,8 @@ fn unit_cutoff(
     }
 }
 
+/// Keys compare field by field in declaration order (the derived `Ord`), so the field order
+/// is the tie order: score, then total AR, full sequence, first hit and bleed.
 #[derive(Clone, Debug, Default, Eq, PartialEq, Ord, PartialOrd)]
 struct ObjectiveKey {
     score: ExactRational,
@@ -2508,7 +2495,7 @@ struct ObjectiveKey {
 }
 
 impl ObjectiveKey {
-    fn components(&self) -> [ExactRational; 5] {
+    fn components(&self) -> [ExactRational; KEY] {
         [
             self.score.clone(),
             self.ar_total.clone(),
@@ -2547,7 +2534,7 @@ fn formula_max_stats(
     search: &RelevantStatSearch,
     request: &OptimizeRequest,
     weapon: &Weapon,
-) -> [u16; 5] {
+) -> [u16; COMBAT_STAT_COUNT] {
     let mut values = std::array::from_fn(|stat| {
         u16::from(search.mins[stat])
             + u16::from(search.maxs[stat] - search.mins[stat]).min(search.remaining_free)
@@ -2661,13 +2648,16 @@ fn prepare_primary_allocations<P: SearchProgress>(
         upgrade,
         DpCacheStage::Primary,
     );
-    let cached = key.as_ref().and_then(|key| {
-        let reuse = reuse?;
-        Some((
-            locked(&reuse.primary).get(key)?.clone(),
-            DpSolve::Shared(reuse.cached(key)?),
-        ))
-    });
+    let cached = match (reuse, key.as_ref()) {
+        (Some(reuse), Some(key)) => {
+            let preparation = locked(&reuse.primary)?.get(key).cloned();
+            match (preparation, reuse.cached(key)?) {
+                (Some(preparation), Some(solved)) => Some((preparation, DpSolve::Shared(solved))),
+                _ => None,
+            }
+        }
+        _ => None,
+    };
     let (preparation, solved) = if let Some(cached) = cached {
         cached
     } else {
@@ -2741,7 +2731,7 @@ fn prepare_primary_allocations<P: SearchProgress>(
             values: Arc::new(values),
         });
         if let (Some(reuse), Some(key)) = (reuse, key) {
-            locked(&reuse.primary).insert(key, preparation.clone());
+            locked(&reuse.primary)?.insert(key, preparation.clone());
         }
         (preparation, solved)
     };
@@ -2925,10 +2915,8 @@ where
             )
         })
         .transpose()?;
-    if matches!(
-        request.objective,
-        OptimizeObjective::AowFirstHit | OptimizeObjective::AowFullSequence
-    ) && let Some(formula) = &route_formula
+    if request.objective.scores_skill()
+        && let Some(formula) = &route_formula
         && let Some(stat) =
             formula.sole_scaling_stat(request.objective == OptimizeObjective::AowFirstHit)
         && search.active[stat]
@@ -2973,10 +2961,8 @@ where
     let mut route_primary = None;
     // The route's per-allocation (first, full) values, which the final table below reuses.
     let mut route_values: Option<[Vec<_>; COMBAT_STAT_COUNT]> = None;
-    if matches!(
-        request.objective,
-        OptimizeObjective::AowFirstHit | OptimizeObjective::AowFullSequence
-    ) && let Some(formula) = &route_formula
+    if request.objective.scores_skill()
+        && let Some(formula) = &route_formula
         && formula.has_scaling(request.objective == OptimizeObjective::AowFirstHit)
     {
         let budget = usize::from(dp_search.max_active_spend());
@@ -2991,7 +2977,7 @@ where
             },
         );
         let cached = match (reuse, key.as_ref()) {
-            (Some(reuse), Some(key)) => reuse.cached(key),
+            (Some(reuse), Some(key)) => reuse.cached(key)?,
             _ => None,
         };
         let solved = match cached {
@@ -3109,7 +3095,7 @@ where
     );
     // A hit skips building the delta tables, which dominates a level range's repeated solves.
     let cached = match (reuse, key.as_ref()) {
-        (Some(reuse), Some(key)) => reuse.cached(key),
+        (Some(reuse), Some(key)) => reuse.cached(key)?,
         _ => None,
     };
     let solved = match cached {
@@ -3265,10 +3251,7 @@ fn coupled_route_allocation<P: SearchProgress>(
     };
     // Route damage dominates evaluation cost. For AR and bleed objectives the leading score
     // and AR total do not involve the route, so a candidate behind on them is skipped.
-    let route_free_prefix = !matches!(
-        request.objective,
-        OptimizeObjective::AowFirstHit | OptimizeObjective::AowFullSequence
-    );
+    let route_free_prefix = !request.objective.scores_skill();
     let route_free_key = |combat| {
         objective_key_with_formulas(
             combat,
@@ -3286,7 +3269,7 @@ fn coupled_route_allocation<P: SearchProgress>(
     // Tabulated route parts give the same exact damage as the formula with sums of
     // precomputed values; without them every hit is multiplied out again.
     let parts = route_formula.parts()?;
-    let key_at = |combat| -> Result<[ExactRational; 5], String> {
+    let key_at = |combat| -> Result<[ExactRational; KEY], String> {
         let Some((first_parts, full_parts)) = &parts else {
             return objective_key_with_formulas(
                 combat,
@@ -3341,7 +3324,7 @@ fn coupled_route_allocation<P: SearchProgress>(
             };
             // Only the route parts that read this stat change.
             let free = route_free_key(combat)?;
-            let mut delta: [ExactRational; 5] =
+            let mut delta: [ExactRational; KEY] =
                 std::array::from_fn(|component| &free[component] - &route_free_base[component]);
             let old_stats = stats_with_combat(request.current_stats, search.mins);
             let new_stats = stats_with_combat(request.current_stats, combat);
@@ -3366,7 +3349,7 @@ fn coupled_route_allocation<P: SearchProgress>(
         }
     }
     let mut poll_error = None;
-    let solved = exact_dp::solve_exact::<5>(
+    let solved = exact_dp::solve_exact::<KEY>(
         &std::array::from_fn(|_| ExactRational::zero()),
         &deltas,
         search.mins,
@@ -3392,13 +3375,13 @@ fn coupled_route_allocation<P: SearchProgress>(
                 })
             })
         })
-        .collect::<Vec<Option<[ExactRational; 5]>>>();
+        .collect::<Vec<Option<[ExactRational; KEY]>>>();
     // Best completion per coupled spend, with coupled stats still at their minimums.
     let inactive_capacity = search.inactive_capacity();
     let mut completions = Vec::new();
     for spent in 0..=enumerated.max_active_spend() {
         let left = search.remaining_free - spent;
-        let mut best: Option<([ExactRational; 5], [u8; COMBAT_STAT_COUNT])> = None;
+        let mut best: Option<([ExactRational; KEY], [u8; COMBAT_STAT_COUNT])> = None;
         for separable_spent in left.saturating_sub(inactive_capacity)..=left.min(budget as u16) {
             progress.poll()?;
             let (Some(mut combat), Some(value)) = (
@@ -3500,7 +3483,7 @@ fn coupled_route_allocation<P: SearchProgress>(
         };
         return evaluate(best.ok_or_else(|| "no feasible skill allocation".to_string())?);
     }
-    let mut best: Option<([ExactRational; 5], [u8; COMBAT_STAT_COUNT])> = None;
+    let mut best: Option<([ExactRational; KEY], [u8; COMBAT_STAT_COUNT])> = None;
     let mut error = None;
     let mut current = search.mins;
     // Uncoupled stats are filled like inactive ones here; only the coupled values are used.
@@ -3560,7 +3543,7 @@ fn coupled_route_allocation<P: SearchProgress>(
 #[allow(clippy::too_many_arguments)]
 fn primary_delta(
     stat: usize,
-    combat: [u8; 5],
+    combat: [u8; COMBAT_STAT_COUNT],
     base: &ObjectiveAllocation,
     request: &OptimizeRequest,
     prepared: &PreparedWeapon<'_>,
@@ -3682,12 +3665,12 @@ fn objective_key_with_formulas(
             data,
         )?,
     };
-    let multiplier = rational(request.damage_multiplier())?;
+    let multiplier = model_coefficient(request.damage_multiplier())?;
     for (index, value) in components.iter_mut().enumerate() {
         if let Some(ash) = aow_choice.aow
             && ash.buff_attack_power[index] != 0.0
         {
-            *value += rational(ash.buff_attack_power[index])?;
+            *value += model_coefficient(ash.buff_attack_power[index])?;
         }
         if !multiplier.is_one() {
             *value *= &multiplier;
@@ -3740,7 +3723,7 @@ fn poll_continues(progress: &mut impl SearchProgress, error: &mut Option<String>
     }
 }
 
-fn rational(value: f32) -> Result<ExactRational, String> {
+fn model_coefficient(value: f32) -> Result<ExactRational, String> {
     crate::math::exact::rational(value, "model coefficient")
 }
 
@@ -3937,11 +3920,7 @@ fn evaluate_fixed_loadout_upgrade(
                 upgrade,
                 stats,
             )?;
-            if matches!(
-                request.objective,
-                OptimizeObjective::AowFirstHit | OptimizeObjective::AowFullSequence
-            ) && candidate.key.score <= ExactRational::zero()
-            {
+            if request.objective.scores_skill() && candidate.key.score <= ExactRational::zero() {
                 continue;
             }
             push_scored_top_k(
@@ -4079,6 +4058,9 @@ fn materialize_aow_route(
     if !should_continue() {
         return Err("cancelled".into());
     }
+    let Some(selected_route) = selected_route else {
+        return Ok(None);
+    };
     let resolved_attack_rows;
     let attack_rows = if aow_choice.attack_rows.is_empty() {
         resolved_attack_rows = if !prepared.weapon.can_change_aow {
@@ -4098,9 +4080,6 @@ fn materialize_aow_route(
     if attack_rows.is_empty() {
         return Ok(None);
     }
-    let Some(selected_route) = selected_route else {
-        return Ok(None);
-    };
     let routes = calculate_aow_routes_scaled_with_cancel(
         prepared.weapon,
         attack_rows,

@@ -123,57 +123,6 @@ fn same_scored_result_group(
     }
 }
 
-#[cfg(test)]
-pub(super) fn push_top_k(
-    results: &mut Vec<OptimizeResult>,
-    candidate: OptimizeResult,
-    top_k: usize,
-    group_mode: ResultGroupMode,
-) {
-    if let Some(existing_idx) = results
-        .iter()
-        .position(|existing| same_result_group(&candidate, existing, group_mode))
-    {
-        if !better_result(&candidate, &results[existing_idx]) {
-            return;
-        }
-        results.remove(existing_idx);
-    }
-
-    let insert_at = results
-        .iter()
-        .position(|existing| better_result(&candidate, existing))
-        .unwrap_or(results.len());
-
-    if insert_at >= top_k {
-        if results.len() < top_k {
-            results.push(candidate);
-        }
-        return;
-    }
-
-    results.insert(insert_at, candidate);
-    if results.len() > top_k {
-        results.pop();
-    }
-}
-
-#[cfg(test)]
-fn same_result_group(
-    left: &OptimizeResult,
-    right: &OptimizeResult,
-    group_mode: ResultGroupMode,
-) -> bool {
-    match group_mode {
-        ResultGroupMode::WeaponOnly => left.weapon_name.eq_ignore_ascii_case(&right.weapon_name),
-        ResultGroupMode::Loadout => {
-            left.weapon_id == right.weapon_id
-                && left.upgrade == right.upgrade
-                && left.aow_id == right.aow_id
-        }
-    }
-}
-
 pub(super) fn better_result(left: &OptimizeResult, right: &OptimizeResult) -> bool {
     if left.exact_key != right.exact_key {
         return left.exact_key > right.exact_key;

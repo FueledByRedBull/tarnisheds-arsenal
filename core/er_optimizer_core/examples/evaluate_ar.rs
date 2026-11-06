@@ -759,7 +759,7 @@ fn catalog(data: &er_optimizer_core::model::GameData) -> serde_json::Value {
                     serde_json::json!({
                         "id": aow.aow_id,
                         "name": aow.name,
-                        "unbuffed": aow.buff_attack_power.iter().all(|value| *value == 0.0)
+                        "unbuffed": aow.buff_attack_power().iter().all(|value| *value == 0.0)
                             && aow.poison_buildup_add == 0.0
                             && aow.scarlet_rot_buildup_add == 0.0
                             && aow.bleed_buildup_add == 0.0
