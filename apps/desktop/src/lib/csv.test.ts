@@ -80,6 +80,15 @@ describe("rankings CSV model provenance", () => {
     expect(values).toContain("D,S++,-,-,B");
   });
 
+  it("names a build without a skill \"No skill\", as the app does", () => {
+    const csv = rankingsToCsv([{ ...row, aowName: null }], {
+      profileId: "vanilla", appVersion: "test", schemaVersion: "7", datasetVersion: "test",
+      modelVersion: "test", objective: "max_ar", assumptions: "raw values", aowModelSupported: true,
+    });
+    const [headers, values] = csv.slice(1).trim().split("\r\n").map(line => line.split(","));
+    expect(values[headers.indexOf("aow")]).toBe("No skill");
+  });
+
   it("starts with a UTF-8 byte order mark so Excel reads accented names", () => {
     const csv = rankingsToCsv([{ ...row, weaponName: "Miséricorde" }], {
       profileId: "vanilla", appVersion: "test", schemaVersion: "7", datasetVersion: "test",

@@ -61,8 +61,8 @@ The bundled snapshot targets **Elden Ring 1.17.2** (regulation 1.17.3). That pat
 changed only the Fletched Piquebone Arrow projectile's attack link, so every
 extracted table is byte-identical to 1.17; motion data still comes from the
 App Ver. 1.17 workbook. Objectives are **Max AR**,
-**Max Physical AR**, **Bleed, then AR**, **AoW First Hit (PvE)**, and
-**AoW Full Sequence (PvE)**.
+**Max Physical AR**, **Bleed, then AR**, **AoW First Hit**, and
+**AoW Sequence**. The two skill objectives model PvE damage.
 
 - Starting class, current stats, level, minimums, exact locks, and weapon
   requirements constrain the stat budget.
@@ -152,7 +152,7 @@ in-game measurement.
 | Upgrades | One reinforcement path, `+0` through `+15`; a weapon counts as Somber when its first upgrade costs a Somber Smithing Stone, since the mod puts some Smithing Stone weapons on Somber upgrade types |
 | Scaling | Extended `S+`/`S++` grades; optional Scadutree Blessing, as in Vanilla |
 | Status | Fixed across stats and upgrades, as the data defines it |
-| AoW damage | **AoW First Hit** and **AoW Full Sequence** from the mod's skill animations; 93 of 122 Ashes of War resolve damage |
+| AoW damage | **AoW First Hit** and **AoW Sequence** from the mod's skill animations; 93 of 122 Ashes of War resolve damage |
 | Attack poise | Up to ten normal moves from the mod's animations: all ten on most weapons, fewer on bows, seals and staves, none on crossbows, greatbows and ballistae |
 | Ammunition AR | Unavailable: the regulation alone does not define it |
 | Class optimization / Compare / Paths / Affinity Watch | Available with a class; unavailable with Custom stats |

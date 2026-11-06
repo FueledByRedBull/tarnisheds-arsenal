@@ -19,9 +19,34 @@ export function cancelSearchFromStore(generation: number): void {
   if (activeSearch?.generation === generation) activeSearch.controller.abort();
 }
 
+// A search asked for during a CSV export waits for it. At most one waits, and the latest request
+// replaces it. It belongs to the profile and catalog it was asked on: a profile switch drops it.
+let stopWaitingForExport: (() => void) | null = null;
+
 export async function runSearchFromStore(requestOverride?: OptimizeRequestDto): Promise<boolean> {
   const state = useDesktopStore.getState();
-  if (state.isExporting) return false;
+  if (state.isExporting) {
+    stopWaitingForExport?.();
+    const { catalog, request: { profileId } } = state;
+    const unsubscribe = useDesktopStore.subscribe((current) => {
+      if (!current.searchWaitingForExport) {
+        unsubscribe();
+        stopWaitingForExport = null;
+        return;
+      }
+      if (current.isExporting) return;
+      unsubscribe();
+      stopWaitingForExport = null;
+      current.setSearchWaitingForExport(false);
+      if (current.catalogStatus === "ready" && current.catalog === catalog && current.request.profileId === profileId) {
+        // Start outside this store notification so the search's own updates are not nested in it.
+        queueMicrotask(() => void runSearchFromStore(requestOverride));
+      }
+    });
+    stopWaitingForExport = unsubscribe;
+    state.setSearchWaitingForExport(true);
+    return false;
+  }
   const request = requestOverride ?? buildOptimizeRequest(state.catalog, state.request, state.lockedStatMode);
   const signature = stableSignature(request);
   const generation = state.beginSearch(signature);
@@ -46,6 +71,7 @@ export async function runSearchFromStore(requestOverride?: OptimizeRequestDto): 
     return true;
   } catch (error) {
     if (isCurrent()) {
+      useDesktopStore.getState().recheckResultsStale(signature);
       if (isCancelled(error)) {
         useDesktopStore.getState().pushNotice({
           scope: "rankings", tone: "warning", message: "Search stopped. Previous results were retained.",

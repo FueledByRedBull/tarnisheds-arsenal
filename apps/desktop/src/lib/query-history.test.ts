@@ -89,3 +89,21 @@ it("describes many changes by name", () => {
   edit({ className: "Vagabond", vig: 15, mnd: 10, end: 11, strStat: 14 });
   expect(describeStep(history().past[0])).toBe("Class, VIG, MND and 2 more");
 });
+
+const catalogWithRules = (rules: Record<string, unknown>) =>
+  ({ dataManifest: { rules: { scadutreeScaling: false, ...rules } } }) as unknown as CatalogDto;
+
+it("names the two caps separately when the profile has separate caps", () => {
+  useDesktopStore.setState({ catalog: catalogWithRules({ separateUpgradeCaps: true, standardMaxUpgrade: 25, somberMaxUpgrade: 10 }) });
+  edit({ standardMaxUpgrade: 20, somberMaxUpgrade: 8 });
+  expect(describeStep(history().past[0])).toBe("Standard cap, Somber cap");
+});
+
+it("names one upgrade cap when the profile has a single shared cap", () => {
+  useDesktopStore.setState({
+    request: { ...defaultRequest, standardMaxUpgrade: 15, somberMaxUpgrade: 15 },
+    catalog: catalogWithRules({ separateUpgradeCaps: false, standardMaxUpgrade: 15, somberMaxUpgrade: 15 }),
+  });
+  edit({ standardMaxUpgrade: 12, somberMaxUpgrade: 12 });
+  expect(describeStep(history().past[0])).toBe("Upgrade cap +15 → +12");
+});

@@ -13,7 +13,7 @@ const breakpointSheet = new CSSStyleSheet();
 breakpointSheet.replaceSync(breakpoints);
 document.adoptedStyleSheets = [...document.adoptedStyleSheets, breakpointSheet];
 
-// Development keeps reload for hot-fix iteration; release builds keep the session (XC-001).
+// Development keeps reload for hot-fix iteration; release builds keep the session.
 if (import.meta.env.PROD) window.addEventListener("keydown", blockBrowserReload, { capture: true });
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(

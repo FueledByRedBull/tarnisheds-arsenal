@@ -127,7 +127,8 @@ export function Inspector() {
             </div>
           ) : null}
           <div className="inspector-actions stacked">
-            <button type="button" onClick={() => void lockSelected()} disabled={isExporting}><LockKeyhole size={15} />Lock stats to this build</button>
+            <button type="button" onClick={() => void lockSelected()} disabled={isExporting} aria-describedby={isExporting ? "inspector-export-hint" : undefined}><LockKeyhole size={15} />Lock stats to this build</button>
+            {isExporting ? <small id="inspector-export-hint">Available when the CSV export finishes.</small> : null}
             <button
               type="button"
               onClick={() => {

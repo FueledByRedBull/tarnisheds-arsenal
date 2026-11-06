@@ -1,7 +1,8 @@
-import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "./api";
 import { defaultRequest, useDesktopStore } from "./state";
 import { runSearchFromStore, runSearchRequestForRows } from "./workflows";
+import { solvedBuild } from "./test-fixtures";
 import type { SearchJobStatusDto, SolvedBuildDto } from "./types";
 
 vi.mock("./api", () => ({ api: { startSearch: vi.fn(), searchStatus: vi.fn(), cancelSearch: vi.fn() } }));
@@ -10,7 +11,7 @@ beforeEach(() => {
   vi.useFakeTimers();
   vi.resetAllMocks();
   useDesktopStore.setState({
-    request: defaultRequest, catalog: null, rows: [], notices: [], progress: null,
+    request: defaultRequest, catalog: null, rows: [], rowsSignature: null, resultsStale: false, notices: [], progress: null,
     isExporting: false, isSearching: false, activeJobId: null, activeSearchSignature: null, error: null,
   });
 });
@@ -289,3 +290,114 @@ for (const invalidation of ["profile switch", "request edit"] as const) {
     },
   );
 }
+
+async function finishSearch(outcome: { rows?: SolvedBuildDto[]; cancelled?: boolean; error?: string }) {
+  vi.mocked(api.startSearch).mockResolvedValueOnce({ jobId: "search" });
+  vi.mocked(api.searchStatus).mockResolvedValueOnce({
+    progress: null,
+    finished: { jobId: "search", rows: outcome.rows ?? [], cancelled: outcome.cancelled ?? false, error: outcome.error ?? null, setups: 1 },
+  });
+  const search = runSearchFromStore();
+  await vi.advanceTimersByTimeAsync(200);
+  return search;
+}
+
+describe("results after a search that returns no rows", () => {
+  const rows = [solvedBuild()];
+
+  it.each([
+    ["stopped", { cancelled: true }],
+    ["failed", { error: "Search failed" }],
+  ])("keeps results current when a %s search ran on unchanged inputs", async (_name, outcome) => {
+    expect(await finishSearch({ rows })).toBe(true);
+    expect(await finishSearch(outcome)).toBe(false);
+    expect(useDesktopStore.getState()).toMatchObject({ rows, resultsStale: false });
+  });
+
+  it.each([
+    ["stopped", { cancelled: true }],
+    ["failed", { error: "Search failed" }],
+  ])("keeps results stale when a %s search ran on changed inputs", async (_name, outcome) => {
+    await finishSearch({ rows });
+    useDesktopStore.getState().patchRequest({ twoHanding: !defaultRequest.twoHanding });
+    expect(await finishSearch(outcome)).toBe(false);
+    expect(useDesktopStore.getState()).toMatchObject({ rows, resultsStale: true });
+  });
+});
+
+describe("searching during a CSV export", () => {
+  beforeEach(() => {
+    vi.mocked(api.startSearch).mockResolvedValue({ jobId: "search" });
+    vi.mocked(api.searchStatus).mockResolvedValue({
+      progress: null, finished: { jobId: "search", rows: [], cancelled: false, error: null, setups: 1 },
+    });
+    useDesktopStore.setState({ isExporting: true, catalogStatus: "ready" });
+  });
+
+  it("waits for the export, then runs once", async () => {
+    expect(await runSearchFromStore()).toBe(false);
+    await vi.advanceTimersByTimeAsync(200);
+    expect(api.startSearch).not.toHaveBeenCalled();
+    expect(useDesktopStore.getState().isSearching).toBe(false);
+
+    useDesktopStore.getState().setExporting(false);
+    await vi.advanceTimersByTimeAsync(200);
+    expect(api.startSearch).toHaveBeenCalledTimes(1);
+    expect(useDesktopStore.getState()).toMatchObject({ isSearching: false, rowsSetups: 1 });
+
+    useDesktopStore.getState().setExporting(true);
+    useDesktopStore.getState().setExporting(false);
+    await vi.advanceTimersByTimeAsync(200);
+    expect(api.startSearch).toHaveBeenCalledTimes(1);
+  });
+
+  it("runs only the latest waiting request", async () => {
+    const first = { ...defaultRequest, topK: 10 };
+    const latest = { ...defaultRequest, topK: 30 };
+    await runSearchFromStore(first);
+    await runSearchFromStore(latest);
+
+    useDesktopStore.getState().setExporting(false);
+    await vi.advanceTimersByTimeAsync(200);
+    expect(api.startSearch).toHaveBeenCalledTimes(1);
+    expect(api.startSearch).toHaveBeenCalledWith(latest);
+  });
+
+  it("does not search when the export ended because game data is reloading", async () => {
+    await runSearchFromStore();
+    useDesktopStore.setState({ isExporting: false, catalogStatus: "loading" });
+    await vi.advanceTimersByTimeAsync(200);
+    expect(api.startSearch).not.toHaveBeenCalled();
+  });
+
+  it("shows that a search is queued until the export finishes", async () => {
+    expect(useDesktopStore.getState().searchWaitingForExport).toBe(false);
+    await runSearchFromStore();
+    expect(useDesktopStore.getState().searchWaitingForExport).toBe(true);
+    useDesktopStore.getState().setExporting(false);
+    expect(useDesktopStore.getState().searchWaitingForExport).toBe(false);
+  });
+
+  it("drops a queued search when the profile or its data changed before the export finished", async () => {
+    await runSearchFromStore();
+    const { catalog, request } = useDesktopStore.getState();
+    useDesktopStore.setState({ request: { ...request, profileId: "convergence" } });
+    useDesktopStore.setState({ isExporting: false, catalogStatus: "ready" });
+    await vi.advanceTimersByTimeAsync(200);
+
+    useDesktopStore.setState({ isExporting: true, request });
+    await runSearchFromStore();
+    useDesktopStore.setState({ catalog: { ...catalog } as typeof catalog });
+    useDesktopStore.setState({ isExporting: false });
+    await vi.advanceTimersByTimeAsync(200);
+    expect(api.startSearch).not.toHaveBeenCalled();
+  });
+
+  it("forgets a queued search when the profile switch clears it", async () => {
+    await runSearchFromStore();
+    useDesktopStore.setState({ searchWaitingForExport: false });
+    useDesktopStore.setState({ isExporting: false });
+    await vi.advanceTimersByTimeAsync(200);
+    expect(api.startSearch).not.toHaveBeenCalled();
+  });
+});

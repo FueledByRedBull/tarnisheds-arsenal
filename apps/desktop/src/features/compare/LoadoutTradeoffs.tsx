@@ -379,13 +379,13 @@ function TradeoffInspection({
       <p><strong>Loadout</strong> {point.result.weaponName} / {point.result.affinity} / {point.result.aowName ?? "No skill"} / +{point.result.upgrade}</p>
       <p><strong>Full stat spread</strong> {fullStatLine(current, point.result)}</p>
       <p><strong>Changes from your current stats</strong> {formatStatDelta(current, point.result)}</p>
-      <button type="button" disabled={isExporting} onClick={() => {
+      <button type="button" disabled={isExporting} aria-describedby={isExporting ? "tradeoff-export-hint" : undefined} onClick={() => {
         const state = useDesktopStore.getState();
-        state.patchRequest({ objective: "max_ar" });
         state.useRowAsLocks(point.result);
         state.setWorkspace("rankings");
         void runSearchFromStore();
       }}>Use exact allocation</button>
+      {isExporting ? <small id="tradeoff-export-hint">Available when the CSV export finishes.</small> : null}
       <small>Modeled AR and buildup; this does not predict bleed procs or damage after enemy defenses.</small>
     </div>
   );
