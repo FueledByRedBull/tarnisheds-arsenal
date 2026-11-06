@@ -53,6 +53,8 @@ PROJECTILE_HIT_COUNT_SOURCES = {300200867: (2300, 4)}
 # ArtsCaption 1017 permits the same thrust after either projectile charge.
 SHARED_CHARGE_ATTACK_SOURCES = {(1017, 300107910): 'Glintstone Dart R2'}
 # WeaponData keys these weapons by their Heavy (+100) param IDs.
+# The workbook lists these two weapons under their Heavy IDs, so their saWeaponDamage is the
+# Heavy param's, not the Standard one. Base poise therefore comes from the regulation.
 WORKBOOK_WEAPON_ID_CORRECTIONS = {
     12_520_100: (12_520_000, 'Black Steel Greathammer'),
     22_000_100: (22_000_000, 'Hookclaws'),
@@ -154,7 +156,6 @@ class WeaponWorkbookData:
     weapon_id: int
     weapon_class: str
     name: str
-    base_poise: float
     stamina_consumption_rate: float
     physical_attribute_primary: str
     physical_attribute_secondary: str
@@ -306,7 +307,6 @@ def load_weapon_workbook_data(workbook_path: Path) -> dict[int, WeaponWorkbookDa
         'staminaConsumptionRate',
         'atkAttribute',
         'atkAttribute2',
-        'saWeaponDamage',
     }
     missing = sorted(required_headers.difference(header_idx))
     if missing:
@@ -356,7 +356,6 @@ def load_weapon_workbook_data(workbook_path: Path) -> dict[int, WeaponWorkbookDa
             weapon_id=weapon_id,
             weapon_class=values[header_idx['Weapon Class']].strip(),
             name=weapon_name,
-            base_poise=parse_float(values[header_idx['saWeaponDamage']]),
             stamina_consumption_rate=parse_float(
                 values[header_idx['staminaConsumptionRate']]
             ),

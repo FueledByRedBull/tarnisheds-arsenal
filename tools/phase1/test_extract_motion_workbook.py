@@ -279,11 +279,9 @@ class MotionWorkbookTests(unittest.TestCase):
     def test_weapon_ids_are_exact_standard_ids_with_named_corrections(self) -> None:
         weapons = load_weapon_workbook_data(DATA_DIR / MOTION_WORKBOOK_NAME)
         self.assertTrue(all(weapon_id % 10_000 == 0 for weapon_id in weapons))
-        for weapon_id, name, poise in ((12_520_000, 'Black Steel Greathammer', 7.0),
-                                       (22_000_000, 'Hookclaws', 4.0)):
+        for weapon_id, name in ((12_520_000, 'Black Steel Greathammer'), (22_000_000, 'Hookclaws')):
             with self.subTest(name=name):
                 self.assertEqual(weapons[weapon_id].name, name)
-                self.assertEqual(weapons[weapon_id].base_poise, poise)
                 self.assertNotIn(weapon_id + 100, weapons)
 
     def test_117_weapon_moves_and_placeholder_prefix(self) -> None:
@@ -291,7 +289,6 @@ class MotionWorkbookTests(unittest.TestCase):
         reverse_blade = next(weapon for weapon in weapons.values() if weapon.name == "Reverse-Bladed Sword")
 
         self.assertEqual(reverse_blade.move_count, 68)
-        self.assertEqual(reverse_blade.base_poise, 5.0)
         self.assertEqual(reverse_blade.one_hand_light_poise, "5.0")
         self.assertEqual(reverse_blade.two_hand_light_poise, "3 + 3")
         self.assertEqual(extract_variant("[Placeholder] Muleta"), "")

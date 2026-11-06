@@ -899,8 +899,8 @@ def _validate_vanilla_snapshot(
         )
 
     def poise(values: Mapping[str, object]) -> tuple[object, ...]:
-        return (float(str(values["base_poise"])), int(str(values["move_count"])),
-                *(str(values[field]) for field in WORKBOOK_POISE_FIELDS[2:]))
+        return (int(str(values["move_count"])),
+                *(str(values[field]) for field in WORKBOOK_POISE_FIELDS[1:]))
 
     poise_mismatches = [
         row["weapon_id"]

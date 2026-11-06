@@ -104,7 +104,6 @@ WEAPON_MODEL_FIELDS = (
     *(field for field, _ in PHYSICAL_ATTACK_FLAGS),
 )
 WORKBOOK_POISE_FIELDS = (
-    "base_poise",
     "move_count",
     "one_hand_light_poise",
     "one_hand_heavy_poise",
@@ -927,8 +926,7 @@ def build_weapon_rows(
             {field: getattr(workbook_weapon, field) for field in WORKBOOK_POISE_FIELDS}
             if workbook_weapon is not None
             # Without a workbook the skill animation export fills in the moves.
-            else dict.fromkeys(WORKBOOK_POISE_FIELDS, "")
-            | {"base_poise": to_float(row, "saWeaponDamage", None), "move_count": 0}
+            else dict.fromkeys(WORKBOOK_POISE_FIELDS, "") | {"move_count": 0}
         )
 
         rows_out.append(
@@ -942,6 +940,7 @@ def build_weapon_rows(
                 "weight": to_float(row, "weight", None),
                 "critical_damage_percent": 100 + to_int(row, "throwAtkRate", None),
                 "stamina_consumption_rate": stamina_consumption_rate,
+                "base_poise": to_float(row, "saWeaponDamage", None),
                 **poise,
                 "physical_attribute_primary": physical_attribute_primary,
                 "physical_attribute_secondary": physical_attribute_secondary,

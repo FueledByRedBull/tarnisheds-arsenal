@@ -37,7 +37,7 @@ recover original decimal precision or establish in-game accuracy. The
 arithmetic, tie order, and proof obligations.
 
 The current snapshot model is `aow-routes-effects-v9`; runtime results and caches
-use `aow-routes-effects-v9/exact-v3`. The bundled datasets are `vanilla-1.17.2` and
+use `aow-routes-effects-v9/exact-v3`. The bundled datasets are `vanilla-1.17.2-r2` and
 `convergence-3.0.3.0-r4`, written by extractor `phase1-python-v15-f32-shortest-floats`.
 Every snapshot float is the shortest decimal that parses to the `f32` nearest the
 extracted value, so loaded coefficients are exactly those `f32` values.
