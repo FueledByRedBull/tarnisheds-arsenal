@@ -8,6 +8,7 @@ use tauri::Manager;
 mod commands;
 mod dto;
 mod errors;
+mod request;
 
 // Worker panics become a retryable job error only while panics unwind.
 #[cfg(panic = "abort")]
