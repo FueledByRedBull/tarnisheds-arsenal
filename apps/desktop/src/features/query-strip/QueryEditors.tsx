@@ -3,7 +3,7 @@ import { useId } from "react";
 import { AowSelect } from "../../lib/AowSelect";
 import { objectiveLabel, statLockLine } from "../../lib/format";
 import { CheckboxMultiSelect, SearchableSelect, openOption } from "../../lib/SearchableSelect";
-import { classLabel, classOptions, clearTypeAndAffinityFilters, hasCombatStatLocks, replaceFilterEntries } from "../../lib/session";
+import { classLabel, classOptions, clearTypeAndAffinityFilters, hasCombatStatLocks, replaceFilterEntries, upgradeCapPatch } from "../../lib/session";
 import { useDesktopStore } from "../../lib/state";
 import { CatalogDto, FilterDimensionDto, ObjectiveId, OptimizeRequestDto, WeaponProfileDto } from "../../lib/types";
 import { DraftNumberInput } from "./DraftNumberInput";
@@ -252,7 +252,7 @@ export function UpgradeEditor({ request, patchRequest, separateUpgradeCaps, stan
               max={standardUpgradeLimit}
               value={request.standardMaxUpgrade}
               describedBy={unifiedNoteId}
-              onCommit={(upgrade) => patchRequest({ standardMaxUpgrade: upgrade, somberMaxUpgrade: upgrade })}
+              onCommit={(upgrade) => patchRequest(upgradeCapPatch(separateUpgradeCaps, false, upgrade))}
             />
           </label>
           <small className="editor-note" id={unifiedNoteId}>Convergence uses one +0 to +{standardUpgradeLimit} reinforcement path for every weapon.</small>

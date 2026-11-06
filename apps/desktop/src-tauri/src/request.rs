@@ -183,12 +183,13 @@ pub fn set_min_stats(request: &mut OptimizeRequest, mins: [u8; COMBAT_STAT_COUNT
     request.min_combat_stats = mins;
 }
 
-pub fn set_exact_upgrade(request: &mut OptimizeRequest, upgrade: u8, is_somber: bool) {
-    if is_somber {
-        request.somber_max_upgrade = upgrade;
-    } else {
-        request.standard_max_upgrade = upgrade;
-    }
+pub fn set_exact_upgrade(
+    request: &mut OptimizeRequest,
+    profile: &ProfileData,
+    upgrade: u8,
+    is_somber: bool,
+) {
+    request.set_upgrade_cap(is_somber, upgrade, &profile.data.rules);
     request.exact_upgrade = true;
 }
 
@@ -200,14 +201,11 @@ pub fn set_upgrade_range(
     is_somber: bool,
     max_upgrade: u8,
 ) {
+    let rules = &profile.data.rules;
     request.exact_upgrade = false;
-    request.standard_max_upgrade = profile.data.rules.standard_max_upgrade;
-    request.somber_max_upgrade = profile.data.rules.somber_max_upgrade;
-    if is_somber {
-        request.somber_max_upgrade = max_upgrade;
-    } else {
-        request.standard_max_upgrade = max_upgrade;
-    }
+    request.standard_max_upgrade = rules.standard_max_upgrade;
+    request.somber_max_upgrade = rules.somber_max_upgrade;
+    request.set_upgrade_cap(is_somber, max_upgrade, rules);
 }
 
 /// Fits the upgrade caps to the profile and to the pinned weapon. An exact upgrade is
@@ -228,11 +226,7 @@ pub fn settle_upgrade_caps(
         let Some((is_somber, _)) = weapon else {
             return Ok(());
         };
-        let requested = if is_somber {
-            request.somber_max_upgrade
-        } else {
-            request.standard_max_upgrade
-        };
+        let requested = request.upgrade_cap(is_somber, &profile.data.rules);
         let available = profile.data.weapons.iter().any(|weapon| {
             request
                 .weapon_name
@@ -260,14 +254,10 @@ pub fn settle_upgrade_caps(
     request.somber_max_upgrade = request
         .somber_max_upgrade
         .min(profile.data.rules.somber_max_upgrade);
-    match weapon {
-        Some((true, weapon_cap)) => {
-            request.somber_max_upgrade = request.somber_max_upgrade.min(weapon_cap);
-        }
-        Some((false, weapon_cap)) => {
-            request.standard_max_upgrade = request.standard_max_upgrade.min(weapon_cap);
-        }
-        None => {}
+    if let Some((is_somber, weapon_cap)) = weapon {
+        let rules = &profile.data.rules;
+        let cap = request.upgrade_cap(is_somber, rules).min(weapon_cap);
+        request.set_upgrade_cap(is_somber, cap, rules);
     }
     Ok(())
 }
@@ -311,4 +301,76 @@ pub fn job_status<T: Clone + Send + 'static>(
 ) -> Result<Option<T>, AppError> {
     check_len("jobId", job_id)?;
     jobs.status(job_id)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn request_for(profile: &ProfileData, standard: u8, somber: u8) -> OptimizeRequest {
+        let mut dto = crate::test_optimize_request();
+        dto.profile_id = profile.data_manifest.profile.id.clone();
+        dto.standard_max_upgrade = Some(standard);
+        dto.somber_max_upgrade = Some(somber);
+        OptimizeRequest::try_from(&dto).unwrap()
+    }
+
+    fn caps(request: &OptimizeRequest) -> (u8, u8) {
+        (request.standard_max_upgrade, request.somber_max_upgrade)
+    }
+
+    #[test]
+    fn a_single_path_profile_states_one_exact_upgrade_in_both_caps() {
+        let state = crate::test_app_state();
+        let convergence = state.profile("convergence").unwrap();
+        for is_somber in [false, true] {
+            let mut request = request_for(convergence, 15, 15);
+            set_exact_upgrade(&mut request, convergence, 7, is_somber);
+            assert_eq!(caps(&request), (7, 7));
+            assert!(request.exact_upgrade);
+        }
+        let vanilla = state.profile("vanilla").unwrap();
+        let mut request = request_for(vanilla, 25, 10);
+        set_exact_upgrade(&mut request, vanilla, 7, true);
+        assert_eq!(caps(&request), (25, 7));
+        set_exact_upgrade(&mut request, vanilla, 3, false);
+        assert_eq!(caps(&request), (3, 7));
+    }
+
+    #[test]
+    fn a_single_path_profile_states_one_upgrade_range_in_both_caps() {
+        let state = crate::test_app_state();
+        let convergence = state.profile("convergence").unwrap();
+        for is_somber in [false, true] {
+            let mut request = request_for(convergence, 15, 15);
+            request.exact_upgrade = true;
+            set_upgrade_range(&mut request, convergence, is_somber, 5);
+            assert_eq!(caps(&request), (5, 5));
+            assert!(!request.exact_upgrade);
+        }
+        let vanilla = state.profile("vanilla").unwrap();
+        let mut request = request_for(vanilla, 3, 3);
+        set_upgrade_range(&mut request, vanilla, true, 5);
+        assert_eq!(caps(&request), (25, 5));
+        set_upgrade_range(&mut request, vanilla, false, 5);
+        assert_eq!(caps(&request), (5, 10));
+    }
+
+    #[test]
+    fn settling_a_single_path_profile_fits_the_one_cap_to_the_weapon() {
+        let state = crate::test_app_state();
+        let convergence = state.profile("convergence").unwrap();
+        let weapon = convergence
+            .data
+            .weapons
+            .iter()
+            .find(|weapon| weapon.is_somber && convergence.data.weapon_ar_supported(weapon))
+            .expect("Convergence has a somber weapon");
+        let mut request = request_for(convergence, 3, 15);
+        request.weapon_name = Some(weapon.name.clone());
+        request.affinity = Some(weapon.affinity.clone());
+        request.exact_upgrade = false;
+        settle_upgrade_caps(&mut request, convergence).unwrap();
+        assert_eq!(caps(&request), (3, 3));
+    }
 }

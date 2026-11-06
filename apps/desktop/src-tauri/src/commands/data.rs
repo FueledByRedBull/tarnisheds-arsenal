@@ -589,11 +589,7 @@ pub fn compatible_aow_names_inner(
 
 /// Highest level within the profile's cap that this row's reinforcement table defines.
 pub fn weapon_row_upgrade_cap(data: &GameData, weapon: &Weapon) -> Option<u8> {
-    let cap = if weapon.is_somber {
-        data.rules.somber_max_upgrade
-    } else {
-        data.rules.standard_max_upgrade
-    };
+    let cap = data.rules.max_upgrade(weapon.is_somber);
     (0..=cap)
         .rev()
         .find(|&level| data.reinforce_level(weapon.reinforce_type, level).is_some())

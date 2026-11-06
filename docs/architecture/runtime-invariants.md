@@ -47,6 +47,11 @@ Status: accepted. These rules describe contracts that tests and future refactors
   allows 2,000 rows so CSV exports fit. Saved presets and builds are checked against
   tighter frontend limits (500 results, names up to 200 characters), and native
   validation still applies when they are searched.
+- The core owns the upgrade-cap rule. A profile whose manifest sets
+  `separateUpgradeCaps` to false has one cap for every weapon, and the core reads it
+  from `standardMaxUpgrade`, ignoring `somberMaxUpgrade`. Callers set a cap through
+  `OptimizeRequest::set_upgrade_cap` (native) or `upgradeCapPatch` (frontend), which
+  write both fields so the request states the same cap for every weapon.
 - The main window may navigate only within the app origin; the Vite dev server is
   allowed only in development builds. New-window requests (`window.open`,
   `target="_blank"`) are denied: the app registers no new-window handler, and wry

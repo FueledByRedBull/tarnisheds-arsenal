@@ -2,7 +2,7 @@ import { ArrowDown, ArrowDownUp, ArrowUp, ChevronLeft, ChevronRight, CircleHelp,
 import { memo, ReactNode, useCallback, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { downloadText, rankingsCsvFilename, rankingsToCsv } from "../../lib/csv";
 import { aowModelSupported, compactNumber, errorMessage, fixed1, hasAowDamage, metricForObjective, objectiveLabel } from "../../lib/format";
-import { buildOptimizeRequest, hasCombatStatLocks, rowFingerprint, usesFixedStats } from "../../lib/session";
+import { buildOptimizeRequest, hasCombatStatLocks, rowFingerprint, upgradeCapPatch, usesFixedStats } from "../../lib/session";
 import { EASE_OUT, reducedMotion, settleRanking } from "../../lib/motion";
 import { RankedEntry, RankMovement, RankSortKey, rankMovements, sortRanked } from "../../lib/ranking-view";
 import { useDesktopStore } from "../../lib/state";
@@ -309,7 +309,7 @@ export function RankingsBoard() {
       aowName: null,
       somberFilter: "all",
       filters: { version: 1, entries: [] },
-      standardMaxUpgrade: 3,
+      ...upgradeCapPatch(separateUpgradeCaps, false, 3),
       exactUpgrade: true,
       objective: "max_ar",
     });

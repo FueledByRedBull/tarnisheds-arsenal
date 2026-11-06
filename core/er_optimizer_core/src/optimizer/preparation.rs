@@ -277,7 +277,7 @@ pub(super) fn available_upgrades(
         return None;
     }
 
-    let cap = upgrade_cap_for_weapon(weapon, request);
+    let cap = request.upgrade_cap(weapon.is_somber, &data.rules);
 
     if request.exact_upgrade {
         let fixed = cap;
@@ -295,14 +295,6 @@ pub(super) fn available_upgrades(
         })
         .collect();
     (!out.is_empty()).then_some(out)
-}
-
-pub(super) fn upgrade_cap_for_weapon(weapon: &Weapon, request: &OptimizeRequest) -> u8 {
-    if weapon.is_somber {
-        request.somber_max_upgrade
-    } else {
-        request.standard_max_upgrade
-    }
 }
 
 type AshTemplate<'a> = Vec<(
