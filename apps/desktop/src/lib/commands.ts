@@ -1,5 +1,5 @@
 import { objectiveLabel } from "./format";
-import { classMeta, clampHorizon, derivedLevel, hasCombatStatLocks, replaceFilterEntries } from "./session";
+import { classLabel, classMeta, clampHorizon, derivedLevel, hasCombatStatLocks, replaceFilterEntries } from "./session";
 import { CatalogDto, ObjectiveId, OptimizeRequestDto, WorkspaceTab } from "./types";
 
 // The command palette's vocabulary. Parsing is pure: it returns data describing what to do,
@@ -230,7 +230,7 @@ function entityCommands({ catalog, request }: CommandContext): Command[] {
     named = [
       // Custom stats has no base values to apply; it is chosen in the class editor.
       ...(catalog.dataManifest.capabilities.classBudget ? catalog.classes : [])
-        .filter((entry) => entry.name !== "Custom stats").map((entry) => command(`class-${entry.name}`, "Class", `Class: ${entry.name}`, `Starts at level ${entry.baseLevel}`,
+        .filter((entry) => entry.name !== "Custom stats").map((entry) => command(`class-${entry.name}`, "Class", `Class: ${classLabel(catalog, entry.name)}`, `Starts at level ${entry.baseLevel}`,
         { kind: "class", className: entry.name })),
       ...catalog.weaponNames.map((name) => command(`weapon-${name}`, "Weapon", `Weapon: ${name}`, undefined, { kind: "weapon", weaponName: name })),
       ...catalog.aowNames.map((name) => command(`aow-${name}`, "Skill", `Skill: ${name}`, undefined, { kind: "patch", patch: { aowName: name } })),

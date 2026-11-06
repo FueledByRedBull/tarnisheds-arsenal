@@ -117,6 +117,15 @@ export function usesFixedStats(catalog: CatalogDto | null, className: string): b
   return catalog?.dataManifest.capabilities.classBudget === false || className === CUSTOM_STATS_CLASS;
 }
 
+/** Vanilla classes that ship only with the paid Tarnished Pack. */
+const TARNISHED_PACK_CLASSES = new Set(["Idus Knight", "Heavy Knight"]);
+
+export function classLabel(catalog: CatalogDto | null, className: string): string {
+  return catalog?.dataManifest.profile.id === "vanilla" && TARNISHED_PACK_CLASSES.has(className)
+    ? `${className} (Tarnished Pack)`
+    : className;
+}
+
 export function classOptions(catalog: CatalogDto | null): ClassMetadataDto[] {
   return catalog?.classes.length ? catalog.classes : STARTING_CLASS_METADATA;
 }

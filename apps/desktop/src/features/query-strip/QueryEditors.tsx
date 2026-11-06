@@ -3,7 +3,7 @@ import { useId } from "react";
 import { AowSelect } from "../../lib/AowSelect";
 import { objectiveLabel, statLockLine } from "../../lib/format";
 import { CheckboxMultiSelect, SearchableSelect, openOption } from "../../lib/SearchableSelect";
-import { classOptions, clearTypeAndAffinityFilters, hasCombatStatLocks, replaceFilterEntries } from "../../lib/session";
+import { classLabel, classOptions, clearTypeAndAffinityFilters, hasCombatStatLocks, replaceFilterEntries } from "../../lib/session";
 import { useDesktopStore } from "../../lib/state";
 import { CatalogDto, FilterDimensionDto, ObjectiveId, OptimizeRequestDto, WeaponProfileDto } from "../../lib/types";
 import { DraftNumberInput } from "./DraftNumberInput";
@@ -49,7 +49,7 @@ export function ClassEditor({ catalog, request, fixedStats, applyClass, onOptimi
         label="Class"
         disabled={noClasses}
         value={request.className}
-        options={classOptions(catalog).map((entry) => ({ value: entry.name, label: entry.name }))}
+        options={classOptions(catalog).map((entry) => ({ value: entry.name, label: classLabel(catalog, entry.name) }))}
         onChange={(value) => value && applyClass(value)}
       />
       <div className="editor-actions">

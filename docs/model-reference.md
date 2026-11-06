@@ -65,7 +65,10 @@ App Ver. 1.17 workbook. Objectives are **Max AR**,
 **AoW Sequence**. The two skill objectives model PvE damage.
 
 - Starting class, current stats, level, minimums, exact locks, and weapon
-  requirements constrain the stat budget.
+  requirements constrain the stat budget. Requirements are hard limits: the game
+  lets a weapon be used below them with a scaling penalty, but the optimizer never
+  ranks such a build. Idus Knight and Heavy Knight are offered from game version
+  1.17 and marked "(Tarnished Pack)", since they come with that paid pack.
 - Upgrade searches use either exact caps or every available level from `+0` to
   the caps. Standard and Somber paths have separate caps; a weapon's actual
   reinforcement series can end earlier.

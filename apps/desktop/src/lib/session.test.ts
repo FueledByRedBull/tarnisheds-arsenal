@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { buildOptimizeRequest, classMeta, derivedLevel, EIGHT_STAT_KEYS, optimalStartingClass, replaceFilterEntries, respecChanges, rowFingerprint, scalingLetter, stableSignature, STARTING_CLASS_METADATA, startingClassLevel } from "./session";
+import { buildOptimizeRequest, classLabel, classMeta, derivedLevel, EIGHT_STAT_KEYS, optimalStartingClass, replaceFilterEntries, respecChanges, rowFingerprint, scalingLetter, stableSignature, STARTING_CLASS_METADATA, startingClassLevel } from "./session";
 import { solvedBuild } from "./test-fixtures";
 import { defaultRequest } from "./state";
 import type { CatalogDto } from "./types";
@@ -132,5 +132,20 @@ describe("stat changes", () => {
 
   it("is empty when the build uses the stats as entered", () => {
     expect(respecChanges(solvedBuild({ stats: { strStat: 12, dex: 15, intStat: 9, fai: 8, arc: 8 } }), entered)).toEqual([]);
+  });
+});
+
+describe("class labels", () => {
+  const catalog = (profileId: string) => ({ dataManifest: { profile: { id: profileId } } }) as unknown as CatalogDto;
+
+  it("marks the Vanilla classes that come with the paid Tarnished Pack", () => {
+    expect(classLabel(catalog("vanilla"), "Idus Knight")).toBe("Idus Knight (Tarnished Pack)");
+    expect(classLabel(catalog("vanilla"), "Heavy Knight")).toBe("Heavy Knight (Tarnished Pack)");
+    expect(classLabel(catalog("vanilla"), "Samurai")).toBe("Samurai");
+  });
+
+  it("leaves another profile's class names as the profile defines them", () => {
+    expect(classLabel(catalog("convergence"), "Heavy Knight")).toBe("Heavy Knight");
+    expect(classLabel(null, "Idus Knight")).toBe("Idus Knight");
   });
 });
