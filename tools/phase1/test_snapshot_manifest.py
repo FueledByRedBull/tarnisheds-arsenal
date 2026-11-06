@@ -7,8 +7,13 @@ import unittest
 from pathlib import Path
 from typing import Any
 
-from tools.phase1.profiles import profile_definition
+from tools.phase1 import phase1_dump
+from tools.phase1.profiles import PROFILE_DIRECTORIES, PROFILE_FACTS, profile_definition
 from tools.phase1.snapshot_manifest import (
+    CLASS_CATALOG_FILE,
+    EXTRACTOR_VERSION,
+    MODEL_VERSION,
+    SCHEMA_VERSION,
     check_snapshot_destination,
     runtime_files_for,
     promote_snapshot,
@@ -65,7 +70,7 @@ class SnapshotPromotionTests(unittest.TestCase):
         )
 
     def test_regulation_source_must_match_the_profile_pin(self) -> None:
-        for profile_id, directory in (("vanilla", "data/phase1"), ("convergence", "data/profiles/convergence")):
+        for profile_id, directory in PROFILE_DIRECTORIES.items():
             with self.subTest(profile=profile_id):
                 validate_snapshot_manifest(ROOT / directory, profile_definition(profile_id))
         with tempfile.TemporaryDirectory() as temporary:
@@ -197,6 +202,22 @@ class SnapshotPromotionTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 promote_snapshot(staging, destination)
             self.assertEqual(self._files(destination), before)
+
+
+class ProfileFactsTests(unittest.TestCase):
+    def test_every_profile_has_a_definition_and_a_matching_shipped_manifest(self) -> None:
+        for profile_id, directory in PROFILE_DIRECTORIES.items():
+            with self.subTest(profile=profile_id):
+                self.assertEqual(profile_definition(profile_id).output_dir, directory)
+                manifest = json.loads((ROOT / directory / "manifest.json").read_text(encoding="utf-8"))
+                self.assertEqual(manifest["profile"]["id"], profile_id)
+                self.assertEqual(manifest["schemaVersion"], SCHEMA_VERSION)
+                self.assertEqual(manifest["modelVersion"], MODEL_VERSION)
+                self.assertEqual(manifest["extractorVersion"], EXTRACTOR_VERSION)
+
+    def test_class_facts_agree_with_the_extractor(self) -> None:
+        self.assertEqual(phase1_dump.CLASS_CATALOG_FILE, CLASS_CATALOG_FILE)
+        self.assertEqual(phase1_dump.CLASS_LEVEL_OFFSET, PROFILE_FACTS["classLevelOffset"])
 
 
 if __name__ == "__main__":
