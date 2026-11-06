@@ -57,9 +57,9 @@ They establish implementation agreement for their fixtures, not gameplay fidelit
 
 ## Vanilla
 
-The bundled snapshot targets **Elden Ring 1.17.2** (regulation 1.17.3). That patch
-changed only the Fletched Piquebone Arrow projectile's attack link, so every
-extracted table is byte-identical to 1.17; motion data still comes from the
+The bundled snapshot targets **Elden Ring 1.17.2** (regulation 1.17.3). That patch's
+Piquebone arrow changes touch only projectile attack links, which no extracted table
+holds, so every extracted table is byte-identical to 1.17; motion data still comes from the
 App Ver. 1.17 workbook. Objectives are **Max AR**,
 **Max Physical AR**, **Bleed, then AR**, **AoW First Hit**, and
 **AoW Sequence**. The two skill objectives model PvE damage.
@@ -116,12 +116,17 @@ The following special cases depend on raw attack provenance:
 
 Carian Retaliation's numeric 270 comes from the raw parameters. The
 [official Patch 1.04 notes](https://en.bandainamcoent.eu/elden-ring/news/elden-ring-patch-notes-104)
-support removal of weapon/status scaling, not that numeric value. Katar, Pata,
-and Raptor Talons apply 110% to Lifesteal Fist's grab rows.
+support removal of weapon/status scaling, not that numeric value, and whether the
+270 stays fixed at every upgrade is not confirmed. The Ice Lightning Sword bases are
+raw parameter values; that the game applies them to the player's bullets rests on the
+community motion workbook. Katar, Pata and Raptor Talons carry a 110% critical
+multiplier in the data, and the app applies it to Lifesteal Fist's grab rows; no
+primary source confirms the game does. None of these cases is measured in game.
 
 One weapon exception applies to status: the Vanilla Occult Fingerprint Stone
-Shield (weapon `32131200`) has no Madness buildup despite its passive
-parameters, matching the pinned 1.17 reference calculator.
+Shield (weapon `32131200`) gets no Madness buildup, although its passive parameters
+list 70, as the Standard version's do. This follows the pinned 1.17 reference
+calculator, whose only support for it is a comment in its source.
 
 Chilling Mist and Poisonous Mist retain separate weapon/on-hit effect records,
 but their overlapping status increments remain unmodeled: available sources

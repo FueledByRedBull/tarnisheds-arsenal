@@ -1122,18 +1122,18 @@ pub(super) fn damage_type_stat_can_scale(
 ) -> bool {
     let id = override_id.unwrap_or(weapon.attack_element_correct_id);
     let damage_idx = damage_type.as_index();
-    if let Some(ext) = data.attack_element_ext(id) {
-        return ext.stat_scales(stat_idx, damage_idx)
-            && ext
-                .overwrite_rate(stat_idx, damage_idx)
-                .unwrap_or(weapon.scaling[stat_idx] * ext.influence_rate(stat_idx, damage_idx))
-                > 0.0;
-    }
-    override_id.is_none()
-        && weapon.scaling[stat_idx] > 0.0
-        && data
-            .attack_element(id)
-            .is_none_or(|aec| aec.stat_scales(stat_idx, damage_type))
+    let record = match (data.attack_element_ext(id), override_id) {
+        (Some(ext), _) => crate::math::correction::Record::Ext(ext),
+        (None, Some(_)) => return false,
+        (None, None) => match data.attack_element(id) {
+            Some(plain) => crate::math::correction::Record::Plain(plain),
+            // Loading rejects a weapon without its record; counting the stat keeps the
+            // active-stat selection a superset.
+            None => return weapon.scaling[stat_idx] > 0.0,
+        },
+    };
+    record.scales(stat_idx, damage_idx)
+        && record.ar_scaling(weapon.scaling[stat_idx], stat_idx, damage_idx) > 0.0
 }
 
 #[cfg(test)]

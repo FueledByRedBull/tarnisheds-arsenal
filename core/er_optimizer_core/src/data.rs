@@ -2309,6 +2309,11 @@ mod tests {
         }
     }
 
+    /// The smallest key, so a test that copies "some row" copies the same one every run.
+    fn smallest_key<K: Ord + Copy, V>(map: &std::collections::HashMap<K, V>) -> K {
+        *map.keys().min().expect("table has rows")
+    }
+
     #[test]
     fn dangling_references_are_rejected_for_every_table() {
         let base = load_embedded_game_profile(VANILLA_PROFILE_ID).unwrap();
@@ -2334,55 +2339,52 @@ mod tests {
             (
                 "aow_attack_data.csv references unknown aow_id",
                 |data, ash, _| {
-                    let rows = data.aow_attack_rows.values().next().unwrap().clone();
+                    let rows = data.aow_attack_rows[&smallest_key(&data.aow_attack_rows)].clone();
                     data.aow_attack_rows.insert(ash, rows);
                 },
             ),
             (
                 "aow_effect_data.csv references unknown aow_id",
                 |data, ash, _| {
-                    let effects = data.aow_effects.values().next().unwrap().clone();
+                    let effects = data.aow_effects[&smallest_key(&data.aow_effects)].clone();
                     data.aow_effects.insert((ash, 0), effects);
                 },
             ),
             (
                 "aow_route_assignments.csv references unknown aow_id",
                 |data, ash, _| {
-                    let routes = data.aow_route_assignments.values().next().unwrap().clone();
+                    let routes = data.aow_route_assignments
+                        [&smallest_key(&data.aow_route_assignments)]
+                        .clone();
                     data.aow_route_assignments.insert((ash, 0), routes);
                 },
             ),
             (
                 "native_skill_attack_data.csv references unknown weapon_id",
                 |data, _, weapon| {
-                    let rows = data
-                        .native_skill_attack_rows
-                        .values()
-                        .next()
-                        .unwrap()
+                    let rows = data.native_skill_attack_rows
+                        [&smallest_key(&data.native_skill_attack_rows)]
                         .clone();
                     data.native_skill_attack_rows.insert(weapon, rows);
                 },
             ),
             ("native_skill_attack_data.csv weapon", |data, ash, _| {
-                let rows = data.native_skill_attack_rows.values_mut().next().unwrap();
+                let key = smallest_key(&data.native_skill_attack_rows);
+                let rows = data.native_skill_attack_rows.get_mut(&key).unwrap();
                 rows[0].aow_id = ash;
             }),
             (
                 "weapon_passives.csv references unknown weapon_id",
                 |data, _, weapon| {
-                    let passive = *data.weapon_passives.values().next().unwrap();
+                    let passive = data.weapon_passives[&smallest_key(&data.weapon_passives)];
                     data.weapon_passives.insert(weapon, passive);
                 },
             ),
             (
                 "weapon_passive_overlays.csv references unknown weapon_id",
                 |data, _, weapon| {
-                    let overlay = data
-                        .weapon_passive_overlays
-                        .values()
-                        .next()
-                        .unwrap()
+                    let overlay = data.weapon_passive_overlays
+                        [&smallest_key(&data.weapon_passive_overlays)]
                         .clone();
                     data.weapon_passive_overlays.insert(weapon, overlay);
                 },
