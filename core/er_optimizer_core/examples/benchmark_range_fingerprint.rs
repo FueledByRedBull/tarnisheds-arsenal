@@ -114,13 +114,24 @@ fn main() -> Result<(), String> {
         ));
     }
     println!(
-        "{profile} {objective:?} {weapon} {aow} h={horizon} affinities={} solved={solved} median={:.1}ms min={:.1} max={:.1} fp_len={} fp_sha256={:x}",
+        "{profile} {objective:?} {weapon} {aow} h={horizon} affinities={} solved={solved} median={:.1}ms min={:.1} max={:.1} fp_len={} fp_sha256={}",
         affinities.len(),
         samples[samples.len() / 2],
         samples[0],
         samples[samples.len() - 1],
         fingerprint.len(),
-        Sha256::digest(fingerprint.as_bytes()),
+        lower_hex(&Sha256::digest(fingerprint.as_bytes())),
     );
     Ok(())
+}
+
+/// Lowercase hexadecimal, as the manifests record SHA-256 digests.
+fn lower_hex(bytes: &[u8]) -> String {
+    use std::fmt::Write;
+    bytes
+        .iter()
+        .fold(String::with_capacity(bytes.len() * 2), |mut hex, byte| {
+            write!(hex, "{byte:02x}").expect("writing to a String cannot fail");
+            hex
+        })
 }
