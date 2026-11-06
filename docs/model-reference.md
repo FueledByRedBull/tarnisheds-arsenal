@@ -119,6 +119,10 @@ Carian Retaliation's numeric 270 comes from the raw parameters. The
 support removal of weapon/status scaling, not that numeric value. Katar, Pata,
 and Raptor Talons apply 110% to Lifesteal Fist's grab rows.
 
+One weapon exception applies to status: the Vanilla Occult Fingerprint Stone
+Shield (weapon `32131200`) has no Madness buildup despite its passive
+parameters, matching the pinned 1.17 reference calculator.
+
 Chilling Mist and Poisonous Mist retain separate weapon/on-hit effect records,
 but their overlapping status increments remain unmodeled: available sources
 conflict on engine correction and stacking. They show warnings in AR results and
@@ -159,8 +163,9 @@ in-game measurement.
 
 **Custom stats** evaluates the entered stats exactly: its level is the
 eight-stat total, up to `8 × 99`, not a Rune Level, and every combat stat is
-locked to its entered value. Builds saved with it keep that budget. Vanilla offers
-only its own classes.
+locked to its entered value. Builds saved with it keep that budget. With a class,
+the level is a Rune Level, capped at 713 in both profiles. Vanilla offers only its
+own classes.
 
 What the regulation shows, and how the profile uses it:
 
