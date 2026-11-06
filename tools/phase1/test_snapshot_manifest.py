@@ -7,10 +7,8 @@ import unittest
 from pathlib import Path
 from typing import Any
 
-from tools.phase1 import phase1_dump
-from tools.phase1.profiles import PROFILE_DIRECTORIES, PROFILE_FACTS, profile_definition
+from tools.phase1.profiles import PROFILE_DIRECTORIES, profile_definition
 from tools.phase1.snapshot_manifest import (
-    CLASS_CATALOG_FILE,
     EXTRACTOR_VERSION,
     MODEL_VERSION,
     SCHEMA_VERSION,
@@ -214,10 +212,6 @@ class ProfileFactsTests(unittest.TestCase):
                 self.assertEqual(manifest["schemaVersion"], SCHEMA_VERSION)
                 self.assertEqual(manifest["modelVersion"], MODEL_VERSION)
                 self.assertEqual(manifest["extractorVersion"], EXTRACTOR_VERSION)
-
-    def test_class_facts_agree_with_the_extractor(self) -> None:
-        self.assertEqual(phase1_dump.CLASS_CATALOG_FILE, CLASS_CATALOG_FILE)
-        self.assertEqual(phase1_dump.CLASS_LEVEL_OFFSET, PROFILE_FACTS["classLevelOffset"])
 
 
 if __name__ == "__main__":

@@ -233,14 +233,6 @@ fn parse_and_validate_manifest(content: &[u8]) -> Result<SnapshotManifest, Strin
             "invalid runtime data manifest: upgrade rules exceed +{MAX_UPGRADE_LEVEL}"
         ));
     }
-    // The core never reads this flag, so only the behavior the shipped tables encode for
-    // `false` is supported; `true` would be a claim the math ignores.
-    if manifest.rules.zero_attack_element_uses_weapon_scaling {
-        return Err(
-            "invalid runtime data manifest: zeroAttackElementUsesWeaponScaling=true is not implemented by the core"
-                .to_string(),
-        );
-    }
     if !manifest.rules.separate_upgrade_caps
         && manifest.rules.standard_max_upgrade != manifest.rules.somber_max_upgrade
     {
@@ -638,18 +630,16 @@ mod tests {
     }
 
     #[test]
-    fn unimplemented_attack_element_rule_is_rejected_at_manifest_boundary() {
+    fn attack_element_fallback_rule_is_data_the_extractor_already_applied() {
+        // phase1_dump rewrites attack-element row 0 when this rule is on, so the tables
+        // carry it and the core reads only the tables.
         let snapshot = TestSnapshot::create();
         let mut manifest: Value =
             serde_json::from_slice(&fs::read(snapshot.path.join("manifest.json")).unwrap())
                 .unwrap();
         manifest["rules"]["zeroAttackElementUsesWeaponScaling"] = true.into();
-        let error =
-            parse_and_validate_manifest(&serde_json::to_vec(&manifest).unwrap()).unwrap_err();
-        assert!(
-            error.contains("zeroAttackElementUsesWeaponScaling=true"),
-            "{error}"
-        );
+        parse_and_validate_manifest(&serde_json::to_vec(&manifest).unwrap())
+            .expect("either rule value is valid manifest data");
     }
 
     #[test]

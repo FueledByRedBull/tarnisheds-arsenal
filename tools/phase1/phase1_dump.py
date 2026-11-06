@@ -25,7 +25,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from tools.phase1.param_binary import checked_xml_size  # noqa: E402
-from tools.phase1.profiles import discover_witchybnd, profile_definition  # noqa: E402
+from tools.phase1.profiles import PROFILE_FACTS, discover_witchybnd, profile_definition  # noqa: E402
 
 MAX_DISPLAYED_STAT = 99
 MAX_EFFECTIVE_STRENGTH = MAX_DISPLAYED_STAT * 3 // 2
@@ -39,7 +39,7 @@ SPEFFECT_PARAM = "SpEffectParam.param"
 CHARA_INIT_PARAM = "CharaInitParam.param"
 MATERIAL_PARAM = "EquipMtrlSetParam.param"
 CLASS_MENU_PARAM = "BaseChrSelectMenuParam.param"
-CLASS_CATALOG_FILE = "classes.csv"
+CLASS_CATALOG_FILE = PROFILE_FACTS["classCatalogFile"]
 CLASS_STAT_FIELDS = (
     ("vig", "baseVit"),
     ("mnd", "baseWil"),
@@ -50,8 +50,8 @@ CLASS_STAT_FIELDS = (
     ("fai", "baseFai"),
     ("arc", "baseLuc"),
 )
-# Rune Level is the eight-attribute total minus 79 for every class row.
-CLASS_LEVEL_OFFSET = 79
+# Rune Level is the eight-attribute total minus this offset for every class row.
+CLASS_LEVEL_OFFSET = PROFILE_FACTS["classLevelOffset"]
 WITCHYBND_TIMEOUT_SECONDS = 600
 # Share of non-empty name-table entries that may be unparseable before the file is rejected.
 MAX_MALFORMED_NAME_PERCENT = 1

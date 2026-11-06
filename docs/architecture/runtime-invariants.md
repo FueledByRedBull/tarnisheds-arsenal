@@ -177,7 +177,7 @@ Status: accepted. These rules describe contracts that tests and future refactors
   compatibility columns must exist even in empty tables; optional descriptions
   cannot supply defaults for missing calculation inputs.
 - The runtime profile registry contains an independently validated snapshot for every shipped profile. Commands select one explicit profile and never combine rows, jobs, lanes, caches, or metadata across profiles.
-- Every manifest binds its profile ID, display name, capability flags, mechanics rules, source hashes, and whether each source is bundled. Upgrade caps, upgrade-path shape, Scadutree availability, extended grades, status-scaling semantics, and attack-element fallback behavior are profile data and are enforced in both UI and core. Unsupported model areas use explicit capabilities and schema-only tables, never data copied from another profile.
+- Every manifest binds its profile ID, display name, capability flags, mechanics rules, source hashes, and whether each source is bundled. Upgrade caps, upgrade-path shape, Scadutree availability and status-scaling semantics are profile data enforced in both UI and core. `extendedScalingGrades` only controls how the UI displays scaling grades. `zeroAttackElementUsesWeaponScaling` is applied at extraction, which rewrites attack-element row 0, so the core reads it from the tables. Unsupported model areas use explicit capabilities and schema-only tables, never data copied from another profile.
 - Native skill identity remains anchored to the source `native_skill_id` when a
   localized label or motion rows are unavailable. The runtime may expose a null
   label and no damage rows, but it must not erase the ID or invent damage data.
