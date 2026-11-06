@@ -189,7 +189,8 @@ which would otherwise hold back the exit code.
 
 Both binaries contain the verified compile-time Vanilla and Convergence runtime
 snapshots. Neither needs an adjacent data directory, `regulation.bin`, FMG XML, or
-source workbook. The build report identifies both profile manifest IDs and the
+source workbook. Debug builds load the same embedded snapshots, so the packaged smoke
+on a `--debug` build exercises the shipped data path. The build report identifies both profile manifest IDs and the
 exact source commit. CI keeps the data-validation report as a workflow artifact;
 it is not duplicated as an end-user release asset. Published packages also carry
 GitHub build provenance attestations for the executable, MSI and ZIP; check a
