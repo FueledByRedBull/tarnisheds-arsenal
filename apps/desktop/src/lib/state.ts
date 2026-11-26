@@ -542,8 +542,8 @@ export const useDesktopStore = create<DesktopState>()((set, get) => ({
       return !controller.signal.aborted && latest.catalog === catalog && latest.request === context.request
         // Kept pins are not this load's to publish, so their background recalculation may replace them.
         && latest.searchGeneration === context.searchGeneration && (keepPins || latest.compareBench === context.compareBench)
-        && latest.selectedFingerprint === context.selectedFingerprint && latest.compareControls === context.compareControls
-        && latest.activeWorkspace === context.activeWorkspace;
+        // Switching tabs leaves the loaded inputs as they are, so it does not stop the verification.
+        && latest.selectedFingerprint === context.selectedFingerprint && latest.compareControls === context.compareControls;
     };
     const stop = useDesktopStore.subscribe(() => { if (!isCurrent()) controller.abort(); });
     try {

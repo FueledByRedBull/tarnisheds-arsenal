@@ -979,6 +979,24 @@ describe("saved result activation boundary", () => {
     } finally { solve.mockRestore(); }
   });
 
+  it("keeps verifying a loaded build when the player switches tabs and back", async () => {
+    const preset = activationPreset();
+    preset.selectedBuild = row;
+    let finish!: (value: SolvedBuildDto) => void;
+    const solve = vi.spyOn(api, "solveBuild").mockImplementation(() => new Promise(resolve => { finish = resolve; }));
+    try {
+      useDesktopStore.setState({ activeWorkspace: "rankings" });
+      const loading = useDesktopStore.getState().loadBuildPreset(preset);
+      useDesktopStore.getState().setWorkspace("compare");
+      useDesktopStore.getState().setWorkspace("rankings");
+      finish(row);
+      expect(await loading).not.toBeNull();
+      expect(useDesktopStore.getState()).toMatchObject({ selected: row, rows: [row] });
+      expect(useDesktopStore.getState().notices.map(notice => notice.message)).toEqual([
+        "Loaded Activation; saved results verified on current data."]);
+    } finally { solve.mockRestore(); }
+  });
+
   it("finishes loading a build without pins while stored pins are recalculated", async () => {
     const preset = activationPreset();
     preset.selectedBuild = row;
