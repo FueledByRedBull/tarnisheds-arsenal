@@ -23,6 +23,12 @@ export function cancelSearchFromStore(generation: number): void {
 // replaces it. It belongs to the profile and catalog it was asked on: a profile switch drops it.
 let stopWaitingForExport: (() => void) | null = null;
 
+/** Locks the query to a result's equipment, upgrade and stats, then searches again. */
+export function lockRowAndSearch(row: SolvedBuildDto): Promise<boolean> {
+  useDesktopStore.getState().useRowAsLocks(row);
+  return runSearchFromStore();
+}
+
 export async function runSearchFromStore(requestOverride?: OptimizeRequestDto): Promise<boolean> {
   const state = useDesktopStore.getState();
   if (state.isExporting) {

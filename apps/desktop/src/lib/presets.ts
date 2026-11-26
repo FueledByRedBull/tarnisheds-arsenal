@@ -1,3 +1,4 @@
+import { EIGHT_STAT_KEYS, LOCK_KEYS, MINIMUM_KEYS } from "./combat-stats";
 import { MAX_COMPARE_PINS } from "./compare-bench";
 import { downloadText } from "./csv";
 import { errorMessage } from "./format";
@@ -214,7 +215,7 @@ export function restoreBuildBackup(raw: string): BuildPreset[] {
   return imported;
 }
 
-export function loadBuildPreset(id: string): BuildPreset | null {
+export function readBuildPreset(id: string): BuildPreset | null {
   for (const prefix of [PRESET_PREFIX, LEGACY_PRESET_PREFIX]) {
     const raw = localStorage.getItem(`${prefix}${id}`);
     if (raw === null) continue;
@@ -236,7 +237,7 @@ export function saveBuildPreset(input: {
   dataVersion: string;
 }): BuildPreset {
   const now = new Date().toISOString();
-  const existing = input.id ? loadBuildPreset(input.id) : null;
+  const existing = input.id ? readBuildPreset(input.id) : null;
   // Presets never change profile: that would silently convert the saved build.
   if (existing && existing.profileId !== input.request.profileId) {
     throw new Error(`${existing.name} is a ${existing.profileId} build. Switch to ${existing.profileId} to update it, or use Save new; nothing was changed.`);
@@ -259,7 +260,7 @@ export function saveBuildPreset(input: {
 }
 
 export function renameBuildPreset(id: string, name: string): BuildPreset {
-  const preset = loadBuildPreset(id);
+  const preset = readBuildPreset(id);
   if (!preset) {
     throw new Error("Saved build was not found.");
   }
@@ -308,7 +309,7 @@ export function downloadPresetJson(preset: BuildPreset) {
 export function importBuildPreset(input: BuildPreset | BuildPresetV1): BuildPreset {
   const preset = readPreset(input);
   const index = savedBuildIndex();
-  const idConflict = loadBuildPreset(preset.id) !== null;
+  const idConflict = readBuildPreset(preset.id) !== null;
   const imported = {
     ...preset,
     id: idConflict ? crypto.randomUUID() : preset.id,
@@ -333,7 +334,7 @@ export function previewPresetImport(raw: string): PresetImportPreview {
   return {
     preset,
     bytes: utf8Bytes(JSON.stringify(preset)),
-    idConflict: loadBuildPreset(preset.id) !== null,
+    idConflict: readBuildPreset(preset.id) !== null,
     nameConflict: index.builds.some((entry) => entry.name.toLocaleLowerCase() === preset.name.toLocaleLowerCase()),
   };
 }
@@ -432,19 +433,26 @@ function checkedPreset(value: BuildPreset): BuildPreset {
   };
 }
 
+// Every request field, once. The record type makes a field added to the request fail to
+// compile until it is listed here.
+const REQUEST_FIELDS: Record<keyof OptimizeRequestDto, true> = {
+  profileId: true, className: true, characterLevel: true,
+  vig: true, mnd: true, end: true, strStat: true, dex: true, intStat: true, fai: true, arc: true,
+  minStr: true, minDex: true, minInt: true, minFai: true, minArc: true,
+  lockStr: true, lockDex: true, lockInt: true, lockFai: true, lockArc: true,
+  standardMaxUpgrade: true, somberMaxUpgrade: true, exactUpgrade: true,
+  twoHanding: true, dlcScaling: true, scadutreeLevel: true,
+  weaponName: true, affinity: true, aowName: true, weaponTypeKey: true,
+  somberFilter: true, filters: true, resultGrouping: true, objective: true, topK: true,
+};
+const REQUEST_KEYS = Object.keys(REQUEST_FIELDS) as Array<keyof OptimizeRequestDto>;
+
 // Stored and imported requests may carry unknown keys; only known fields enter the live query.
 export function knownRequestFields(r: OptimizeRequestDto): OptimizeRequestDto {
+  const known = Object.fromEntries(REQUEST_KEYS.map((key) => [key, r[key]])) as unknown as OptimizeRequestDto;
   return {
-    profileId: r.profileId, className: r.className, characterLevel: r.characterLevel,
-    vig: r.vig, mnd: r.mnd, end: r.end, strStat: r.strStat, dex: r.dex, intStat: r.intStat, fai: r.fai, arc: r.arc,
-    minStr: r.minStr, minDex: r.minDex, minInt: r.minInt, minFai: r.minFai, minArc: r.minArc,
-    lockStr: r.lockStr, lockDex: r.lockDex, lockInt: r.lockInt, lockFai: r.lockFai, lockArc: r.lockArc,
-    standardMaxUpgrade: r.standardMaxUpgrade, somberMaxUpgrade: r.somberMaxUpgrade, exactUpgrade: r.exactUpgrade,
-    twoHanding: r.twoHanding, dlcScaling: r.dlcScaling, scadutreeLevel: r.scadutreeLevel,
-    weaponName: r.weaponName, affinity: r.affinity, aowName: r.aowName, weaponTypeKey: r.weaponTypeKey,
-    somberFilter: r.somberFilter,
+    ...known,
     filters: { version: 1, entries: r.filters.entries.map(({ dimension, id, mode }) => ({ dimension, id, mode })) },
-    resultGrouping: r.resultGrouping, objective: r.objective, topK: r.topK,
   };
 }
 
@@ -453,13 +461,10 @@ export function assertRequest(value: unknown): asserts value is OptimizeRequestD
   assertProfileId(value.profileId, "request.profileId");
   assertText(value.className, "request.className", 80);
   assertInteger(value.characterLevel, "request.characterLevel", 1, 792);
-  for (const key of ["vig", "mnd", "end", "strStat", "dex", "intStat", "fai", "arc"] as const) {
+  for (const key of [...EIGHT_STAT_KEYS, ...MINIMUM_KEYS]) {
     assertInteger(value[key], `request.${key}`, 0, 99);
   }
-  for (const key of ["minStr", "minDex", "minInt", "minFai", "minArc"] as const) {
-    assertInteger(value[key], `request.${key}`, 0, 99);
-  }
-  for (const key of ["lockStr", "lockDex", "lockInt", "lockFai", "lockArc"] as const) {
+  for (const key of LOCK_KEYS) {
     assertNullableInteger(value[key], `request.${key}`, 0, 99);
   }
   assertInteger(value.standardMaxUpgrade, "request.standardMaxUpgrade", 0, 25);
@@ -537,8 +542,7 @@ function migratePreset(value: unknown): BuildPreset {
   }
   const classInfo = STARTING_CLASS_METADATA.find((entry) => entry.name === request.className);
   if (classInfo) {
-    const keys = ["vig", "mnd", "end", "strStat", "dex", "intStat", "fai", "arc"];
-    const total = keys.reduce((sum, key) => sum + (typeof request[key] === "number" ? Number(request[key]) : 0), 0);
+    const total = EIGHT_STAT_KEYS.reduce((sum, key) => sum + (typeof request[key] === "number" ? Number(request[key]) : 0), 0);
     request.characterLevel = Math.max(classInfo.baseLevel, Math.min(713, classInfo.baseLevel + total - classInfo.baseTotal));
   }
   request.filters ??= { version: 1, entries: [] };

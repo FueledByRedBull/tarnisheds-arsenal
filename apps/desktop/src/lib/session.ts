@@ -1,3 +1,4 @@
+import { COMBAT_STAT_KEYS, COMBAT_STATS, combatStatsOf, EIGHT_STAT_KEYS, noStatLocks, statLocksAt } from "./combat-stats";
 import {
   CatalogDto,
   ClassMetadataDto,
@@ -8,13 +9,9 @@ import {
   StableFilterEntryDto,
 } from "./types";
 
-export const STAT_KEYS = ["strStat", "dex", "intStat", "fai", "arc"] as const;
-export const EIGHT_STAT_KEYS = ["vig", "mnd", "end", ...STAT_KEYS] as const;
-const STAT_LABELS = { strStat: "STR", dex: "DEX", intStat: "INT", fai: "FAI", arc: "ARC" } as const;
-
 /** Each combat stat the build sets differently from the entered stats, as "DEX 15 → 22". */
 export function respecChanges(row: SolvedBuildDto, request: OptimizeRequestDto): string[] {
-  return STAT_KEYS.flatMap((key) => row.stats[key] === request[key] ? [] : [`${STAT_LABELS[key]} ${request[key]} → ${row.stats[key]}`]);
+  return COMBAT_STATS.flatMap(({ key, label }) => row.stats[key] === request[key] ? [] : [`${label} ${request[key]} → ${row.stats[key]}`]);
 }
 
 export function replaceFilterEntries(
@@ -183,15 +180,8 @@ export function budgetSnapshot(catalog: CatalogDto | null, request: OptimizeRequ
   const meta = classMeta(catalog, request.className);
   const level = derivedLevel(catalog, request);
   const total = meta.baseTotal + (level - meta.baseLevel);
-  const floorSum =
-    request.vig +
-    request.mnd +
-    request.end +
-    Math.max(meta.baseStats.strStat, request.minStr) +
-    Math.max(meta.baseStats.dex, request.minDex) +
-    Math.max(meta.baseStats.intStat, request.minInt) +
-    Math.max(meta.baseStats.fai, request.minFai) +
-    Math.max(meta.baseStats.arc, request.minArc);
+  const floorSum = request.vig + request.mnd + request.end + COMBAT_STATS.reduce(
+    (sum, stat) => sum + Math.max(meta.baseStats[stat.key], request[stat.minimum]), 0);
   return {
     level,
     baseLevel: meta.baseLevel,
@@ -211,29 +201,15 @@ export function buildOptimizeRequest(
     return {
       ...uiRequest,
       characterLevel: currentStatTotal(uiRequest),
-      lockStr: uiRequest.strStat, lockDex: uiRequest.dex, lockInt: uiRequest.intStat,
-      lockFai: uiRequest.fai, lockArc: uiRequest.arc,
+      ...statLocksAt(uiRequest),
     };
   }
   return {
     ...uiRequest,
     characterLevel: derivedLevel(catalog, uiRequest),
-    strStat: meta.baseStats.strStat,
-    dex: meta.baseStats.dex,
-    intStat: meta.baseStats.intStat,
-    fai: meta.baseStats.fai,
-    arc: meta.baseStats.arc,
-    lockStr: useLockedStats ? uiRequest.lockStr : null,
-    lockDex: useLockedStats ? uiRequest.lockDex : null,
-    lockInt: useLockedStats ? uiRequest.lockInt : null,
-    lockFai: useLockedStats ? uiRequest.lockFai : null,
-    lockArc: useLockedStats ? uiRequest.lockArc : null,
+    ...combatStatsOf(meta.baseStats),
+    ...(useLockedStats ? {} : noStatLocks()),
   };
-}
-
-export function hasCombatStatLocks(request: OptimizeRequestDto): boolean {
-  return [request.lockStr, request.lockDex, request.lockInt, request.lockFai, request.lockArc]
-    .some(value => value !== null);
 }
 
 export function applyProfileRules(
@@ -303,16 +279,12 @@ export function rowFingerprint(row: SolvedBuildDto | null): string | null {
     row.affinity.toLocaleLowerCase(),
     (row.aowName ?? "").toLocaleLowerCase(),
     row.upgrade,
-    row.stats.strStat,
-    row.stats.dex,
-    row.stats.intStat,
-    row.stats.fai,
-    row.stats.arc,
+    ...COMBAT_STAT_KEYS.map((key) => row.stats[key]),
   ].join("|");
 }
 
 function remainingCombatLevels(request: OptimizeRequestDto): number {
-  return STAT_KEYS.reduce((total, key) => total + Math.max(0, 99 - Number(request[key])), 0);
+  return COMBAT_STAT_KEYS.reduce((total, key) => total + Math.max(0, 99 - Number(request[key])), 0);
 }
 
 export function clampHorizon(request: OptimizeRequestDto, horizon: number): number {

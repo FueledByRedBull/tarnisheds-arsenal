@@ -20,7 +20,8 @@ import {
   SolvedBuildDto,
   WorkspaceTab,
 } from "./types";
-import { applyProfileRules, buildOptimizeRequest, classMeta, CUSTOM_STATS_CLASS, currentStatTotal, EIGHT_STAT_KEYS, hasCombatStatLocks, knownWithoutCatalog, rowFingerprint, stableSignature, upgradeCapPatch, usesFixedStats } from "./session";
+import { EIGHT_STAT_KEYS, hasCombatStatLocks, noStatLocks, statLocksAt } from "./combat-stats";
+import { applyProfileRules, buildOptimizeRequest, classMeta, CUSTOM_STATS_CLASS, currentStatTotal, knownWithoutCatalog, rowFingerprint, stableSignature, upgradeCapPatch, usesFixedStats } from "./session";
 
 export interface DesktopState {
   activeWorkspace: WorkspaceTab;
@@ -163,6 +164,19 @@ export const defaultRequest: OptimizeRequestDto = {
 };
 
 type ProfileQuery = { request: OptimizeRequestDto; lockedStatMode: boolean };
+
+/** The catalog, for the workspaces: the shell mounts them only once it has loaded. */
+export function useLoadedCatalog(): CatalogDto {
+  const catalog = useDesktopStore((state) => state.catalog);
+  if (!catalog) throw new Error("Game data is not loaded.");
+  return catalog;
+}
+
+/** The query's profile rules: the catalog's once loaded, the profile list's while it loads. */
+export function activeProfileRules(state: Pick<DesktopState, "catalog" | "profiles" | "request">): DataManifestDto["rules"] | undefined {
+  return state.catalog?.dataManifest.rules
+    ?? state.profiles.find((entry) => entry.profile.id === state.request.profileId)?.rules;
+}
 
 const QUERY_STORAGE_PREFIX = "tarnisheds-arsenal.query.v1.";
 const queryStorageKey = (profileId: string) => `${QUERY_STORAGE_PREFIX}${profileId}`;
@@ -314,7 +328,7 @@ export const useDesktopStore = create<DesktopState>()((set, get) => ({
         : sameProfile ? applyProfileRules(state.request, rules) : applyProfileRules({
         ...state.request,
         profileId,
-        lockStr: null, lockDex: null, lockInt: null, lockFai: null, lockArc: null,
+        ...noStatLocks(),
         weaponName: null,
         affinity: null,
         aowName: null,
@@ -441,14 +455,7 @@ export const useDesktopStore = create<DesktopState>()((set, get) => ({
           ...state.request,
           className,
           characterLevel: meta.baseLevel,
-          vig: meta.baseStats.vig,
-          mnd: meta.baseStats.mnd,
-          end: meta.baseStats.end,
-          strStat: meta.baseStats.strStat,
-          dex: meta.baseStats.dex,
-          intStat: meta.baseStats.intStat,
-          fai: meta.baseStats.fai,
-          arc: meta.baseStats.arc,
+          ...meta.baseStats,
         },
         compareTarget: null,
         resultsStale: state.rows.length > 0,
@@ -502,11 +509,7 @@ export const useDesktopStore = create<DesktopState>()((set, get) => ({
         somberFilter: "all",
         ...upgradeCapPatch(state.catalog?.dataManifest.rules.separateUpgradeCaps ?? true, row.isSomber, row.upgrade),
         exactUpgrade: true,
-        lockStr: row.stats.strStat,
-        lockDex: row.stats.dex,
-        lockInt: row.stats.intStat,
-        lockFai: row.stats.fai,
-        lockArc: row.stats.arc,
+        ...statLocksAt(row.stats),
       },
       lockedStatMode: true,
       compareTarget: null,

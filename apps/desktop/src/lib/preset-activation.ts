@@ -1,4 +1,5 @@
 import { api } from "./api";
+import { noStatMinimums, statLocksAt } from "./combat-stats";
 import { buildOptimizeRequest, upgradeCapPatch } from "./session";
 import type { BuildPreset, CatalogDto, OptimizeRequestDto, SolvedBuildDto } from "./types";
 
@@ -93,9 +94,8 @@ export async function verifyPresetResults(preset: BuildPreset, catalog: CatalogD
       weaponTypeKey: null, somberFilter: "all", filters: { version: 1, entries: [] },
       exactUpgrade: true,
       ...upgradeCapPatch(!unifiedCaps, row.isSomber, row.upgrade),
-      minStr: 0, minDex: 0, minInt: 0, minFai: 0, minArc: 0,
-      lockStr: row.stats.strStat, lockDex: row.stats.dex, lockInt: row.stats.intStat,
-      lockFai: row.stats.fai, lockArc: row.stats.arc,
+      ...noStatMinimums(),
+      ...statLocksAt(row.stats),
     });
     const solved = await api.solveBuild(base, row.weaponName, row.affinity, row.aowName, signal);
     if (!solved) throw new Error(`${label} cannot be verified with its saved equipment, upgrade and stats.`);

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { defaultRequest, persistProfileQueries, useDesktopStore } from "./state";
+import { activeProfileRules, defaultRequest, persistProfileQueries, useDesktopStore } from "./state";
 import { applyProfileRules, buildOptimizeRequest, stableSignature } from "./session";
 import { parsePresetText } from "./presets";
 import { api } from "./api";
@@ -1023,6 +1023,22 @@ function catalog(profileId: string): CatalogDto {
     },
   };
 }
+
+describe("active profile rules", () => {
+  const convergence = catalog("convergence").dataManifest;
+  const vanilla = catalog("vanilla").dataManifest;
+  const request = { ...defaultRequest, profileId: "convergence" };
+
+  it("read the selected profile's manifest while its catalog loads", () => {
+    expect(activeProfileRules({ catalog: null, profiles: [vanilla, convergence], request })).toBe(convergence.rules);
+  });
+
+  it("prefer the loaded catalog and are unknown before any profile loads", () => {
+    const loaded = catalog("vanilla");
+    expect(activeProfileRules({ catalog: loaded, profiles: [vanilla, convergence], request })).toBe(loaded.dataManifest.rules);
+    expect(activeProfileRules({ catalog: null, profiles: [], request })).toBeUndefined();
+  });
+});
 
 describe("saved profile queries", () => {
   function memoryStorage() {

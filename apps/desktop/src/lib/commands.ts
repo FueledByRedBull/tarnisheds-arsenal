@@ -1,6 +1,7 @@
-import { objectiveLabel } from "./format";
-import { classLabel, classMeta, clampHorizon, derivedLevel, hasCombatStatLocks, replaceFilterEntries, upgradeCapPatch } from "./session";
-import { CatalogDto, ObjectiveId, OptimizeRequestDto, WorkspaceTab } from "./types";
+import { EIGHT_STATS, EightStatKey, hasCombatStatLocks, isCombatStat, lockKey, minimumKey } from "./combat-stats";
+import { objectiveLabel, objectiveSearchWords } from "./objectives";
+import { classLabel, classMeta, clampHorizon, CUSTOM_STATS_CLASS, derivedLevel, replaceFilterEntries, upgradeCapPatch } from "./session";
+import { CatalogDto, OptimizeRequestDto, WorkspaceTab } from "./types";
 
 // The command palette's vocabulary. Parsing is pure: it returns data describing what to do,
 // and the palette applies it through the same store actions the visible controls use.
@@ -49,32 +50,12 @@ export interface CommandContext {
   recent?: string[];
 }
 
-type StatKey = "vig" | "mnd" | "end" | "strStat" | "dex" | "intStat" | "fai" | "arc";
-type CombatKey = "strStat" | "dex" | "intStat" | "fai" | "arc";
+type TypedStat = { key: EightStatKey; label: string; names: string[] };
 
-const STATS: Array<{ key: StatKey; short: string; names: string[] }> = [
-  { key: "vig", short: "VIG", names: ["vig", "vigor", "vigour"] },
-  { key: "mnd", short: "MND", names: ["mnd", "mind"] },
-  { key: "end", short: "END", names: ["end", "endurance"] },
-  { key: "strStat", short: "STR", names: ["str", "strength"] },
-  { key: "dex", short: "DEX", names: ["dex", "dexterity"] },
-  { key: "intStat", short: "INT", names: ["int", "intelligence"] },
-  { key: "fai", short: "FAI", names: ["fai", "faith"] },
-  { key: "arc", short: "ARC", names: ["arc", "arcane"] },
-];
-const LOCK_KEYS: Record<CombatKey, keyof OptimizeRequestDto> = {
-  strStat: "lockStr", dex: "lockDex", intStat: "lockInt", fai: "lockFai", arc: "lockArc",
-};
-const MIN_KEYS = {
-  strStat: "minStr", dex: "minDex", intStat: "minInt", fai: "minFai", arc: "minArc",
-} as const satisfies Record<CombatKey, keyof OptimizeRequestDto>;
-const OBJECTIVE_WORDS: Record<ObjectiveId, string> = {
-  max_ar: "max ar attack rating damage",
-  max_physical_ar: "max physical ar attack rating",
-  max_ar_plus_bleed: "bleed blood loss hemorrhage then ar",
-  aow_first_hit: "aow ash of war skill first hit",
-  aow_full_sequence: "aow ash of war skill full sequence combo",
-};
+const STAT_ALIASES: Partial<Record<EightStatKey, string[]>> = { vig: ["vigour"] };
+const STATS: TypedStat[] = EIGHT_STATS.map(({ key, label, name }) => ({
+  key, label, names: [label.toLowerCase(), name.toLowerCase(), ...(STAT_ALIASES[key] ?? [])],
+}));
 export const WORKSPACES: Array<{ id: WorkspaceTab; label: string }> = [
   { id: "rankings", label: "Rankings" },
   { id: "compare", label: "Compare" },
@@ -191,7 +172,7 @@ function parsedCommands(query: string, context: CommandContext): Command[] {
 }
 
 function statCommands(
-  stat: { key: StatKey; short: string },
+  stat: TypedStat,
   verb: string | null,
   value: number,
   { request, catalog, fixedStats }: CommandContext,
@@ -200,17 +181,16 @@ function statCommands(
   // Same floor as the ribbon inputs: the class base, and never below 1.
   const base = Math.max(1, classMeta(catalog, request.className).baseStats[stat.key]);
   const entered = Math.max(base, value);
-  const set = command(`set-${stat.key}`, "Stats", `Set ${stat.short} to ${entered}`,
+  const set = command(`set-${stat.key}`, "Stats", `Set ${stat.label} to ${entered}`,
     entered !== value ? `${classLabel(catalog, request.className)} starts at ${base}` : current(String(request[stat.key])),
     { kind: "patch", patch: { [stat.key]: entered } });
-  const combat = stat.key === "strStat" || stat.key === "dex" || stat.key === "intStat" || stat.key === "fai" || stat.key === "arc";
-  if (!combat || fixedStats) return [set];
-  const lockKey = LOCK_KEYS[stat.key as CombatKey];
-  const minKey = MIN_KEYS[stat.key as CombatKey];
-  const lock = command(`lock-${stat.key}`, "Stats", `Lock ${stat.short} at ${entered}`, "Exact result lock",
-    { kind: "lock", patch: { [lockKey]: entered } });
-  const min = command(`min-${stat.key}`, "Stats", `Require at least ${value} ${stat.short}`, current(String(request[minKey] || "none")),
-    { kind: "patch", patch: { [minKey]: value } });
+  if (!isCombatStat(stat.key) || fixedStats) return [set];
+  const statLock = lockKey(stat.key);
+  const statMinimum = minimumKey(stat.key);
+  const lock = command(`lock-${stat.key}`, "Stats", `Lock ${stat.label} at ${entered}`, "Exact result lock",
+    { kind: "lock", patch: { [statLock]: entered } });
+  const min = command(`min-${stat.key}`, "Stats", `Require at least ${value} ${stat.label}`, current(String(request[statMinimum] || "none")),
+    { kind: "patch", patch: { [statMinimum]: value } });
   if (verb === "lock") return [lock, set, min];
   if (verb === "min" || verb === "minimum") return [min, set, lock];
   return [set, lock, min];
@@ -230,7 +210,7 @@ function entityCommands({ catalog, request }: CommandContext): Command[] {
     named = [
       // Custom stats has no base values to apply; it is chosen in the class editor.
       ...(catalog.dataManifest.capabilities.classBudget ? catalog.classes : [])
-        .filter((entry) => entry.name !== "Custom stats").map((entry) => command(`class-${entry.name}`, "Class", `Class: ${classLabel(catalog, entry.name)}`, `Starts at level ${entry.baseLevel}`,
+        .filter((entry) => entry.name !== CUSTOM_STATS_CLASS).map((entry) => command(`class-${entry.name}`, "Class", `Class: ${classLabel(catalog, entry.name)}`, `Starts at level ${entry.baseLevel}`,
         { kind: "class", className: entry.name })),
       ...catalog.weaponNames.map((name) => command(`weapon-${name}`, "Weapon", `Weapon: ${name}`, undefined, { kind: "weapon", weaponName: name })),
       ...catalog.aowNames.map((name) => command(`aow-${name}`, "Skill", `Skill: ${name}`, undefined, { kind: "patch", patch: { aowName: name } })),
@@ -261,7 +241,7 @@ function stateCommands(context: CommandContext): Command[] {
     : command("search", "Actions", resultsStale ? "Update results" : "Search", "Rank every legal setup", { kind: "search" }));
   for (const objective of catalog.objectiveIds) {
     commands.push(command(`objective-${objective}`, "Objective", `Objective: ${objectiveLabel(objective)}`,
-      request.objective === objective ? "Current" : OBJECTIVE_WORDS[objective], { kind: "patch", patch: { objective } }));
+      request.objective === objective ? "Current" : objectiveSearchWords(objective), { kind: "patch", patch: { objective } }));
   }
   for (const workspace of WORKSPACES) {
     if (workspace.id !== "rankings" && !analysesAvailable) continue;

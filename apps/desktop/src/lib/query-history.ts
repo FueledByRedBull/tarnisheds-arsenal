@@ -1,5 +1,6 @@
 import { create } from "zustand";
-import { objectiveLabel } from "./format";
+import { COMBAT_STATS, EIGHT_STATS } from "./combat-stats";
+import { objectiveLabel } from "./objectives";
 import { stableSignature } from "./session";
 import { useDesktopStore } from "./state";
 import { ObjectiveId, OptimizeRequestDto } from "./types";
@@ -105,9 +106,9 @@ export function redoQuery(): QueryStep | null {
 
 const LABELS: Partial<Record<keyof OptimizeRequestDto, string>> = {
   className: "Class",
-  vig: "VIG", mnd: "MND", end: "END", strStat: "STR", dex: "DEX", intStat: "INT", fai: "FAI", arc: "ARC",
-  minStr: "Min STR", minDex: "Min DEX", minInt: "Min INT", minFai: "Min FAI", minArc: "Min ARC",
-  lockStr: "STR lock", lockDex: "DEX lock", lockInt: "INT lock", lockFai: "FAI lock", lockArc: "ARC lock",
+  ...Object.fromEntries(EIGHT_STATS.map((stat) => [stat.key, stat.label])),
+  ...Object.fromEntries(COMBAT_STATS.map((stat) => [stat.minimum, `Min ${stat.label}`])),
+  ...Object.fromEntries(COMBAT_STATS.map((stat) => [stat.lock, `${stat.label} lock`])),
   standardMaxUpgrade: "Standard cap", somberMaxUpgrade: "Somber cap", exactUpgrade: "Exact levels",
   twoHanding: "Two-handing", dlcScaling: "DLC scaling", scadutreeLevel: "Blessing",
   weaponName: "Weapon", affinity: "Affinity", aowName: "Skill", weaponTypeKey: "Weapon type",

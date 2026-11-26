@@ -1,12 +1,14 @@
 import { LockKeyhole, Pin, Save, Target } from "lucide-react";
 import { memo, useDeferredValue, useEffect, useMemo, useRef } from "react";
 import { useWeaponProfileResource } from "../../lib/hooks";
-import { aowModelSupported, compactNumber, fixed1, hasAowDamage, metricForObjective, objectiveLabel, statLine, statLockLine } from "../../lib/format";
-import { budgetSnapshot, buildOptimizeRequest, hasCombatStatLocks, respecChanges, rowFingerprint, usesFixedStats } from "../../lib/session";
+import { hasCombatStatLocks, statLine, statLockLine } from "../../lib/combat-stats";
+import { compactNumber, fixed1 } from "../../lib/format";
+import { aowModelSupported, hasAowDamage, metricForObjective, objectiveLabel } from "../../lib/objectives";
+import { budgetSnapshot, buildOptimizeRequest, respecChanges, rowFingerprint, usesFixedStats } from "../../lib/session";
 import { EASE_OUT, reducedMotion } from "../../lib/motion";
-import { useDesktopStore } from "../../lib/state";
+import { activeProfileRules, useDesktopStore } from "../../lib/state";
 import { AowRouteDto, CatalogDto, OptimizeRequestDto, SolvedBuildDto, StatusBuildupDto, WeaponProfileDto } from "../../lib/types";
-import { runSearchFromStore } from "../../lib/workflows";
+import { lockRowAndSearch } from "../../lib/workflows";
 import { ScalingTokens, StatusTokens } from "../shared/BuildMetricTokens";
 import packageInfo from "../../../package.json";
 import { explainBuild, leadOver } from "../../lib/build-explanation";
@@ -21,7 +23,6 @@ export function Inspector() {
   const request = useDesktopStore((state) => state.request);
   const resultsStale = useDesktopStore((state) => state.resultsStale);
   const lockedStatMode = useDesktopStore((state) => state.lockedStatMode);
-  const applyRowLocks = useDesktopStore((state) => state.useRowAsLocks);
   const compareBench = useDesktopStore((state) => state.compareBench);
   const toggleCompareBench = useDesktopStore((state) => state.toggleCompareBench);
   const isExporting = useDesktopStore((state) => state.isExporting);
@@ -65,8 +66,7 @@ export function Inspector() {
 
   async function lockSelected() {
     if (!selected) return;
-    applyRowLocks(selected);
-    await runSearchFromStore();
+    await lockRowAndSearch(selected);
   }
 
   return (
@@ -179,18 +179,19 @@ const SelectionSections = memo(function SelectionSections({ catalog, selected, r
   const aowAvailable = selected && hasAowDamage(selected, aowSupported);
   const rank = selected ? rows.findIndex((row) => rowFingerprint(row) === rowFingerprint(selected)) : -1;
   const runnerUp = rank === 0 ? rows[1] ?? null : null;
-  if (!selected) return null;
+  // Results come only from a loaded catalog, and a profile switch clears both together.
+  if (!selected || !catalog) return null;
   return (
     <>
       <div className="detail-block">
         <span>Combat Stats</span>
-        <strong>{statLine(selected)}</strong>
+        <strong>{statLine(selected.stats)}</strong>
       </div>
       <div className="detail-block build-token-detail">
         <span>Attribute Scaling</span>
         <ScalingTokens
           scaling={selected.effectiveScaling}
-          extended={catalog?.dataManifest.rules.extendedScalingGrades ?? false}
+          extended={catalog.dataManifest.rules.extendedScalingGrades}
         />
       </div>
       <div className="detail-block build-token-detail">
@@ -261,7 +262,7 @@ function ModelCoverage() {
   const catalog = useDesktopStore((state) => state.catalog);
   const request = useDesktopStore((state) => state.request);
   const aowModelUnavailable = catalog && !aowModelSupported(catalog.dataManifest);
-  const profileRules = catalog?.dataManifest.rules;
+  const profileRules = useDesktopStore(activeProfileRules);
   const objectiveWarning = aowModelUnavailable
     ? "Weapon AR, status, passives, affinities, and AoW compatibility are modeled. This profile's AoW hit and route damage is not mapped, so those objectives are unavailable."
     : request.objective === "max_ar_plus_bleed"

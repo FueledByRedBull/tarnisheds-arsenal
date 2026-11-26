@@ -6,7 +6,7 @@ import {
   deleteBuildPreset,
   downloadPresetJson,
   importBuildPreset,
-  loadBuildPreset,
+  readBuildPreset,
   parsePresetText,
   previewPresetImport,
   replaceImportedBuildPreset,
@@ -133,11 +133,11 @@ export const SavedBuildPanel = memo(function SavedBuildPanel({ selected }: { sel
     try {
       if (!catalog) throw new Error("Current catalog metadata is unavailable; retry after game data finishes loading.");
       // All storage reads are inside this lifecycle, never in a store subscriber.
-      const original = JSON.stringify(loadBuildPreset(preset.id));
+      const original = JSON.stringify(readBuildPreset(preset.id));
       const migration = migratePresetRequest(preset.request, catalog);
       const verified = await hydrate({ ...preset, request: migration.request, dataVersion }, controller.signal);
       if (!verified || controller.signal.aborted) return null;
-      if (JSON.stringify(loadBuildPreset(preset.id)) !== original) {
+      if (JSON.stringify(readBuildPreset(preset.id)) !== original) {
         throw new Error("The saved record changed during verification. Load it again; no record was overwritten.");
       }
       const migrated = saveBuildPreset({ ...verified, dataVersion });
@@ -188,7 +188,7 @@ export const SavedBuildPanel = memo(function SavedBuildPanel({ selected }: { sel
 
   function selectPreset(id: string) {
     try {
-      const preset = id ? loadBuildPreset(id) : null;
+      const preset = id ? readBuildPreset(id) : null;
       cancelMigration();
       setSelectedId(id);
       setDeleteArmedId(null);
@@ -256,7 +256,7 @@ export const SavedBuildPanel = memo(function SavedBuildPanel({ selected }: { sel
   // every render of the panel. Only a listed build has a record to read.
   const { selectedPreset, selectedReadError } = useMemo(() => {
     try {
-      return { selectedPreset: entries.some((entry) => entry.id === selectedId) ? loadBuildPreset(selectedId) : null, selectedReadError: null };
+      return { selectedPreset: entries.some((entry) => entry.id === selectedId) ? readBuildPreset(selectedId) : null, selectedReadError: null };
     } catch {
       return { selectedPreset: null, selectedReadError: "Saved builds could not be read. Storage access is unavailable; existing data was preserved." };
     }

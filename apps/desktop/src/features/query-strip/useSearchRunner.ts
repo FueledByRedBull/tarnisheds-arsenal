@@ -21,7 +21,14 @@ export function useSearchRunner() {
   const [searchStartedAt, setSearchStartedAt] = useState<number | null>(null);
   const [isPreparingSearch, setPreparingSearch] = useState(false);
   const searchPreparation = useRef<AbortController | null>(null);
+  // The loadout revision of the player's last hand-picked weapon. Search reads the ref, which is
+  // current inside its async steps; render reads the state copy.
   const manualWeaponRevision = useRef<number | null>(null);
+  const [manualWeaponPickRevision, setManualWeaponPickRevision] = useState<number | null>(null);
+  const setManualWeaponRevision = (revision: number | null) => {
+    manualWeaponRevision.current = revision;
+    setManualWeaponPickRevision(revision);
+  };
   const [searchCancellationRequested, setSearchCancellationRequested] = useState(false);
 
   const idle = !isSearching && !isPreparingSearch;
@@ -38,8 +45,8 @@ export function useSearchRunner() {
   async function runSearch() {
     const submitted = useDesktopStore.getState();
     const input = submitted.request;
-    const weaponChanged = submitted.loadoutSelectionRevision === manualWeaponRevision.current;
-    manualWeaponRevision.current = null;
+    const manualWeaponPick = submitted.loadoutSelectionRevision === manualWeaponRevision.current;
+    setManualWeaponRevision(null);
     const controller = new AbortController();
     searchPreparation.current?.abort();
     searchPreparation.current = controller;
@@ -67,7 +74,7 @@ export function useSearchRunner() {
           affinity = profile.affinities[0] ?? null;
           profile = await cachedWeaponProfile(input.profileId, input.weaponName, affinity, controller.signal);
         }
-        const aowName = resolveAowSelection(profile, input.aowName, weaponChanged);
+        const aowName = resolveAowSelection(profile, input.aowName, manualWeaponPick);
         if (input.affinity !== affinity || input.aowName !== aowName) {
           loadout = { affinity, aowName };
         }
@@ -84,8 +91,8 @@ export function useSearchRunner() {
     } finally {
       unsubscribe();
       if (searchPreparation.current === controller) {
-        if (weaponChanged && useDesktopStore.getState().loadoutSelectionRevision === submitted.loadoutSelectionRevision) {
-          manualWeaponRevision.current = submitted.loadoutSelectionRevision;
+        if (manualWeaponPick && useDesktopStore.getState().loadoutSelectionRevision === submitted.loadoutSelectionRevision) {
+          setManualWeaponRevision(submitted.loadoutSelectionRevision);
         }
         searchPreparation.current = null;
         setPreparingSearch(false);
@@ -132,13 +139,9 @@ export function useSearchRunner() {
     searchStartedAt,
     isPreparingSearch,
     searchCancellationRequested,
-    manualWeaponRevision,
-    markManualWeapon: () => {
-      manualWeaponRevision.current = useDesktopStore.getState().loadoutSelectionRevision;
-    },
-    clearManualWeapon: () => {
-      manualWeaponRevision.current = null;
-    },
+    manualWeaponPickRevision,
+    markManualWeapon: () => setManualWeaponRevision(useDesktopStore.getState().loadoutSelectionRevision),
+    clearManualWeapon: () => setManualWeaponRevision(null),
   };
 }
 

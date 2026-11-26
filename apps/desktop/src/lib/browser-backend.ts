@@ -14,8 +14,9 @@ import type {
   UpgradePointDto,
   WeaponProfileDto,
 } from "./types";
-import { STARTING_CLASS_METADATA, upgradeCapForRow } from "./session";
+import { CUSTOM_STATS_CLASS, STARTING_CLASS_METADATA, upgradeCapForRow } from "./session";
 import { errorMessage } from "./format";
+import { objectiveMissingData, objectiveValue, supportedObjectives } from "./objectives";
 
 type MockWeapon = {
   weaponId: number;
@@ -186,6 +187,12 @@ const affinityJobs = mockJobRegistry<AffinityWatchJobStatusDto>("affinity watch"
 
 async function mockStartSearch(args: Record<string, unknown> | undefined): Promise<StartSearchResponseDto> {
   const request = (args?.request as OptimizeRequestDto | undefined) ?? null;
+  // The core refuses an objective the profile's data cannot rank before it searches.
+  if (request) {
+    const manifest = mockDataManifest(request.profileId);
+    const missing = objectiveMissingData(request.objective, manifest.capabilities);
+    if (missing) throw new Error(`${manifest.profile.displayName} does not provide ${missing}`);
+  }
   const total = await mockSearchCombinationCount(request);
   return searchJobs.start({ checked: 0, total, eligible: 0, bestScore: 0, elapsedMs: 0 }, async () => {
     const rows = await mockRows(request);
@@ -282,11 +289,12 @@ const MOCK_CONVERGENCE_CLASSES = [
     baseStats: { vig: 9, mnd: 15, end: 9, strStat: 8, dex: 10, intStat: 20, fai: 7, arc: 7 } },
   { name: "Prisoner", baseLevel: 1, baseTotal: 80,
     baseStats: { vig: 10, mnd: 10, end: 10, strStat: 10, dex: 10, intStat: 10, fai: 10, arc: 10 } },
-  { name: "Custom stats", baseLevel: 0, baseTotal: 0,
+  { name: CUSTOM_STATS_CLASS, baseLevel: 0, baseTotal: 0,
     baseStats: { vig: 0, mnd: 0, end: 0, strStat: 0, dex: 0, intStat: 0, fai: 0, arc: 0 } },
 ];
 
 async function mockCatalog(profileId = "vanilla"): Promise<CatalogDto> {
+  const dataManifest = mockDataManifest(profileId);
   const weaponTypeOptions = uniqueSorted(MOCK_WEAPONS.map((weapon) => weapon.weaponTypeName))
     .map((label) => ({ key: label, label }));
   return {
@@ -295,7 +303,7 @@ async function mockCatalog(profileId = "vanilla"): Promise<CatalogDto> {
     weaponTypeOptions,
     aowNames: MOCK_AOW_NAMES,
     affinityNames: uniqueSorted(MOCK_WEAPONS.map((weapon) => weapon.affinity)),
-    objectiveIds: ["max_ar", "max_physical_ar", "max_ar_plus_bleed", "aow_first_hit", "aow_full_sequence"],
+    objectiveIds: supportedObjectives(dataManifest.capabilities),
     somberFilters: ["all", "standard_only", "somber_only"],
     filterDimensions: [
       { id: "weapon_family", label: "Weapon Family", options: uniqueSorted(MOCK_WEAPONS.map((row) => row.name)).map((label, index) => ({ id: `weapon:${index}`, label, count: 1 })) },
@@ -304,7 +312,7 @@ async function mockCatalog(profileId = "vanilla"): Promise<CatalogDto> {
       { id: "aow", label: "Ash of War", options: MOCK_AOW_NAMES.map((label, index) => ({ id: `aow:${index}`, label, count: MOCK_WEAPONS.length })) },
       { id: "reinforcement", label: "Reinforcement", options: [{ id: "reinforcement:standard", label: "Standard", count: MOCK_WEAPONS.filter((row) => !row.isSomber).length }, { id: "reinforcement:somber", label: "Somber", count: MOCK_WEAPONS.filter((row) => row.isSomber).length }] },
     ],
-    dataManifest: mockDataManifest(profileId),
+    dataManifest,
   };
 }
 
@@ -414,7 +422,7 @@ async function mockRows(request: OptimizeRequestDto | null): Promise<SolvedBuild
   const objective = request?.objective ?? "max_ar";
   return previewRows(request)
     .filter((row) => matchesPreviewRow(row, request))
-    .sort((left, right) => metricPreview(right, objective) - metricPreview(left, objective))
+    .sort((left, right) => objectiveValue(right, objective) - objectiveValue(left, objective))
     .slice(0, topK);
 }
 
@@ -478,23 +486,8 @@ async function mockUpgradeSeries(args: Record<string, unknown> | undefined): Pro
   const objective = request?.base?.objective ?? "max_ar";
   return Array.from({ length: maxUpgrade + 1 }, (_, upgrade) => ({
     upgrade,
-    metric: fixed1(metricPreview(row, objective) * Math.max(0.35, upgrade / Math.max(maxUpgrade, 1))),
+    metric: fixed1(objectiveValue(row, objective) * Math.max(0.35, upgrade / Math.max(maxUpgrade, 1))),
   }));
-}
-
-function metricPreview(row: SolvedBuildDto, objective: OptimizeRequestDto["objective"]): number {
-  switch (objective) {
-    case "max_physical_ar":
-      return row.ar.physical;
-    case "aow_first_hit":
-      return row.aowFirstHitDamage;
-    case "aow_full_sequence":
-      return row.aowFullSequenceDamage;
-    case "max_ar_plus_bleed":
-      return row.bleedBuildup;
-    default:
-      return row.ar.total;
-  }
 }
 
 async function mockPathPreview(args: Record<string, unknown> | undefined): Promise<PathPreviewDto> {
@@ -511,13 +504,13 @@ async function mockPathPreview(args: Record<string, unknown> | undefined): Promi
   }
   const levelsAhead = Math.max(0, Math.trunc(Number(request?.levelsAhead ?? 0)));
   const steps = [
-    fixedPathStep(base.characterLevel, solved.stats, metricPreview(solved, base.objective), null),
+    fixedPathStep(base.characterLevel, solved.stats, objectiveValue(solved, base.objective), null),
   ];
   if (levelsAhead > 0) {
     steps.push(fixedPathStep(
       base.characterLevel + levelsAhead,
       { ...solved.stats, dex: Math.min(99, solved.stats.dex + 1) },
-      metricPreview(solved, base.objective) + 10,
+      objectiveValue(solved, base.objective) + 10,
       "dex",
     ));
   }
@@ -555,7 +548,7 @@ async function mockAffinityWatch(args: Record<string, unknown> | undefined): Pro
     (_, index) => base.characterLevel + index,
   );
   const lines = PREVIEW_SOLVED_BUILDS.filter((row) => row.weaponName === solved.weaponName).map((row) => {
-    const startMetric = metricPreview(row, base.objective);
+    const startMetric = objectiveValue(row, base.objective);
     const points = levels.map((level, index) => ({
       level,
       metric: fixed1(startMetric + index * (row.affinity === solved.affinity ? 8 : 6)),

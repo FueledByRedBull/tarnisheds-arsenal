@@ -20,7 +20,8 @@ import { EASE_OUT, reducedMotion } from "../lib/motion";
 import { RankingsBoard } from "../features/rankings/RankingsBoard";
 import { ReproductionReport } from "../features/shared/ReproductionReport";
 import { AppErrorBoundary } from "./AppErrorBoundary";
-import { aowModelSupported, errorMessage } from "../lib/format";
+import { errorMessage } from "../lib/format";
+import { aowModelSupported } from "../lib/objectives";
 import { ANNOUNCER_ID } from "../lib/announce";
 import { warmFonts } from "../lib/font-warmup";
 
@@ -145,9 +146,9 @@ export function App() {
   const profileReady = catalogStatus === "ready";
   // Idle time after the first load measures the fonts the first search and tab visits would load.
   useEffect(() => (profileReady ? warmFonts() : undefined), [profileReady]);
-  const convergenceProfile = activeProfile?.profile.id === "convergence";
-  // Convergence stays experimental with AoW data: its skills are not measured in game.
-  const limitedAowModel = convergenceProfile || (activeProfile && !aowModelSupported(activeProfile));
+  const modVersion = activeProfile?.profile.modVersion ?? null;
+  // A mod profile stays experimental with AoW data: its skills are not measured in game.
+  const limitedAowModel = modVersion !== null || (activeProfile && !aowModelSupported(activeProfile));
 
   const profileSwitch = (
           <div className="profile-switch" role="radiogroup" aria-label="Game profile" onKeyDown={(event) => {
@@ -180,11 +181,11 @@ export function App() {
                   <span>
                     {active ? <Check size={13} aria-hidden="true" /> : null}
                     {profile.profile.displayName}
-                    {profile.profile.id === "convergence" ? <span className="sr-only"> Beta</span> : null}
+                    {profile.profile.modVersion !== null ? <span className="sr-only"> Beta</span> : null}
                   </span>
                   <small>
                     <span className="profile-version">{version}</span>
-                    {profile.profile.id === "convergence" ? <span className="profile-beta-mark" aria-hidden="true">Beta</span> : null}
+                    {profile.profile.modVersion !== null ? <span className="profile-beta-mark" aria-hidden="true">Beta</span> : null}
                   </small>
                 </button>
               );
@@ -212,7 +213,7 @@ export function App() {
           <div className="editor-body">
             <strong>Model coverage and assumptions</strong>
             <p className="editor-note">
-              {convergenceProfile ? `Convergence ${activeProfile.profile.modVersion ?? ""} (game ${activeProfile.profile.gameVersion}) ` : ""}weapon AR, fixed status, classes, and Ash permissions are checked against the mod's regulation, not measured in game. Custom stats evaluates entered stats exactly, without Compare, Paths, or Affinity Watch. AoW hits, routes and attack poise come from the mod's animations, which match Vanilla's workbook where the mod left them unchanged; some skills have none, and ammo weapons remain unsupported.
+              {activeProfile && modVersion !== null ? `${activeProfile.profile.displayName} ${modVersion} (game ${activeProfile.profile.gameVersion}) ` : ""}weapon AR, fixed status, classes, and Ash permissions are checked against the mod's regulation, not measured in game. Custom stats evaluates entered stats exactly, without Compare, Paths, or Affinity Watch. AoW hits, routes and attack poise come from the mod's animations, which match Vanilla's workbook where the mod left them unchanged; some skills have none, and ammo weapons remain unsupported.
             </p>
           </div>
         </Popover>

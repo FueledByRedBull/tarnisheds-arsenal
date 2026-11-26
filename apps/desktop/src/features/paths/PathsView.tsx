@@ -5,7 +5,9 @@ import { analysisStatus } from "../../lib/analysis-status";
 import { AnalysisProgress } from "../shared/AnalysisProgress";
 import { chartX, chartY, contiguousMetricSegments, niceTicks, paddedMetricDomain } from "../../lib/chart";
 import { PATH_RUN, useAnalysisRun, useBuiltRequest } from "../../lib/hooks";
-import { fixed1, objectiveLabel, objectiveUnit } from "../../lib/format";
+import { statLine } from "../../lib/combat-stats";
+import { fixed1 } from "../../lib/format";
+import { objectiveLabel, objectiveUnit } from "../../lib/objectives";
 import { clampHorizon, stableSignature } from "../../lib/session";
 import { useDesktopStore } from "../../lib/state";
 import { PathPreviewDto, SolvedBuildDto } from "../../lib/types";
@@ -175,7 +177,7 @@ function PathSteps({ paths, objective }: { paths: PathPreviewDto[]; objective: P
                     {index > 0 ? ` | ${step.addedStat === "respec" ? "Respec required" : step.addedStat ? `Added ${step.addedStat.toUpperCase()}` : "No stat added"}` : ""}
                     {step.requirementGap > 0 ? ` | Requirement gap ${step.requirementGap}` : ""}
                   </small>
-                  <span>STR {step.stats.strStat} / DEX {step.stats.dex} / INT {step.stats.intStat} / FAI {step.stats.fai} / ARC {step.stats.arc}</span>
+                  <span>{statLine(step.stats)}</span>
                 </> : "Unavailable"}
               </span>;
             })}

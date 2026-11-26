@@ -1,10 +1,11 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { api } from "../../lib/api";
-import { errorMessage, fixed1, statLine } from "../../lib/format";
+import { allCombatStatsLocked, EIGHT_STATS, isCombatStat, sameCombatStats, statLine } from "../../lib/combat-stats";
+import { errorMessage, fixed1 } from "../../lib/format";
 import { buildOptimizeRequest, stableSignature } from "../../lib/session";
 import { useDesktopStore } from "../../lib/state";
 import { ArBleedFrontierPointDto, OptimizeRequestDto, SolvedBuildDto } from "../../lib/types";
-import { runSearchFromStore } from "../../lib/workflows";
+import { lockRowAndSearch } from "../../lib/workflows";
 import { WorkspaceHeading } from "../shared/WorkspaceHeading";
 
 type LoadoutTradeoffsProps = {
@@ -19,25 +20,21 @@ type TradeoffChoice = {
   labels: string[];
 };
 
-const CRITERIA: ReadonlyArray<readonly [string, number | null]> = [
-  ["Max AR", null],
-  ["Within 1%", 100],
-  ["Within 3%", 300],
-  ["Within 5%", 500],
-  ["Max bleed", null],
+// Which frontier point each shortlist entry names. Points run from the most AR to the most bleed.
+type Criterion =
+  | { label: string; pick: "most_ar" | "most_bleed" }
+  | { label: string; pick: "within"; maxLossBps: number };
+
+const CRITERIA: readonly Criterion[] = [
+  { label: "Max AR", pick: "most_ar" },
+  { label: "Within 1%", pick: "within", maxLossBps: 100 },
+  { label: "Within 3%", pick: "within", maxLossBps: 300 },
+  { label: "Within 5%", pick: "within", maxLossBps: 500 },
+  { label: "Max bleed", pick: "most_bleed" },
 ];
 
-const STAT_FIELDS = [
-  ["STR", "strStat"],
-  ["DEX", "dex"],
-  ["INT", "intStat"],
-  ["FAI", "fai"],
-  ["ARC", "arc"],
-] as const;
-
 export function LoadoutTradeoffs({ base, current, selected }: LoadoutTradeoffsProps) {
-  const allCombatLocksActive = [base.lockStr, base.lockDex, base.lockInt, base.lockFai, base.lockArc]
-    .every((value) => typeof value === "number");
+  const allCombatLocksActive = allCombatStatsLocked(base);
   const contextSignature = stableSignature({ base, selected });
   const contextRef = useRef(contextSignature);
   useLayoutEffect(() => { contextRef.current = contextSignature; });
@@ -194,7 +191,7 @@ export function LoadoutTradeoffs({ base, current, selected }: LoadoutTradeoffsPr
           <details className="tradeoff-all">
             <summary>Explore all trade-offs ({points.length})</summary>
             <TradeoffPlot points={points} selectedIndex={selectedIndex} onSelect={setSelectedIndex}
-              current={STAT_FIELDS.every(([, field]) => current[field] === selected.stats[field]) ? selected : null} />
+              current={sameCombatStats(current, selected.stats) ? selected : null} />
             <TradeoffTable caption="All exact AR / bleed trade-off points" choices={allChoices} selectedIndex={selectedIndex} onSelect={setSelectedIndex} />
           </details>
 
@@ -207,10 +204,10 @@ export function LoadoutTradeoffs({ base, current, selected }: LoadoutTradeoffsPr
 
 function buildChoices(points: ArBleedFrontierPointDto[]): TradeoffChoice[] {
   const byIndex = new Map<number, TradeoffChoice>();
-  for (const [criterionIndex, [label, maxLossBps]] of CRITERIA.entries()) {
-    const index = maxLossBps === null
-      ? criterionIndex === 0 ? (points.length ? 0 : null) : (points.length ? points.length - 1 : null)
-      : largestBleedIndex(points, maxLossBps);
+  for (const { label, ...criterion } of CRITERIA) {
+    const index = criterion.pick === "within" ? largestBleedIndex(points, criterion.maxLossBps)
+      : !points.length ? null
+        : criterion.pick === "most_ar" ? 0 : points.length - 1;
     if (index === null) continue;
     const existing = byIndex.get(index);
     if (existing) {
@@ -380,10 +377,8 @@ function TradeoffInspection({
       <p><strong>Full stat spread</strong> {fullStatLine(current, point.result)}</p>
       <p><strong>Changes from your current stats</strong> {formatStatDelta(current, point.result)}</p>
       <button type="button" disabled={isExporting} aria-describedby={isExporting ? "tradeoff-export-hint" : undefined} onClick={() => {
-        const state = useDesktopStore.getState();
-        state.useRowAsLocks(point.result);
-        state.setWorkspace("rankings");
-        void runSearchFromStore();
+        useDesktopStore.getState().setWorkspace("rankings");
+        void lockRowAndSearch(point.result);
       }}>Use exact allocation</button>
       {isExporting ? <small id="tradeoff-export-hint">Available when the CSV export finishes.</small> : null}
       <small>Modeled AR and buildup; this does not predict bleed procs or damage after enemy defenses.</small>
@@ -392,15 +387,15 @@ function TradeoffInspection({
 }
 
 function fullStatLine(current: OptimizeRequestDto, result: SolvedBuildDto): string {
-  return `VIG ${current.vig} / MND ${current.mnd} / END ${current.end} / ${statLine(result)}`;
+  return `VIG ${current.vig} / MND ${current.mnd} / END ${current.end} / ${statLine(result.stats)}`;
 }
 
+// The frontier varies only the combat stats; the fixed three always show no change.
 function formatStatDelta(current: OptimizeRequestDto, result: SolvedBuildDto): string {
-  const fixed = [["VIG", current.vig, current.vig], ["MND", current.mnd, current.mnd], ["END", current.end, current.end]] as const;
-  return [...fixed, ...STAT_FIELDS.map(([label, field]) => [label, current[field], result.stats[field]] as const)]
-    .map(([label, from, to]) => {
-      const delta = to - from;
-      return `${label} ${delta >= 0 ? "+" : ""}${delta}`;
+  return EIGHT_STATS
+    .map((stat) => {
+      const delta = isCombatStat(stat.key) ? result.stats[stat.key] - current[stat.key] : 0;
+      return `${stat.label} ${delta >= 0 ? "+" : ""}${delta}`;
     })
     .join(" / ");
 }
