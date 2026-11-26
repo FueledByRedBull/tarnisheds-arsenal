@@ -12,8 +12,19 @@ import textwrap
 import unittest
 
 
-@unittest.skipUnless(shutil.which("pwsh"), "PowerShell is required to exercise the CI gate")
+def require_pwsh(test: unittest.TestCase) -> None:
+    """Skip locally without PowerShell; GitHub's runners all ship it, so CI must not skip."""
+    if shutil.which("pwsh"):
+        return
+    if os.environ.get("GITHUB_ACTIONS") == "true":
+        test.fail("pwsh is missing on this CI runner; the required-check gate test cannot run")
+    test.skipTest("pwsh is not installed; the required-check gate test needs PowerShell 7")
+
+
 class CiWorkflowTests(unittest.TestCase):
+    def setUp(self) -> None:
+        require_pwsh(self)
+
     def test_required_check_only_accepts_success_or_explicitly_unselected_jobs(self) -> None:
         workflow = (Path(__file__).resolve().parents[2] / ".github/workflows/ci.yml").read_text(
             encoding="utf-8"
