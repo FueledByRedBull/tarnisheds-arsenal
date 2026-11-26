@@ -11,10 +11,12 @@ use crate::dto::{
     AffinityWatchLineDto, AffinityWatchPayloadDto, AffinityWatchPointDto, AffinityWatchProgressDto,
     AffinityWatchRequestDto, SolvedBuildDto, StartSearchResponseDto, finish, validate_levels_ahead,
 };
-use crate::errors::AppError;
+use crate::errors::{AppError, JobOutcome};
 use crate::request::{self, cancel_job, job_status};
 use crate::{AppState, ProfileData};
-use er_optimizer_core::{OptimizeRequest, OptimizeResult, optimize_level_ranges_with_progress};
+use er_optimizer_core::{
+    OptimizeRequest, OptimizeResult, SearchError, optimize_level_ranges_with_progress,
+};
 
 /// An Affinity Watch request that passed validation.
 struct AffinityWatch {
@@ -48,10 +50,10 @@ pub fn start_affinity_watch(
             if let Ok(mut guard) = status.lock() {
                 guard.progress = Some(progress);
             }
-            let (payload, error, cancelled) = if cancel_flag.load(AtomicOrdering::Relaxed) {
-                (None, None, true)
+            let result = if cancel_flag.load(AtomicOrdering::Relaxed) {
+                Err(SearchError::Cancelled)
             } else {
-                match build_affinity_watch_inner(
+                build_affinity_watch_inner(
                     watch,
                     &profile,
                     &job_id,
@@ -65,18 +67,10 @@ pub fn start_affinity_watch(
                         true
                     },
                     || !cancel_flag.load(AtomicOrdering::Relaxed),
-                ) {
-                    Ok(payload) => (Some(payload), None, false),
-                    Err(err) if err.message == "cancelled" => (None, None, true),
-                    Err(err) => (None, Some(err.message), false),
-                }
+                )
             };
-            AffinityWatchFinishedDto {
-                job_id,
-                cancelled,
-                payload,
-                error,
-            }
+            let cancel_requested = cancel_flag.load(AtomicOrdering::Relaxed);
+            AffinityWatchFinishedDto::new(job_id, JobOutcome::new(result, cancel_requested))
         },
         publish_affinity_finished,
     )
@@ -112,12 +106,7 @@ fn publish_affinity_finished(
     cancelled: bool,
 ) {
     status.finished = Some(finish(outcome, cancelled, |error| {
-        AffinityWatchFinishedDto {
-            job_id,
-            cancelled: false,
-            payload: None,
-            error: Some(error),
-        }
+        AffinityWatchFinishedDto::new(job_id, JobOutcome::Failed(error))
     }));
 }
 
@@ -140,7 +129,7 @@ fn build_affinity_watch_inner(
     job_id: &str,
     progress_cb: impl FnMut(AffinityWatchProgressDto) -> bool + Send,
     should_continue: impl Fn() -> bool + Sync,
-) -> Result<AffinityWatchPayloadDto, AppError> {
+) -> Result<AffinityWatchPayloadDto, SearchError> {
     let solved = &watch.solved;
     let affinities = affinity_watch_affinities_for_profile(solved, profile);
     let levels: Vec<u16> = (0..=watch.levels_ahead)
@@ -189,21 +178,19 @@ fn build_affinity_watch_inner(
         },
         &should_continue,
     );
-    // Another affinity's error stops the rest with "cancelled"; report the real error.
+    // Another affinity's failure cancels the rest; report the failure.
     if let Some(index) = ranges
         .iter()
-        .position(|range| matches!(range, Err(error) if error != "cancelled"))
+        .position(|range| matches!(range, Err(SearchError::Failed(_))))
     {
-        return Err(AppError::from(
-            ranges
-                .swap_remove(index)
-                .expect_err("position matched an error"),
-        ));
+        return Err(ranges
+            .swap_remove(index)
+            .expect_err("position matched an error"));
     }
 
     let mut lines = Vec::new();
     for (affinity, level_rows) in affinities.into_iter().zip(ranges) {
-        let level_rows = level_rows.map_err(AppError::from)?;
+        let level_rows = level_rows?;
         let points: Vec<ExactAffinityWatchPoint> = level_rows
             .into_iter()
             .map(|entry| {
@@ -510,38 +497,34 @@ mod integration_tests {
         };
         publish_affinity_finished(
             &mut status,
-            Ok(AffinityWatchFinishedDto {
-                job_id: "affinity-publish".into(),
-                cancelled: false,
-                payload: Some(payload),
-                error: None,
-            }),
+            Ok(AffinityWatchFinishedDto::new(
+                "affinity-publish".into(),
+                JobOutcome::Completed(payload),
+            )),
             "affinity-publish".into(),
             true,
         );
         let finished = status.finished.take().unwrap();
-        assert!(finished.cancelled);
+        assert!(finished.cancelled());
         assert!(finished.payload.is_none());
-        assert!(finished.error.is_none());
+        assert!(finished.error().is_none());
 
         for outcome in [
-            Ok(AffinityWatchFinishedDto {
-                job_id: "affinity-publish".into(),
-                cancelled: false,
-                payload: None,
-                error: Some("calculation failed".into()),
-            }),
+            Ok(AffinityWatchFinishedDto::new(
+                "affinity-publish".into(),
+                JobOutcome::Failed("calculation failed".into()),
+            )),
             Err(String::from("worker panicked")),
         ] {
             let expected_error = match &outcome {
-                Ok(finished) => finished.error.as_deref().unwrap(),
+                Ok(finished) => finished.error().unwrap(),
                 Err(error) => error.as_str(),
             }
             .to_string();
             publish_affinity_finished(&mut status, outcome, "affinity-publish".into(), true);
             let finished = status.finished.take().unwrap();
-            assert_eq!(finished.error.as_deref(), Some(expected_error.as_str()));
-            assert!(!finished.cancelled);
+            assert_eq!(finished.error(), Some(expected_error.as_str()));
+            assert!(!finished.cancelled());
             assert!(finished.payload.is_none());
         }
     }
@@ -589,7 +572,7 @@ mod integration_tests {
             .expect("Vanilla profile exists");
         let error = build_affinity_watch_inner(request(&state), profile, "", |_| false, || true)
             .expect_err("cancelled affinity watch must fail closed");
-        assert_eq!(error.message, "cancelled");
+        assert_eq!(error, SearchError::Cancelled);
     }
 
     #[test]
@@ -628,7 +611,7 @@ mod integration_tests {
             || polls.fetch_add(1, AtomicOrdering::Relaxed) + 1 < cancel_after,
         )
         .expect_err("nested affinity cancellation must not return a partial payload");
-        assert_eq!(error.message, "cancelled");
+        assert_eq!(error, SearchError::Cancelled);
         // Affinities run concurrently: each stops at its first refused check.
         let refused = polls.into_inner() + 1 - cancel_after;
         assert!(
@@ -726,7 +709,7 @@ mod hostile_request_tests {
     }
 
     /// The validation of `start_affinity_watch` followed by the calculation.
-    fn run(state: &AppState, request: AffinityWatchRequestDto) -> Result<(), AppError> {
+    fn run(state: &AppState, request: AffinityWatchRequestDto) -> Result<(), SearchError> {
         let (profile, watch) = prepare_affinity_watch(&request, state)?;
         build_affinity_watch_inner(watch, &profile, "", |_| true, || true).map(|_| ())
     }

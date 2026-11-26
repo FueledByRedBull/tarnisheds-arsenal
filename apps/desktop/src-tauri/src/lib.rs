@@ -176,7 +176,8 @@ impl<T: Clone + Send + 'static> JobRegistry<T> {
             }
         };
         // The clone runs outside the registry lock, but under the status lock that cancel and
-        // start take, so a large terminal payload can delay them for the length of the copy.
+        // start take. Terminal payloads are shared, so it copies their pointer and the small
+        // progress snapshot, never the payload itself.
         let status = status.lock().map_err(|_| self.status_error())?.clone();
         Ok(Some(status))
     }
@@ -289,6 +290,56 @@ mod job_registry_tests {
         );
         assert!(registry.cancel("any").is_err());
         assert!(registry.cancel_active().is_err());
+    }
+
+    #[test]
+    fn poisoned_registry_reports_an_error_for_status_and_start() {
+        let registry = Arc::new(registry());
+        registry
+            .insert_if_idle("first".into(), handle(Arc::new(Mutex::new(true))))
+            .unwrap();
+        let poisoning = Arc::clone(&registry);
+        assert!(
+            std::thread::spawn(move || {
+                let _guard = poisoning.handle.lock().unwrap();
+                panic!("injected registry failure");
+            })
+            .join()
+            .is_err()
+        );
+        assert!(registry.status("first").is_err());
+        assert!(registry.status("unknown").is_err());
+        assert!(
+            registry
+                .insert_if_idle("second".into(), handle(Arc::new(Mutex::new(false))))
+                .is_err()
+        );
+    }
+
+    #[test]
+    fn status_shares_the_terminal_payload_instead_of_copying_it() {
+        let registry = JobRegistry::new("search", "search", |status: &dto::SearchJobStatusDto| {
+            status.finished.is_some()
+        });
+        let payload = Arc::new(dto::SearchFinishedDto::new(
+            "done".into(),
+            errors::JobOutcome::Completed(Vec::new()),
+            0,
+        ));
+        registry
+            .insert_if_idle(
+                "done".into(),
+                AsyncJobHandle {
+                    cancel: Arc::new(AtomicBool::new(false)),
+                    status: Arc::new(Mutex::new(dto::SearchJobStatusDto {
+                        progress: None,
+                        finished: Some(Arc::clone(&payload)),
+                    })),
+                },
+            )
+            .unwrap();
+        let read = registry.status("done").unwrap().unwrap().finished.unwrap();
+        assert!(Arc::ptr_eq(&read, &payload));
     }
 
     fn register_running<T: Clone + Send + 'static>(
@@ -1012,30 +1063,29 @@ pub(crate) fn oversized_text() -> String {
 
 /// Runs a hostile request, which must fail fast with an error that does not echo oversized text.
 #[cfg(test)]
-pub(crate) fn assert_rejected_quickly<T: std::fmt::Debug>(
+pub(crate) fn assert_rejected_quickly<T: std::fmt::Debug, E: std::fmt::Display>(
     label: &str,
-    run: impl FnOnce() -> Result<T, errors::AppError>,
+    run: impl FnOnce() -> Result<T, E>,
 ) {
     let started = std::time::Instant::now();
     let outcome = run();
     let elapsed = started.elapsed();
-    let error = outcome.expect_err(label);
+    let message = outcome.map_err(|error| error.to_string()).expect_err(label);
     assert!(
         elapsed < std::time::Duration::from_secs(10),
         "{label} took {elapsed:?} to fail"
     );
     assert!(
-        !error.message.contains(&oversized_text()[..32]),
-        "{label} echoed oversized text: {}",
-        error.message
+        !message.contains(&oversized_text()[..32]),
+        "{label} echoed oversized text: {message}"
     );
 }
 
 /// Applies each hostile value to the test request and requires the entry point to reject it.
 #[cfg(test)]
-pub(crate) fn assert_hostile_values_rejected(
+pub(crate) fn assert_hostile_values_rejected<E: std::fmt::Display>(
     entry_point: &str,
-    run: impl Fn(dto::OptimizeRequestDto) -> Result<(), errors::AppError>,
+    run: impl Fn(dto::OptimizeRequestDto) -> Result<(), E>,
 ) {
     for (label, apply) in HOSTILE_OPTIMIZE_VALUES {
         let mut request = test_optimize_request();
