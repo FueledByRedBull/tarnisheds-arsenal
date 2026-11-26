@@ -4,6 +4,7 @@ import contextlib
 import copy
 import io
 import json
+import os
 import subprocess
 import tempfile
 import unittest
@@ -28,11 +29,24 @@ class BenchmarkDriverComparisonTests(unittest.TestCase):
         return {"workflow": "affinity_watch", "horizon": name, "affinities": 1,
                 "model_version": "exact-v1", "median_ms": timing, **extra}
 
-    def run_driver(self, driver, current, baseline, *arguments, builds=None):
+    PHASE_SETUP = {"profileId": "vanilla", "datasetId": "d", "datasetVersion": "d1",
+                   "modelVersion": "m", "profile": "release", "rayonThreads": 1}
+
+    def workflow_setup(self):
+        manifest = json.loads(
+            (workflows.ROOT / workflows.PROFILE_DIRECTORIES["vanilla"] / "manifest.json").read_text(encoding="utf-8")
+        )
+        return {"profile": "release", "rayon_threads": os.environ.get("RAYON_NUM_THREADS", "1"),
+                "dataset_id": manifest["id"], "dataset_version": manifest["datasetVersion"],
+                "model_version": "exact-v1"}
+
+    def run_driver(self, driver, current, baseline, *arguments, builds=None, baseline_metadata=None):
+        if baseline_metadata is None:
+            baseline_metadata = self.PHASE_SETUP if driver is phases else self.workflow_setup()
         with tempfile.TemporaryDirectory() as temporary:
             baseline_path = Path(temporary) / "baseline.json"
-            baseline_path.write_text(json.dumps({"cases": baseline}), encoding="utf-8")
-            records = ([{"kind": "metadata"}] if driver is phases else []) + current
+            baseline_path.write_text(json.dumps({"metadata": baseline_metadata, "cases": baseline}), encoding="utf-8")
+            records = ([{"kind": "metadata", **self.PHASE_SETUP}] if driver is phases else []) + current
             output = "\n".join(driver.PREFIX + json.dumps(record) for record in records)
             captured = io.StringIO()
             with (
@@ -133,22 +147,33 @@ class BenchmarkDriverComparisonTests(unittest.TestCase):
 
     def test_baselines_from_another_setup_are_refused(self):
         setups = {
-            phases: ({"profileId": "vanilla", "datasetVersion": "d1", "rayonThreads": 16},
-                     "rayonThreads", 1),
-            workflows: ({"profile": "release", "dataset_version": "d1", "rayon_threads": "16"},
-                        "rayon_threads", "1"),
+            phases: ({**self.PHASE_SETUP, "rayonThreads": 16}, "rayonThreads", 1),
+            workflows: ({**self.workflow_setup(), "rayon_threads": "16"}, "rayon_threads", "1"),
         }
         for driver, (recorded, key, other) in setups.items():
             with self.subTest(driver=driver.__name__), tempfile.TemporaryDirectory() as temporary:
                 baseline = Path(temporary) / "baseline.json"
-                baseline.write_text(json.dumps({"metadata": recorded, "cases": [self.case(driver)]}),
-                                    encoding="utf-8")
                 extra = {} if driver is phases else {"coverage": {}}
-                self.assertEqual(driver.compare_baseline(
-                    [self.case(driver)], baseline, 20, metadata=dict(recorded), **extra), [])
+
+                def compare(baseline_metadata, current_metadata):
+                    document = {"cases": [self.case(driver)]}
+                    if baseline_metadata is not None:
+                        document["metadata"] = baseline_metadata
+                    baseline.write_text(json.dumps(document), encoding="utf-8")
+                    return driver.compare_baseline(
+                        [self.case(driver)], baseline, 20, metadata=current_metadata, **extra)
+
+                self.assertEqual(compare(recorded, dict(recorded)), [])
                 with self.assertRaisesRegex(ValueError, f"different setup; {key}"):
-                    driver.compare_baseline(
-                        [self.case(driver)], baseline, 20, metadata={**recorded, key: other}, **extra)
+                    compare(recorded, {**recorded, key: other})
+                # A setting the baseline did not record makes the timings incomparable.
+                partial = {name: value for name, value in recorded.items() if name != key}
+                with self.assertRaisesRegex(ValueError, f"not recorded.*{key} \\(baseline\\)"):
+                    compare(partial, dict(recorded))
+                with self.assertRaisesRegex(ValueError, f"not recorded.*{key} \\(current\\)"):
+                    compare(recorded, partial)
+                with self.assertRaisesRegex(ValueError, "no setup metadata"):
+                    compare(None, dict(recorded))
 
     def test_output_parity_and_mismatch(self):
         for driver in (phases, workflows):

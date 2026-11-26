@@ -40,6 +40,17 @@ def weapon_row(weapon_id: int, affinity: str) -> dict[str, str]:
     return row
 
 
+def reference_identity(weapon_ids: list[int]) -> dict[str, object]:
+    ids = "\n".join(str(weapon_id) for weapon_id in sorted(weapon_ids)).encode()
+    return {
+        "profile": "convergence",
+        "version": convergence_reference.PROFILE.mod_version,
+        "sourceSha256": convergence_reference.SOURCE_SHA256,
+        "matchedWeaponCount": len(weapon_ids),
+        "matchedWeaponIdsSha256": hashlib.sha256(ids).hexdigest(),
+    }
+
+
 def write_csv(path: Path, rows: list[dict[str, str]]) -> None:
     with path.open("w", encoding="utf-8", newline="") as handle:
         writer = csv.DictWriter(handle, fieldnames=rows[0].keys())
@@ -56,6 +67,7 @@ class ConvergenceReferenceTests(unittest.TestCase):
             for row in rows
         ]
         reference = {
+            **reference_identity([1, 2]),
             "weapons": [
                 {"weaponId": 1, "affinity": "Standard"},
                 {"weaponId": 2, "affinity": "Heavy"},
@@ -85,6 +97,19 @@ class ConvergenceReferenceTests(unittest.TestCase):
             reference_path.write_text(json.dumps(reference), encoding="utf-8")
 
             validate_reference(snapshot, reference_path)
+
+            for key, value, message in (
+                ("profile", "vanilla", "does not describe"),
+                ("version", "3.0.0.1", "does not describe"),
+                ("sourceSha256", "0" * 64, "does not describe"),
+                ("matchedWeaponCount", 3, "recorded count and digest"),
+                ("matchedWeaponIdsSha256", "0" * 64, "recorded count and digest"),
+            ):
+                with self.subTest(key=key):
+                    reference_path.write_text(json.dumps({**reference, key: value}), encoding="utf-8")
+                    with self.assertRaisesRegex(ValueError, message):
+                        validate_reference(snapshot, reference_path)
+            reference_path.write_text(json.dumps(reference), encoding="utf-8")
 
             rows[0]["affinity"], rows[1]["affinity"] = rows[1]["affinity"], rows[0]["affinity"]
             with (snapshot / "weapons.csv").open("w", encoding="utf-8", newline="") as handle:
@@ -129,7 +154,9 @@ class ConvergenceReferenceTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             snapshot = Path(temporary)
             (snapshot / "weapons.csv").write_text("weapon_id,affinity\n1,Standard\n2\n", encoding="utf-8")
-            (snapshot / "reference.json").write_text('{"weapons": []}', encoding="utf-8")
+            (snapshot / "reference.json").write_text(
+                json.dumps({**reference_identity([]), "weapons": []}), encoding="utf-8"
+            )
             with self.assertRaisesRegex(ValueError, "weapons.csv line 3"):
                 validate_reference(snapshot, snapshot / "reference.json")
 
@@ -147,11 +174,16 @@ class ConvergenceReferenceTests(unittest.TestCase):
             def read(self, limit: int) -> bytes:
                 return self.body[:limit]
 
-        with patch.object(convergence_reference, "MAX_REFERENCE_BYTES", 8):
+        pinned = hashlib.sha256(b"[1,2,3]").hexdigest()
+        with patch.object(convergence_reference, "MAX_REFERENCE_BYTES", 8), \
+             patch.object(convergence_reference, "SOURCE_SHA256", pinned):
             with patch.object(convergence_reference.urllib.request, "urlopen", return_value=Response(b"[1,2,3]")):
                 self.assertEqual(
                     convergence_reference._fetch_reference("https://example.invalid/r.js")[1], [1, 2, 3]
                 )
+            with patch.object(convergence_reference.urllib.request, "urlopen", return_value=Response(b"[1,2]")):
+                with self.assertRaisesRegex(ValueError, f"expected {pinned}"):
+                    convergence_reference._fetch_reference("https://example.invalid/r.js")
             with patch.object(convergence_reference.urllib.request, "urlopen", return_value=Response(b"[1,2,3,4]")):
                 with self.assertRaisesRegex(ValueError, "exceeds 8 bytes"):
                     convergence_reference._fetch_reference("https://example.invalid/r.js")
@@ -170,7 +202,8 @@ class ConvergenceReferenceTests(unittest.TestCase):
             ])
             data = json.dumps({"weapons": [source], "statusSpEffectParams": {}}).encode()
             (snapshot / "reference.js").write_bytes(data)
-            built = build_reference(snapshot, str(snapshot / "reference.js"))
+            with patch.object(convergence_reference, "SOURCE_SHA256", hashlib.sha256(data).hexdigest()):
+                built = build_reference(snapshot, str(snapshot / "reference.js"))
         self.assertEqual(built["weapons"], [{"weaponId": 7, "affinity": "Standard"}])
         self.assertEqual(built["version"], convergence_reference.PROFILE.mod_version)
         self.assertEqual(built["sourceSha256"], hashlib.sha256(data).hexdigest())

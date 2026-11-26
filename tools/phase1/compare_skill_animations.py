@@ -27,7 +27,7 @@ from tools.phase1.extract_skill_animations import (  # noqa: E402
     run_skill_animation_exports,
 )
 from tools.phase1.phase1_dump import paramdex_path, read_csv, unpack_regulation  # noqa: E402
-from tools.phase1.profiles import discover_witchybnd, profile_definition  # noqa: E402
+from tools.phase1.profiles import PROFILE_DIRECTORIES, discover_witchybnd, profile_definition  # noqa: E402
 
 FIRST_NUMBER = re.compile(r"[0-9]+(?:\.[0-9]+)?")
 
@@ -107,13 +107,15 @@ def compare_first_hit_poise(
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--vanilla-regulation", type=Path, default=ROOT / "data/raw/Vanilla/regulation.bin")
+    parser.add_argument(
+        "--vanilla-regulation", type=Path, default=ROOT / profile_definition("vanilla").regulation_path
+    )
     args = parser.parse_args()
     witchybnd = discover_witchybnd(ROOT).resolve()
     sources = profile_definition("convergence").skill_animation_sources
     if sources is None:
         raise ValueError("the Convergence profile names no skill animation sources")
-    book_dir = ROOT / "data/phase1"
+    book_dir = ROOT / PROFILE_DIRECTORIES["vanilla"]
     with tempfile.TemporaryDirectory(prefix="skill-compare-") as temp:
         snapshot = Path(temp) / "snapshot"
         shutil.copytree(book_dir, snapshot, ignore=shutil.ignore_patterns("*.xlsx"))
