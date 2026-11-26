@@ -42,7 +42,7 @@ thread and is slower than the default pool.
 
 The phase and workflow runners also accept `--baseline <report>`. They refuse a
 baseline recorded with a different profile, dataset, model, build profile or thread
-count; a setting the baseline did not record is not checked. Otherwise comparisons are
+count, and a baseline that did not record one of those settings. Otherwise comparisons are
 advisory unless a stable dedicated runner opts into `--fail-on-regression`.
 
 The phase runner accepts `--threads=1`, `--threads=2`, or another positive count;

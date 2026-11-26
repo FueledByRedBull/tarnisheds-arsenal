@@ -63,9 +63,15 @@ only the storage contract changes; source hashes remain tied to the original inp
   motion workbook `ER - Motion Values and Attack Data (App Ver. 1.17).xlsx` in
   the output folder or `data/phase1/`.
 - Convergence: base and DLC1 `WeaponName`/`ArtsName` FMG XML tables, serialized with
-  WitchyBND from the mod's `msg/engus/item_dlc02.msgbnd.dcx`. Authoritative
-  FMG names are merged by ID; conflicts fail extraction. Guarded PARAM labels fill
-  only mod-added player rows that have no FMG entry, including alternate forms.
+  WitchyBND from the mod's `msg/engus/item_dlc02.msgbnd.dcx`. The file name says which
+  is which: `<table>.fmg.xml` is the base table and `<table>_dlc01.fmg.xml` the DLC1
+  table, recorded as the `…Base` and `…Dlc01` manifest sources; any other name fails
+  extraction. Authoritative FMG names are merged by ID; conflicts fail extraction. A
+  table may list an ID twice only with the same text (Convergence 3.0.3.0's
+  `WeaponName.fmg.xml` does once). Guarded PARAM labels fill only mod-added player
+  rows that have no FMG entry, including alternate forms.
+- Convergence: `data/raw/Conv/version.txt`, the mod's own version file. Its version
+  must equal the profile's mod version, and it is recorded as the `modVersion` source.
 - Convergence: `data/raw/Conv/GR_MenuText.fmg.xml`, the class names the game shows,
   serialized with WitchyBND from `GR_MenuText.fmg` in the mod's
   `msg/engus/menu_dlc02.msgbnd.dcx`. The path is fixed in `profiles.py`.
@@ -103,7 +109,9 @@ python tools/phase1/phase1_dump.py `
 Raw regulation, WitchyBND, and FMG inputs stay under ignored `data/raw/`. Only the
 derived CSV snapshots and their source hashes are committed. The manifest records
 the regulation, the WitchyBND executable and every Paramdex file used (`witchybnd`
-and `paramdex*` sources), plus the workbook and FMG tables when used. Profile
+and `paramdex*` sources), plus the workbook and FMG tables when used; manifest
+validation fails for any profile whose manifest lacks the regulation, WitchyBND, the
+Paramdex layouts or a weapon and skill name source. Profile
 capabilities may leave unsupported tables schema-only; extraction never copies rows
 from another profile.
 
@@ -145,6 +153,14 @@ pinned in `tools/phase4/validate_external_calculator.py`:
    row by its modeled stats; names and our slot affinity only break ties.
 4. Run the normal extraction, then
    `python tools/phase4/validate_external_calculator.py --profile convergence --count 100 --seed 20260918`.
+5. Run `python tools/phase4/validate_phase4.py`. It hard-codes checks tied to this mod
+   version, which a new version can legitimately break: player weapon 10200000
+   (Galvanic Culling Blade [Twinblade], scaling with STR, DEX and INT), the absent
+   internal form 10205000, the Dueling Shield's full infusion set, the fixed Standard
+   Carian Thrusting Shield, and the exact Ash of War coverage counts in
+   `SKILL_ANIMATION_AOW_COVERAGE`. Confirm each change in the mod's own data before
+   updating these checks; update the coverage count in the
+   [model reference](../../docs/model-reference.md) with them.
 
 Run against 3.0.0.1 inputs, steps 2 and 3 reproduce the 3.0.0.1 reference exactly,
 and the data build reproduces the published 3.0.0.1 file except for display names.
@@ -284,7 +300,8 @@ Coverage is written to `aow_damage_coverage.csv` and
 workbook `sheet_row`; this one is keyed by `weapon_id` and records the TAE section,
 animation group and row counts. The three animation and script inputs are pinned by
 SHA-256 in `profiles.py`, like the regulation. To inspect the output without writing a snapshot,
-run the extractor on a copy of a snapshot folder:
+run the extractor on a copy of a snapshot folder. It checks the regulation's pinned
+SHA-256 and refuses to write into a tracked snapshot folder:
 
 ```powershell
 python tools/phase1/extract_skill_animations.py <copy-of-snapshot> --raw-dir data/raw/Conv

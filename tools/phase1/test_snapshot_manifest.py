@@ -11,6 +11,8 @@ from tools.phase1.profiles import PROFILE_DIRECTORIES, profile_definition
 from tools.phase1.snapshot_manifest import (
     EXTRACTOR_VERSION,
     MODEL_VERSION,
+    NAME_SOURCE_CHOICES,
+    REQUIRED_TOOL_SOURCES,
     SCHEMA_VERSION,
     check_snapshot_destination,
     runtime_files_for,
@@ -38,10 +40,20 @@ class SnapshotPromotionTests(unittest.TestCase):
             staging,
             regulation,
             profile=profile_definition("convergence"),
-            source_paths={"skillAnimations": anibnd},
+            source_paths={"skillAnimations": anibnd, **self._tool_sources(root)},
             generated_at="2026-08-17",
         )
         return staging
+
+    @staticmethod
+    def _tool_sources(root: Path) -> dict[str, Path]:
+        sources: dict[str, Path] = {}
+        for kind in sorted(REQUIRED_TOOL_SOURCES | {"weaponNamesBase", "artsNamesBase"}):
+            path = root / "tools" / kind
+            path.parent.mkdir(exist_ok=True)
+            path.write_bytes(kind.encode())
+            sources[kind] = path
+        return sources
 
     def _create_destination(self, root: Path) -> Path:
         destination = root / "destination"
@@ -163,7 +175,10 @@ class SnapshotPromotionTests(unittest.TestCase):
             anibnd = root / "c0000.anibnd.dcx"
             anibnd.write_bytes(b"anibnd")
             write_snapshot_manifest(
-                staging, regulation, profile=capable, source_paths={"skillAnimations": anibnd}
+                staging,
+                regulation,
+                profile=capable,
+                source_paths={"skillAnimations": anibnd, **self._tool_sources(root)},
             )
             manifest = validate_snapshot_manifest(staging)
             self.assertIn("skill animations", manifest["provenance"])
@@ -174,6 +189,18 @@ class SnapshotPromotionTests(unittest.TestCase):
             self._write_manifest(staging, manifest_data)
             with self.assertRaisesRegex(ValueError, "skill animation source"):
                 validate_snapshot_manifest(staging)
+
+    def test_manifest_must_record_the_tools_and_name_tables(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            staging = self._create_staging(Path(temporary))
+            manifest = json.loads((staging / "manifest.json").read_text(encoding="utf-8"))
+            removals = [*sorted(REQUIRED_TOOL_SOURCES), *(choices[0] for choices in NAME_SOURCE_CHOICES)]
+            for kind in removals:
+                with self.subTest(kind=kind):
+                    trimmed = dict(manifest, sources=[s for s in manifest["sources"] if s["kind"] != kind])
+                    self._write_manifest(staging, trimmed)
+                    with self.assertRaisesRegex(ValueError, kind):
+                        validate_snapshot_manifest(staging)
 
     def test_bundled_source_subdirectory_is_rejected_before_destination_mutation(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

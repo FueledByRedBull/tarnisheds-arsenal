@@ -13,7 +13,11 @@ from unittest.mock import patch
 
 from tools.phase1 import phase1_dump
 from tools.phase1.aow_effect_graph import OUTPUT_FIELDS, _classify_direct_effect
-from tools.phase1.derive_phase1_raw_extras import build_passive_effect_coverage, build_weapon_passives
+from tools.phase1.derive_phase1_raw_extras import (
+    build_passive_effect_coverage,
+    build_weapon_passive_overlays,
+    build_weapon_passives,
+)
 from tools.phase1.extract_motion_workbook import (
     AOW_ATTACK_FIELDS,
     MOTION_WORKBOOK_NAME,
@@ -23,6 +27,7 @@ from tools.phase1.extract_motion_workbook import (
 )
 from tools.phase1.phase1_dump import (
     MAX_EFFECTIVE_STRENGTH,
+    STATUS_ATTACK_POWER_FIELDS,
     WEAPON_MODEL_FIELDS,
     build_weapon_rows,
     build_aow_rows,
@@ -173,6 +178,22 @@ class Phase1DumpTests(unittest.TestCase):
             selected = list(iter_param_rows(path, default_fields=("gemMountType",)))[0]
             self.assertEqual(selected["gemMountType"], "2")
             self.assertNotIn("configurableWepAttr11", selected)
+
+    def test_ash_effects_and_affinity_slots_must_resolve(self) -> None:
+        gem = {
+            "id": "21400", "name": "Ash of War: Flaming Strike", "swordArtsParamId": "214",
+            "sortId": "354000", "iconId": "8342", "spEffectId0": "500", "configurableWepAttr00": "1",
+        }
+        status = {field: "0" for field in STATUS_ATTACK_POWER_FIELDS.values()}
+        effects = phase1_dump.build_speffect_map([{"id": "500", **status, "bloodAttackPower": "30"}])
+        self.assertEqual(build_aow_rows([gem], effects, {}, {0: "Standard"})[0]["bleed_buildup_add"], 30.0)
+        with self.assertRaisesRegex(ValueError, "Ash of War 214 names missing SpEffect 500"):
+            build_aow_rows([gem], {}, {}, {0: "Standard"})
+        with self.assertRaisesRegex(ValueError, "missing configurableWepAttr11"):
+            build_aow_rows([gem], effects, {}, {0: "Standard", 11: "Night"})
+        with self.assertRaisesRegex(ValueError, "row 501: missing bloodAttackPower"):
+            unbled = {key: value for key, value in status.items() if key != "bloodAttackPower"}
+            phase1_dump.build_speffect_map([{"id": "501", **unbled}])
 
     def test_native_only_gems_are_not_transferable_ashes(self) -> None:
         gems = [
@@ -330,9 +351,37 @@ class Phase1DumpTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "2 malformed entries of 101"):
                 phase1_dump.load_fmg_name_map(xml)
             xml.write_text(
+                '<fmg><entries><text id="1">A</text><text id="1">A</text></entries></fmg>', encoding="utf-8"
+            )
+            self.assertEqual(phase1_dump.load_fmg_name_map(xml), {1: "A"})
+            xml.write_text(
                 '<fmg><entries><text id="1">A</text><text id="1">B</text></entries></fmg>', encoding="utf-8"
             )
-            self.assertEqual(phase1_dump.load_fmg_name_map(xml), {1: "B"})
+            with self.assertRaisesRegex(ValueError, "id=1 both 'A' and 'B'"):
+                phase1_dump.load_fmg_name_map(xml)
+
+    def test_profile_paths_and_regulation_pin_do_not_depend_on_the_working_directory(self) -> None:
+        profile = PROFILES["vanilla"]
+        with tempfile.TemporaryDirectory() as directory, chdir(directory):
+            self.assertEqual(
+                phase1_dump.repository_path(profile.output_dir),
+                (Path(phase1_dump.ROOT) / profile.output_dir).resolve(),
+            )
+            regulation = Path(directory) / "regulation.bin"
+            with self.assertRaisesRegex(FileNotFoundError, "regulation.bin not found"):
+                phase1_dump.check_regulation_sha256(regulation, profile)
+            regulation.write_bytes(b"not the pinned regulation")
+            with self.assertRaisesRegex(ValueError, f"expects {profile.regulation_sha256}"):
+                phase1_dump.check_regulation_sha256(regulation, profile)
+
+    def test_fmg_tables_are_named_base_or_dlc1(self) -> None:
+        self.assertEqual(phase1_dump.fmg_source_kind("weaponNames", Path("WeaponName.fmg.xml")), "weaponNamesBase")
+        self.assertEqual(
+            phase1_dump.fmg_source_kind("artsNames", Path("ArtsName_dlc01.fmg.xml")), "artsNamesDlc01"
+        )
+        for name in ("WeaponName_dlc02.fmg.xml", "WeaponName.txt"):
+            with self.subTest(name=name), self.assertRaisesRegex(ValueError, "neither a base nor a DLC1"):
+                phase1_dump.fmg_source_kind("weaponNames", Path(name))
 
     def test_strict_csv_reader_names_the_file_and_line_of_a_ragged_row(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -523,16 +572,33 @@ class Phase1DumpTests(unittest.TestCase):
 
     def test_weapon_passives_reject_malformed_status_values(self) -> None:
         weapon = {"weapon_id": "1", "name": "Antspur Rapier", "affinity": "Standard"}
-        effects = {10: {"poizonAttackPower": "80", "diseaseAttackPower": "50",
+        no_status = {field: "0" for field in STATUS_ATTACK_POWER_FIELDS.values()}
+        effects = {10: {**no_status, "poizonAttackPower": "80", "diseaseAttackPower": "50",
                         "isUseStatusAilmentAtkPowerCorrect": "1"}}
         row = build_weapon_passives(effects, [weapon], {1: [10]})[0]
         self.assertEqual((row["poison"], row["scarlet_rot"], row["poison_uses_status_correction"]),
                          ("30", "50", "1"))
         for field, value in (("bloodAttackPower", "x"), ("isUseStatusAilmentAtkPowerCorrect", "yes")):
             with self.subTest(field=field), self.assertRaises(ValueError):
-                build_weapon_passives({10: {field: value}}, [weapon], {1: [10]})
+                build_weapon_passives({10: {**no_status, field: value}}, [weapon], {1: [10]})
+        with self.assertRaisesRegex(ValueError, "row 10: missing bloodAttackPower"):
+            incomplete = {key: value for key, value in effects[10].items() if key != "bloodAttackPower"}
+            build_weapon_passives({10: {"id": "10", **incomplete}}, [weapon], {1: [10]})
         with self.assertRaisesRegex(ValueError, "missing, unclassified SpEffect IDs: 11"):
             build_passive_effect_coverage(effects, [weapon], {1: [10, 11]})
+
+    def test_weapon_passive_overlays_require_every_level_effect(self) -> None:
+        weapon = {"weapon_id": "1", "name": "Weapon", "affinity": "Standard", "reinforce_type": "0"}
+        effect = {field: "0" for field in STATUS_ATTACK_POWER_FIELDS.values()}
+        effects = {100: {**effect, "bloodAttackPower": "40"}, 101: {**effect, "bloodAttackPower": "45"}}
+        arguments = ([weapon], {1: {"spEffectBehaviorId0": "100"}}, {1: {"spEffectId1": "1"}}, {0: 1})
+        rows = build_weapon_passive_overlays(effects, *arguments)
+        self.assertEqual([(row["level"], row["bleed"]) for row in rows], [("0", "40"), ("1", "45")])
+        with self.assertRaisesRegex(ValueError, r"spEffectBehaviorId0 at \+1 names missing SpEffect 101"):
+            build_weapon_passive_overlays({100: effects[100]}, *arguments)
+        with self.assertRaisesRegex(ValueError, "missing freezeAttackPower"):
+            incomplete = {key: value for key, value in effects[101].items() if key != "freezeAttackPower"}
+            build_weapon_passive_overlays({100: effects[100], 101: incomplete}, *arguments)
 
     def test_effect_classification_keeps_unsupported_payloads_explicit(self) -> None:
         effect = {"replaceSpEffectId": 0, "cycleOccurrenceSpEffectId": 0, "atkOccurrenceSpEffectId": 0,
