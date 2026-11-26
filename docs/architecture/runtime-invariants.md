@@ -71,10 +71,29 @@ Status: accepted. These rules describe contracts that tests and future refactors
   uncertainty in one queue retains that queue's native ownership without blocking
   the other queue.
 - A response may update state only when generation, signature, and job ID all exactly match the active request.
-- Each job kind runs through one run slot (`src/lib/run-slot.ts`), which starts the job on
-  the kind's queue, records its job ID and checks that ownership rule for every status and
-  result. Stop and invalidation cancel through the slot, so the queue sends the native
-  cancellation and owns its recovery; no component calls a native cancel command itself.
+- The Rankings search, Paths and Affinity Watch each run through one run slot
+  (`src/lib/run-slot.ts`), which keeps the kind's generation, signature, busy state and job
+  ID in the store, starts the job on the kind's queue and checks that ownership rule for
+  every status and result. Stop and invalidation cancel through the slot, so the queue sends
+  the native cancellation and owns its recovery. A Paths or Affinity Watch run on stale
+  results is refused, with a notice, before it takes its slot, and every run clears its own
+  busy state when it ends unless a later run or an invalidation has taken the slot.
+- Other native work has no run slot, because its job ID never leaves its queue or because
+  several callers share it. Each caller instead passes an `AbortSignal`, which the queue
+  turns into the native cancellation and recovery, and checks its own generation before it
+  publishes:
+  - Comparison searches and CSV export run on the Rankings search queue through
+    `runSearchRequestForRows`. Compare's comparison search belongs to Compare's request
+    generation (`LatestRequest`); CSV export owns its search with its own controller while
+    `isExporting` is set and downloads only while that export is current. Neither writes
+    the store's search state.
+  - Compare's solves and upgrade series run on the shared analysis queue through the
+    analysis cache, whose pending work is cancelled only when its last subscriber leaves.
+    Compare publishes them only while its `LatestRequest` token is current.
+  - The AR / Bleed frontier runs on the shared analysis queue. Its generation and context
+    signature live in `LoadoutTradeoffs`, and a store subscription aborts it when the
+    request, stat-lock mode, selected build or catalog changes its context.
+- No component calls a native cancel command itself.
 - Cancellation replies and errors obey the same generation/job ownership rule;
   a late acknowledgement cannot clear or report an error on a replacement search.
 - Input changes invalidate the active generation before dependent state is changed.

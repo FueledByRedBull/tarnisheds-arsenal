@@ -46,8 +46,9 @@ export interface RunSlot<S extends JobStatus> {
 }
 
 /**
- * One slot per job kind (Search, Paths, Affinity Watch). Its generation, signature and job ID
- * live in the store; the slot decides from them whether a reply is still current.
+ * One slot per job kind whose job ID the store keeps (Search, Paths, Affinity Watch). Its
+ * generation, signature and job ID live in the store; the slot decides from them whether a
+ * reply is still current.
  */
 export function createRunSlot<S extends JobStatus>(options: {
   queue: NativeJobQueue<S>;
