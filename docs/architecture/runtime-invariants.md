@@ -174,7 +174,10 @@ Status: accepted. These rules describe contracts that tests and future refactors
   Essential writes refuse to replace an unreadable index. Recovery previews bind
   the exact source records/index, reject changed previews, preserve the original
   index before replacement, and leave unreadable records untouched. Storage read
-  failures must not throw through component rendering.
+  failures must not throw through component rendering. Backup and recovery scans
+  storage at idle time; until the library's current revision is scanned it says it is
+  checking, shows no earlier scan, and keeps Export all and Restore disabled with the
+  reason.
 - Bulk build backups use `tarnisheds-arsenal.build-backup` version 1, containing
   existing versioned presets, bounded to 500 builds/10 MiB. Validate the entire
   backup before writing, each build against the same size limit as a save; restore with new IDs and commit the index last. Failed

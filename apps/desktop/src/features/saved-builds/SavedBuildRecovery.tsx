@@ -1,5 +1,5 @@
 import "../shared/build-tools.css";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { downloadText } from "../../lib/csv";
 import { errorMessage } from "../../lib/format";
 import { whenIdle } from "../../lib/idle";
@@ -13,21 +13,33 @@ function readInspection(): { inspection: SavedBuildInspection | null; error: str
   catch (caught) { return { inspection: null, error: errorMessage(caught) }; }
 }
 
+// The library revision no scan has read yet.
+const UNSCANNED = Symbol("unscanned");
+
 export function SavedBuildRecovery({ onChanged, revision }: { onChanged: () => void; revision?: unknown }) {
-  const [{ inspection, error }, setScan] = useState<ReturnType<typeof readInspection>>({ inspection: null, error: "" });
+  const [scanned, setScan] = useState<{ revision: unknown } & ReturnType<typeof readInspection>>(
+    { revision: UNSCANNED, inspection: null, error: "" });
   // A scan reads every stored record, so it waits for idle time instead of running inside the
   // render that opened the library or refreshed it after a save.
-  useEffect(() => whenIdle(() => setScan(readInspection()), 0), [revision]);
-  const setInspection = (next: SavedBuildInspection | null) => setScan((current) => ({ ...current, inspection: next }));
+  useEffect(() => whenIdle(() => setScan({ revision, ...readInspection() }), 0), [revision]);
+  // Until the library's current revision is scanned, an earlier scan describes storage as it was.
+  const checking = scanned.revision !== revision;
+  const inspection = checking ? null : scanned.inspection;
+  const { error } = scanned;
   const setError = (next: string) => setScan((current) => ({ ...current, error: next }));
+  const reasonId = useId();
+  const scanReason = checking ? "Available when the check of saved builds finishes."
+    : inspection ? "" : "Available once saved builds can be read. Scan saved builds to try again.";
   const [message, setMessage] = useState("");
   const [backup, setBackup] = useState("");
   const [preview, setPreview] = useState<ReturnType<typeof previewBuildBackup> | null>(null);
+  // Restoring writes beside the library, so it waits for the library to be read and listed.
+  const restoreReason = scanReason || (inspection?.needsRecovery ? "Recover the saved-build list above before restoring a backup." : "");
   const fileRead = useRef(0);
   useEffect(() => () => { fileRead.current += 1; }, []);
 
   function scan() {
-    setScan(readInspection());
+    setScan({ revision, ...readInspection() });
   }
 
   function recover() {
@@ -45,9 +57,8 @@ export function SavedBuildRecovery({ onChanged, revision }: { onChanged: () => v
       const current = inspectSavedBuilds();
       const text = savedBuildBackupText(current);
       downloadText("tarnisheds-arsenal-builds.json", text, "application/json;charset=utf-8");
-      setInspection(current);
+      setScan({ revision, inspection: current, error: "" });
       setMessage(`Exported ${current.presets.length} readable builds.${current.issues.length ? " Review the listed storage issues; unreadable records are excluded." : ""}`);
-      setError("");
     } catch (caught) { setError(errorMessage(caught)); }
   }
 
@@ -81,6 +92,7 @@ export function SavedBuildRecovery({ onChanged, revision }: { onChanged: () => v
   return <details className="saved-build-recovery" open={inspection?.needsRecovery || undefined}>
     <summary>Backup and recovery{inspection?.needsRecovery ? ": attention needed" : ""}</summary>
     <p>Back up every readable build across profiles. Restoring keeps existing builds and gives each imported build a new ID.</p>
+    {checking ? <p role="status">Checking saved builds...</p> : null}
     {inspection ? <>
       <p>{inspection.presets.length} readable builds · {inspection.orphanCount} unlisted builds · {inspection.issues.length} storage issues</p>
       {inspection.issues.length > 0 ? <ul className="tone-warning">{inspection.issues.map((issue, index) => <li key={index}>{issue}</li>)}</ul> : null}
@@ -91,7 +103,8 @@ export function SavedBuildRecovery({ onChanged, revision }: { onChanged: () => v
     </> : null}
     <div className="inspector-actions stacked">
       <button type="button" onClick={scan}>Scan saved builds</button>
-      <button type="button" onClick={exportAll} disabled={!inspection}>Export all builds</button>
+      <button type="button" onClick={exportAll} disabled={!inspection} aria-describedby={scanReason ? `${reasonId}-export` : undefined}>Export all builds</button>
+      {scanReason ? <small id={`${reasonId}-export`}>{scanReason}</small> : null}
     </div>
     <label>Restore build backup (JSON, up to 10 MiB)
       <input type="file" accept="application/json,.json" onChange={(event) => { void selectBackup(event.target.files?.[0]); event.target.value = ""; }} />
@@ -99,7 +112,9 @@ export function SavedBuildRecovery({ onChanged, revision }: { onChanged: () => v
     {preview ? <div className="import-preview">
       <p>{preview.presets.length} builds · {preview.bytes.toLocaleString()} bytes · existing builds will be kept</p>
       <ul>{preview.presets.map((preset) => <li key={preset.id}>{preset.name} · {preset.profileId} · {preset.dataVersion}</li>)}</ul>
-      <button type="button" onClick={restore} disabled={!preview.presets.length || inspection?.needsRecovery}>Restore {preview.presets.length} builds as copies</button>
+      <button type="button" onClick={restore} disabled={!preview.presets.length || !inspection || inspection.needsRecovery}
+        aria-describedby={restoreReason ? `${reasonId}-restore` : undefined}>Restore {preview.presets.length} builds as copies</button>
+      {restoreReason ? <small id={`${reasonId}-restore`}>{restoreReason}</small> : null}
     </div> : null}
     {error ? <p className="tone-danger" role="alert">{error}</p> : null}
     {message ? <p role="status">{message}</p> : null}
