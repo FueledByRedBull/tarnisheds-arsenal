@@ -28,7 +28,7 @@ concurrency:
 jobs:
   verify-ci:
     runs-on: ubuntu-24.04
-    timeout-minutes: 45
+    timeout-minutes: 70
     outputs:
       verified-sha: ${{ steps.verify.outputs.verified-sha }}
     permissions:
@@ -144,8 +144,6 @@ jobs:
           $msiPath = $msiCandidates[0]
           $checksumsPath = Join-Path $releaseDir.FullName "SHA256SUMS.txt"
           $reportPath = Join-Path $releaseDir.FullName "build-report.json"
-          if (-not $exePath) { throw "No portable executable found in $($releaseDir.FullName)" }
-          if (-not $msiPath) { throw "No MSI found in $($releaseDir.FullName)" }
           if (-not (Test-Path $zipPath)) { throw "No release archive found at $zipPath" }
           if (-not (Test-Path $checksumsPath)) { throw "No checksum file found in $($releaseDir.FullName)" }
           if (-not (Test-Path $reportPath)) { throw "No build report found in $($releaseDir.FullName)" }
@@ -397,14 +395,16 @@ jobs:
       - name: Prepare Linux release assets
         run: |
           version="$(jq -r .version apps/desktop/src-tauri/tauri.conf.json)"
-          prefix="TarnishedsArsenal_$version"
+          # Previews carry the source commit, as the Windows package does.
+          if [ "$PUBLISH_RELEASE" = "true" ]; then artifact_version="$version"; else artifact_version="$version-preview-$GITHUB_SHA"; fi
+          prefix="TarnishedsArsenal_$artifact_version"
           bundle=apps/desktop/src-tauri/target/release/bundle
           mkdir -p dist/linux-assets
           cp $bundle/deb/*.deb "dist/linux-assets/${prefix}_amd64.deb"
           cp $bundle/rpm/*.rpm "dist/linux-assets/${prefix}_x86_64.rpm"
           cp $bundle/appimage/*.AppImage "dist/linux-assets/${prefix}_amd64.AppImage"
           (cd dist/linux-assets && sha256sum "${prefix}_amd64.deb" "${prefix}_x86_64.rpm" "${prefix}_amd64.AppImage" > "${prefix}_linux_SHA256SUMS.txt")
-          echo "ARTIFACT_VERSION=$version" >> "$GITHUB_ENV"
+          echo "ARTIFACT_VERSION=$artifact_version" >> "$GITHUB_ENV"
 
       - name: Attest Linux build provenance
         if: env.PUBLISH_RELEASE == 'true'

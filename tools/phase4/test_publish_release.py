@@ -240,6 +240,18 @@ class PublishReleaseTests(unittest.TestCase):
         self.assertNotIn("overwrite_files", publish_job)
         self.assertIn("publish_release.py", publish_job)
 
+    def test_linux_preview_artifacts_carry_the_source_commit(self) -> None:
+        workflow = (Path(__file__).resolve().parents[2] / ".github/workflows/release-package.yml").read_text(encoding="utf-8")
+        linux_job = workflow.split("\n  package-linux:\n", 1)[1].split("\n  publish:\n", 1)[0]
+        self.assertIn(
+            'if [ "$PUBLISH_RELEASE" = "true" ]; then artifact_version="$version"; '
+            'else artifact_version="$version-preview-$GITHUB_SHA"; fi',
+            linux_job,
+        )
+        self.assertIn('prefix="TarnishedsArsenal_$artifact_version"', linux_job)
+        self.assertIn('echo "ARTIFACT_VERSION=$artifact_version" >> "$GITHUB_ENV"', linux_job)
+        self.assertIn("name: package-linux-${{ env.ARTIFACT_VERSION }}", linux_job)
+
 
 if __name__ == "__main__":
     unittest.main()

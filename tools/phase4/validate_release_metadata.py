@@ -128,14 +128,23 @@ def heading_anchors(text: str) -> set[str]:
     return anchors
 
 
+def markdown_link_targets(path: Path) -> list[str]:
+    """Inline link targets outside code spans and fenced blocks."""
+    body = re.sub(r"`[^`\n]*`", "", re.sub(r"```.*?```", "", path.read_text(encoding="utf-8"), flags=re.S))
+    return re.findall(r"\]\(([^)\s]+)(?:\s+\"[^\"]*\")?\)", body)
+
+
+def is_absolute_link(target: str) -> bool:
+    return re.match(r"[a-z]+:", target) is not None
+
+
 def markdown_link_errors(root: Path, files: list[str]) -> list[str]:
     """Relative links in committed Markdown must reach a file and, when given, a heading."""
     errors: list[str] = []
     for name in files:
         path = root / name
-        body = re.sub(r"`[^`\n]*`", "", re.sub(r"```.*?```", "", path.read_text(encoding="utf-8"), flags=re.S))
-        for target in re.findall(r"\]\(([^)\s]+)(?:\s+\"[^\"]*\")?\)", body):
-            if re.match(r"[a-z]+:", target):
+        for target in markdown_link_targets(path):
+            if is_absolute_link(target):
                 continue
             relative, _, anchor = target.partition("#")
             destination = (path.parent / relative).resolve() if relative else path
@@ -146,6 +155,24 @@ def markdown_link_errors(root: Path, files: list[str]) -> list[str]:
             ):
                 errors.append(f"{name} links missing heading {target}")
     return errors
+
+
+def release_notes_link_errors(root: Path, files: list[str]) -> list[str]:
+    """Version notes become the GitHub release body, where only absolute and same-page links work."""
+    errors: list[str] = []
+    for name in files:
+        if re.fullmatch(r"docs/release-notes/v\d+\.\d+\.\d+\.md", name) is None:
+            continue
+        for target in markdown_link_targets(root / name):
+            if not is_absolute_link(target) and not target.startswith("#"):
+                errors.append(f"{name} links {target}; release notes need absolute GitHub URLs")
+    return errors
+
+
+def tracked_markdown(root: Path) -> list[str]:
+    # -z keeps names with spaces or non-ASCII characters whole and unquoted.
+    output = subprocess.check_output(["git", "ls-files", "-z", "*.md"], cwd=root, encoding="utf-8")
+    return [name for name in output.split("\0") if name]
 
 
 def main() -> int:
@@ -227,8 +254,9 @@ def main() -> int:
     expect_exact_version("Python toolchain", python_version, errors)
     expect_exact_version("Node toolchain", node_version, errors)
     errors.extend(toolchain_reference_errors(root, rust_version, node_version, python_version, expected_tag))
-    markdown = subprocess.check_output(["git", "ls-files", "*.md"], cwd=root, text=True).split()
+    markdown = tracked_markdown(root)
     errors.extend(markdown_link_errors(root, markdown))
+    errors.extend(release_notes_link_errors(root, markdown))
 
     errors.extend(requirements_errors((root / "requirements-validation.txt").read_text(encoding="utf-8")))
 

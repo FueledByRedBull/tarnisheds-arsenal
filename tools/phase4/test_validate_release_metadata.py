@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
@@ -7,8 +8,10 @@ from pathlib import Path
 from tools.phase4.validate_release_metadata import (
     markdown_link_errors,
     release_notes_errors,
+    release_notes_link_errors,
     requirements_errors,
     toolchain_reference_errors,
+    tracked_markdown,
 )
 
 URL = "https://github.com/FueledByRedBull/tarnisheds-arsenal/releases/tag/"
@@ -104,6 +107,32 @@ class MarkdownLinkTests(unittest.TestCase):
                 "README.md links missing docs/missing.md",
                 "README.md links missing heading docs/guide.md#nowhere",
             ])
+
+    def test_version_notes_allow_only_absolute_and_same_page_links(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            notes = root / "docs" / "release-notes"
+            notes.mkdir(parents=True)
+            (notes / "v1.2.3.md").write_text(
+                f"[ok]({URL}v1.2.3) [here](#downloads) `[code](../x.md)`\n"
+                "[guide](../releasing.md) [index](README.md#list)\n",
+                encoding="utf-8",
+            )
+            (notes / "README.md").write_text("[guide](../releasing.md)\n", encoding="utf-8")
+            files = ["docs/release-notes/v1.2.3.md", "docs/release-notes/README.md"]
+            self.assertEqual(release_notes_link_errors(root, files), [
+                "docs/release-notes/v1.2.3.md links ../releasing.md; release notes need absolute GitHub URLs",
+                "docs/release-notes/v1.2.3.md links README.md#list; release notes need absolute GitHub URLs",
+            ])
+
+    def test_tracked_markdown_keeps_names_with_spaces_whole(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            subprocess.run(["git", "init", "-q"], cwd=root, check=True)
+            for name in ("a b.md", "plain.md", "skip.txt"):
+                (root / name).write_text("x\n", encoding="utf-8")
+            subprocess.run(["git", "add", "."], cwd=root, check=True)
+            self.assertEqual(sorted(tracked_markdown(root)), ["a b.md", "plain.md"])
 
 
 if __name__ == "__main__":
