@@ -1,6 +1,7 @@
 import { Search } from "lucide-react";
 import { KeyboardEvent, ReactNode, useDeferredValue, useEffect, useId, useMemo, useRef, useState } from "react";
 import { Command, CommandAction, CommandContext, findCommands, highlightRanges, recallable } from "../../lib/commands";
+import { whenIdle } from "../../lib/idle";
 
 const RECENT_KEY = "tarnisheds-arsenal.recentCommands.v1";
 
@@ -56,13 +57,7 @@ export function CommandPalette({ open, context, onRun, onClose }: {
   const [hiddenResults, setHiddenResults] = useState<Command[]>([]);
   useEffect(() => {
     if (!context || hiddenResults.length) return;
-    const render = () => setHiddenResults(findCommands("", { ...context, recent }));
-    if ("requestIdleCallback" in window) {
-      const id = window.requestIdleCallback(render, { timeout: 2_000 });
-      return () => window.cancelIdleCallback(id);
-    }
-    const id = setTimeout(render, 500);
-    return () => clearTimeout(id);
+    return whenIdle(() => setHiddenResults(findCommands("", { ...context, recent })), 500);
   }, [context, hiddenResults.length, recent]);
   const results = useMemo(
     () => (open ? (context ? findCommands(deferredQuery, { ...context, recent }) : []) : hiddenResults),
