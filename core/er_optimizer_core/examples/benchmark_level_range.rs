@@ -211,7 +211,8 @@ fn run_independent(
                         rows,
                     })
                 })
-                .collect::<Result<Vec<_>, _>>()?;
+                .collect::<Result<Vec<_>, _>>()
+                .map_err(|error| error.to_string())?;
             Ok((affinity.clone(), rows))
         })
         .collect()
@@ -227,6 +228,7 @@ fn run_ranged(
         .map(|affinity| {
             optimize_level_range_with_progress(&request(affinity), levels, data, |_| true, || true)
                 .map(|rows| (affinity.clone(), rows))
+                .map_err(|error| error.to_string())
         })
         .collect()
 }

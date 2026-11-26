@@ -10,6 +10,21 @@ use super::*;
 
 mod skill_data;
 
+/// Message checks on a search failure; a cancellation where a failure was expected fails
+/// the test.
+trait FailureMessage {
+    fn contains(&self, text: &str) -> bool;
+}
+
+impl FailureMessage for SearchError {
+    fn contains(&self, text: &str) -> bool {
+        match self {
+            SearchError::Failed(message) => message.contains(text),
+            SearchError::Cancelled => panic!("expected a failure, not a cancellation"),
+        }
+    }
+}
+
 fn load_data() -> GameData {
     let data_path = Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("..")
@@ -1906,7 +1921,7 @@ fn exact_dp_honors_cancellation_during_a_small_domain_scan() {
         },
     )
     .expect_err("exact DP must stop when cancelled");
-    assert_eq!(error, "cancelled");
+    assert_eq!(error, SearchError::Cancelled);
     assert!(callback_count >= 2);
 }
 
@@ -2738,7 +2753,7 @@ fn cached_primary_preparation_remains_cancellable() {
         Some(&reuse),
     )
     .unwrap_err();
-    assert_eq!(error, "cancelled");
+    assert_eq!(error, SearchError::Cancelled);
 }
 
 #[test]
@@ -2824,7 +2839,7 @@ fn level_ranges_stop_siblings_after_a_genuine_error() {
         results[0].as_ref().unwrap_err(),
         &optimize(&failing, &game_data).unwrap_err()
     );
-    assert_eq!(results[1].as_ref().unwrap_err(), "cancelled");
+    assert_eq!(results[1].as_ref().unwrap_err(), &SearchError::Cancelled);
 }
 
 #[test]
@@ -2838,7 +2853,7 @@ fn level_range_honors_cancellation_before_preparation() {
         || false,
     )
     .expect_err("cancelled range must fail closed");
-    assert_eq!(error, "cancelled");
+    assert_eq!(error, SearchError::Cancelled);
 }
 
 #[test]
@@ -2925,7 +2940,7 @@ fn reusable_loadout_evaluator_cancels_an_empty_fully_locked_search() {
     let error = evaluator
         .evaluate_with_cancel(&request, || false)
         .unwrap_err();
-    assert_eq!(error, "cancelled");
+    assert_eq!(error, SearchError::Cancelled);
 }
 
 #[test]
@@ -3144,7 +3159,7 @@ fn ar_bleed_frontier_honors_cancellation() {
         evaluator
             .evaluate_ar_bleed_frontier_with_cancel(&request, || false)
             .expect_err("cancelled frontier must fail closed"),
-        "cancelled"
+        SearchError::Cancelled
     );
     let polls = AtomicU64::new(0);
     assert_eq!(
@@ -3153,7 +3168,7 @@ fn ar_bleed_frontier_honors_cancellation() {
                 polls.fetch_add(1, Ordering::Relaxed) < 19
             })
             .expect_err("cancellation during calculation must discard the frontier"),
-        "cancelled"
+        SearchError::Cancelled
     );
 }
 
@@ -3372,7 +3387,7 @@ fn arc_frontier_reuse_preserves_non_additive_fallback_and_cancellation() {
                 seen < stop
             })
             .unwrap_err(),
-            "cancelled",
+            SearchError::Cancelled,
             "checkpoint {stop}/{polls}"
         );
     }
@@ -3574,7 +3589,7 @@ fn reusable_loadout_evaluator_rejects_loadout_drift() {
         evaluator
             .evaluate_with_cancel(&changed, || true)
             .expect_err("loadout drift must fail"),
-        "request does not match the prepared loadout evaluator"
+        SearchError::from("request does not match the prepared loadout evaluator")
     );
 }
 
@@ -3748,7 +3763,7 @@ fn direct_upgrade_series_honors_cancellation_and_rejects_identity_drift() {
         evaluator
             .evaluate_with_cancel(&request, 25, || false)
             .expect_err("cancelled series must fail closed"),
-        "cancelled"
+        SearchError::Cancelled
     );
 
     let mut changed = request;
@@ -3757,7 +3772,7 @@ fn direct_upgrade_series_honors_cancellation_and_rejects_identity_drift() {
         evaluator
             .evaluate_with_cancel(&changed, 25, || true)
             .expect_err("identity drift must fail closed"),
-        "request does not match the prepared loadout evaluator"
+        SearchError::from("request does not match the prepared loadout evaluator")
     );
 }
 
@@ -4268,15 +4283,15 @@ fn ash_template_preparation_polls_cancellation_between_phases() {
             seen < stop_at
         });
         assert_eq!(
-            stopped.err().as_deref(),
-            Some("cancelled"),
+            stopped.err(),
+            Some(SearchError::Cancelled),
             "stop at poll {stop_at}"
         );
         assert_eq!(seen, stop_at);
     }
     let error = prepare_weapons_with_cancel(&request, &game_data, None, &mut || false)
         .expect_err("preparation must stop when cancelled");
-    assert_eq!(error, "cancelled");
+    assert_eq!(error, SearchError::Cancelled);
 }
 
 #[test]
@@ -5077,7 +5092,7 @@ fn materialization_cancellation_after_scoring_discards_large_result_batch() {
                 polls < stop_at
             },
         );
-        assert_eq!(result.err().as_deref(), Some("cancelled"));
+        assert_eq!(result.err(), Some(SearchError::Cancelled));
         assert_eq!(polls, stop_at);
     }
 
@@ -5093,7 +5108,7 @@ fn materialization_cancellation_after_scoring_discards_large_result_batch() {
         },
         |snapshot| scored.store(snapshot.checked == snapshot.total, Ordering::Relaxed),
     );
-    assert_eq!(result.err().as_deref(), Some("cancelled"));
+    assert_eq!(result.err(), Some(SearchError::Cancelled));
     assert_eq!(checks_after_scoring.into_inner(), 3);
 }
 
@@ -5118,7 +5133,7 @@ fn materialization_cancellation_after_reused_scoring_discards_result() {
         |snapshot| scored.store(snapshot.checked == snapshot.total, Ordering::Relaxed),
         Some(&reuse),
     );
-    assert_eq!(result.err().as_deref(), Some("cancelled"));
+    assert_eq!(result.err(), Some(SearchError::Cancelled));
     assert_eq!(checks_after_scoring.into_inner(), 3);
 }
 
@@ -5144,7 +5159,7 @@ fn materialization_cancellation_after_fixed_loadout_selection_discards_result() 
             polls += 1;
             polls < 4
         });
-    assert_eq!(result.err().as_deref(), Some("cancelled"));
+    assert_eq!(result.err(), Some(SearchError::Cancelled));
     assert_eq!(polls, 4);
 }
 
@@ -5432,7 +5447,7 @@ fn materialization_cancellation_inside_complex_routes_and_last_upgrade() {
                 polls < stop_at
             },
         );
-        assert_eq!(result.err().as_deref(), Some("cancelled"));
+        assert_eq!(result.err(), Some(SearchError::Cancelled));
         assert_eq!(polls, stop_at);
     }
 
@@ -5471,7 +5486,7 @@ fn materialization_cancellation_inside_complex_routes_and_last_upgrade() {
                     polls < stop_at
                 },
             );
-            assert_eq!(result.err().as_deref(), Some("cancelled"));
+            assert_eq!(result.err(), Some(SearchError::Cancelled));
             assert_eq!(polls, stop_at);
         }
     }
@@ -5518,7 +5533,7 @@ fn materialization_cancellation_inside_complex_routes_and_last_upgrade() {
         polls += 1;
         polls < series_polls
     });
-    assert_eq!(cancelled.err().as_deref(), Some("cancelled"));
+    assert_eq!(cancelled.err(), Some(SearchError::Cancelled));
     assert_eq!(polls, series_polls);
 }
 
@@ -5532,7 +5547,7 @@ fn refused_continuation_cancels_search_after_the_initial_snapshot() {
     let err = optimize_prepared_with_progress(&plan, 1, || false, |_snapshot| callback_count += 1)
         .expect_err("expected cancellation");
 
-    assert_eq!(err, "cancelled");
+    assert_eq!(err, SearchError::Cancelled);
     assert_eq!(callback_count, 1);
 }
 
@@ -5590,10 +5605,14 @@ fn cancellation_is_read_at_the_next_poll_whatever_the_progress_throttle() {
         }
         // A fresh progress state is inside its delivery interval, so no snapshot is due.
         cancelled.store(true, Ordering::Relaxed);
-        assert_eq!(serial.poll().unwrap_err(), "cancelled", "{progress_every}");
+        assert_eq!(
+            serial.poll().unwrap_err(),
+            SearchError::Cancelled,
+            "{progress_every}"
+        );
         assert_eq!(
             parallel.poll().unwrap_err(),
-            "cancelled",
+            SearchError::Cancelled,
             "{progress_every}"
         );
         assert_eq!(callbacks.load(Ordering::Relaxed), 0, "{progress_every}");
@@ -5623,7 +5642,7 @@ fn cancellation_is_read_at_the_next_poll_whatever_the_progress_throttle() {
         |_| {},
     )
     .unwrap_err();
-    assert_eq!(error, "cancelled");
+    assert_eq!(error, SearchError::Cancelled);
 }
 
 #[test]
@@ -5638,7 +5657,7 @@ fn preparation_callback_can_cancel_before_enumeration() {
     })
     .expect_err("expected preparation cancellation");
 
-    assert_eq!(error, "cancelled");
+    assert_eq!(error, SearchError::Cancelled);
     assert_eq!(callback_count, 3);
 }
 
@@ -5683,7 +5702,7 @@ fn broad_enumeration_stops_at_the_first_cancelled_poll() {
             .join()
             .expect("search worker does not panic")
             .expect_err("broad search must cancel");
-        assert_eq!(error, "cancelled");
+        assert_eq!(error, SearchError::Cancelled);
         // One refusal stops every worker: at most one racing check per worker.
         let calls = calls_after_cancel.load(Ordering::Relaxed);
         assert!(
@@ -5993,7 +6012,7 @@ fn prepared_search_stops_before_preparation_when_cancelled() {
     let game_data = load_data();
     let error = prepare_search_with_cancel(&broad_request(), &game_data, || false)
         .expect_err("cancelled preparation must fail closed");
-    assert_eq!(error, "cancelled");
+    assert_eq!(error, SearchError::Cancelled);
 }
 
 #[test]

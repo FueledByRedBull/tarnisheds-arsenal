@@ -67,7 +67,10 @@ fn main() -> Result<(), String> {
         // Locked cases name Vanilla equipment; a mod may lack it or leave its skill unmodeled.
         if profile != "vanilla"
             && (request.weapon_name.is_some() || request.aow_name.is_some())
-            && optimize_profiled(&request, &data)?.rows.is_empty()
+            && optimize_profiled(&request, &data)
+                .map_err(|error| error.to_string())?
+                .rows
+                .is_empty()
         {
             if selected_case.is_some() {
                 return Err(format!("{name} has no results for {profile}"));
@@ -76,12 +79,12 @@ fn main() -> Result<(), String> {
         }
         let mut warmup_results = Vec::with_capacity(warmups);
         for _ in 0..warmups {
-            let result = optimize_profiled(&request, &data)?;
+            let result = optimize_profiled(&request, &data).map_err(|error| error.to_string())?;
             warmup_results.push((format!("{:?}", result.rows), result.estimate.combinations));
         }
         let mut samples = Vec::with_capacity(repeats);
         for _ in 0..repeats {
-            samples.push(optimize_profiled(&request, &data)?);
+            samples.push(optimize_profiled(&request, &data).map_err(|error| error.to_string())?);
         }
         print_case(name, &request, &data, samples, &warmup_results)?;
     }
