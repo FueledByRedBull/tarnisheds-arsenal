@@ -71,6 +71,10 @@ Status: accepted. These rules describe contracts that tests and future refactors
   uncertainty in one queue retains that queue's native ownership without blocking
   the other queue.
 - A response may update state only when generation, signature, and job ID all exactly match the active request.
+- Each job kind runs through one run slot (`src/lib/run-slot.ts`), which starts the job on
+  the kind's queue, records its job ID and checks that ownership rule for every status and
+  result. Stop and invalidation cancel through the slot, so the queue sends the native
+  cancellation and owns its recovery; no component calls a native cancel command itself.
 - Cancellation replies and errors obey the same generation/job ownership rule;
   a late acknowledgement cannot clear or report an error on a replacement search.
 - Input changes invalidate the active generation before dependent state is changed.
@@ -104,7 +108,7 @@ Status: accepted. These rules describe contracts that tests and future refactors
   count; there is no standalone estimate API or frontend estimate job. A future
   asynchronous estimate needs a generation, signature, and job ID.
 - A profile switch invalidates every job generation before changing inputs, requests cancellation for all active backend jobs, clears profile-bound results, and cannot accept a completion from the previous profile.
-- Each profile keeps its last query (request and stat-lock mode) in memory and gets it back when the player returns to that profile. A query is never carried into another profile, and results are not restored: the returning query is searched again on demand.
+- Each profile keeps its last query (request and stat-lock mode) in memory and gets it back when the player returns to that profile. Results are not restored: the returning query is searched again on demand. A first visit to a profile starts from that profile's defaults and keeps only `twoHanding`, `exactUpgrade`, `dlcScaling`, `scadutreeLevel`, `resultGrouping` and `topK` from the query being left, under the new profile's rules; nothing else crosses profiles.
 - Each profile's query is also saved on the device under its own profile key, written only while that profile is loaded, and restored at startup or on return after a restart. It is validated like an imported preset request; an unreadable query or one naming another profile is removed with a notice, never repaired or carried across profiles.
 - Release builds swallow WebView2's reload and print keys (F5, Ctrl+R, Ctrl+Shift+R,
   Ctrl+F5 and Ctrl+P) so they cannot discard the session; development builds keep
@@ -121,6 +125,10 @@ Status: accepted. These rules describe contracts that tests and future refactors
 - A preset's starting class must match the active catalog before activation can
   mutate workspace or storage. An unambiguous case-insensitive match is
   canonicalized; unknown classes are rejected rather than replaced.
+- A first visit to a profile starts from that profile's default class at its own
+  starting stats, never from the class being left. A restored session query whose
+  class the profile lacks is not rejected: it starts from the default class, with a
+  notice saying so.
 - Saved solved rows are archives. Even when their schema, dataset and model match,
   selected rows and comparison snapshots are recalculated through native fixed
   loadout solving with their exact equipment, upgrade and stats before publication.
