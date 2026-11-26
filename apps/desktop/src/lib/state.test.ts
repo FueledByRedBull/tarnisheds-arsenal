@@ -641,7 +641,7 @@ describe("desktop result lifecycle", () => {
     useDesktopStore.getState().beginProfileSwitch("convergence");
     const away = useDesktopStore.getState();
     expect(away.request).toMatchObject({ profileId: "convergence", weaponName: null, lockDex: null });
-    expect(away.notices[0].message).toBe("Your vanilla query is kept for when you switch back.");
+    expect(away.notices[0].message).toBe("Your query for vanilla is kept for when you switch back.");
 
     useDesktopStore.setState({ catalog: catalog("convergence") });
     useDesktopStore.getState().beginProfileSwitch("vanilla");
@@ -649,7 +649,7 @@ describe("desktop result lifecycle", () => {
     expect(back.request).toMatchObject({ profileId: "vanilla", weaponName: "Uchigatana", lockDex: 40 });
     expect(back.lockedStatMode).toBe(true);
     expect(back.rows).toEqual([]);
-    expect(back.notices[0].message).toBe("Restored your vanilla query. Search to rank it again.");
+    expect(back.notices[0].message).toBe("Restored your query for vanilla. Search to rank it again.");
   });
 
   it("restores a profile's query after the profile it was left for failed to load", () => {
@@ -717,18 +717,23 @@ describe("desktop result lifecycle", () => {
       : { standardMaxUpgrade: defaultRequest.standardMaxUpgrade, somberMaxUpgrade: 7 });
   });
 
-  it("starts a same-named class from the new profile's stats after a profile switch", () => {
+  it("starts a first visit from the new profile's default class with its stats, not the class being left", () => {
     const vanilla = catalog("vanilla");
     const convergence = catalog("convergence");
-    convergence.classes = [{ name: "Prisoner", baseLevel: 1, baseTotal: 80,
-      baseStats: { vig: 10, mnd: 10, end: 10, strStat: 10, dex: 10, intStat: 10, fai: 10, arc: 10 } }];
+    convergence.classes = [
+      { name: "Prisoner", baseLevel: 1, baseTotal: 80,
+        baseStats: { vig: 10, mnd: 10, end: 10, strStat: 10, dex: 10, intStat: 10, fai: 10, arc: 10 } },
+      { name: "Samurai", baseLevel: 7, baseTotal: 86,
+        baseStats: { vig: 13, mnd: 9, end: 14, strStat: 11, dex: 16, intStat: 8, fai: 8, arc: 7 } },
+    ];
     useDesktopStore.getState().setProfiles([vanilla.dataManifest, convergence.dataManifest]);
     useDesktopStore.setState({ catalog: vanilla, profileQueries: {}, request: { ...defaultRequest } });
     useDesktopStore.getState().applyClass("Prisoner");
+    expect(useDesktopStore.getState().request.className).toBe("Prisoner");
     useDesktopStore.getState().beginProfileSwitch("convergence");
     useDesktopStore.getState().setCatalog(convergence);
-    expect(useDesktopStore.getState().request).toMatchObject({ className: "Prisoner", characterLevel: 1,
-      ...convergence.classes[0].baseStats });
+    expect(useDesktopStore.getState().request).toMatchObject({ className: "Samurai", characterLevel: 7,
+      ...convergence.classes[1].baseStats });
   });
 
   it("starts a first visit to a profile from its defaults and keeps only the handling settings", () => {
@@ -1130,7 +1135,7 @@ describe("saved profile queries", () => {
       const other = useDesktopStore.getState();
       expect(other.request.profileId).toBe("convergence");
       expect(values.has("tarnisheds-arsenal.query.v1.convergence")).toBe(false);
-      expect(other.notices.map((notice) => notice.message)).toContain("Your saved convergence query could not be read and was discarded.");
+      expect(other.notices.map((notice) => notice.message)).toContain("Your saved query for convergence could not be read and was discarded.");
     } finally {
       vi.unstubAllGlobals();
     }

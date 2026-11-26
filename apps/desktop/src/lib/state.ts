@@ -351,13 +351,13 @@ export const useDesktopStore = create<DesktopState>()((set, get) => ({
           scope: "global" as const,
           tone: "info" as const,
           message: remembered
-            ? `Restored your ${profileName(profileId)} query. Search to rank it again.`
-            : `Your ${profileName(state.request.profileId)} query is kept for when you switch back.`,
+            ? `Restored your query for ${profileName(profileId)}. Search to rank it again.`
+            : `Your query for ${profileName(state.request.profileId)} is kept for when you switch back.`,
         }] : []),
         ...(stored.discarded ? [{
           scope: "global" as const,
           tone: "warning" as const,
-          message: `Your saved ${profileName(profileId)} query could not be read and was discarded.`,
+          message: `Your saved query for ${profileName(profileId)} could not be read and was discarded.`,
         }] : []),
       ],
       error: null,

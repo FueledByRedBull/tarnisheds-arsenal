@@ -167,7 +167,7 @@ describe("local storage written by the released build", () => {
     expect(state.request).toEqual(query);
     expect(state.lockedStatMode).toBe(true);
     expect(state.compareBench).toEqual([solvedBuild()]);
-    expect(state.notices.map((notice) => notice.message)).toEqual(["Restored your vanilla query. Search to rank it again."]);
+    expect(state.notices.map((notice) => notice.message)).toEqual(["Restored your query for vanilla. Search to rank it again."]);
     expect(Object.fromEntries(values)).toEqual(stored);
   });
 

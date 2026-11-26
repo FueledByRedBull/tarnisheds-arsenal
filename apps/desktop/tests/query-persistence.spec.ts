@@ -14,7 +14,7 @@ test("each profile's query survives a reload without touching the other profile"
   await expect(page.getByText("Snapshot loaded", { exact: true })).toBeVisible();
   await twoHanding(page).check();
   await page.reload();
-  await expect(page.getByText("Restored your Vanilla query. Search to rank it again.")).toBeVisible();
+  await expect(page.getByText("Restored your query for Vanilla. Search to rank it again.")).toBeVisible();
   await expect(twoHanding(page)).toBeChecked();
 
   await page.getByRole("radio", { name: /Convergence/ }).click();
@@ -29,7 +29,7 @@ test("each profile's query survives a reload without touching the other profile"
   // After a reload only storage remembers Vanilla's query; Convergence opens as it was left.
   await page.reload();
   await expect(page.getByText("Experimental model", { exact: true })).toBeVisible();
-  await expect(page.getByText("Restored your The Convergence query. Search to rank it again.")).toBeVisible();
+  await expect(page.getByText("Restored your query for The Convergence. Search to rank it again.")).toBeVisible();
   await expect(page.getByText(/could not be read and was discarded/)).toHaveCount(0);
   await expect(str).toHaveValue("43");
   await expect(twoHanding(page)).not.toBeChecked();
@@ -45,7 +45,7 @@ test("an unreadable saved query is discarded with a notice", async ({ page }) =>
     version: 1, request: { profileId: "convergence" }, lockedStatMode: false,
   })));
   await page.reload();
-  await expect(page.getByText("Your saved Vanilla query could not be read and was discarded.")).toBeVisible();
+  await expect(page.getByText("Your saved query for Vanilla could not be read and was discarded.")).toBeVisible();
   await expect(twoHanding(page)).not.toBeChecked();
 });
 
