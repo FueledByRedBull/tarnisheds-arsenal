@@ -16,8 +16,10 @@ from tools.phase1.aow_effect_graph import OUTPUT_FIELDS, _classify_direct_effect
 from tools.phase1.derive_phase1_raw_extras import build_passive_effect_coverage, build_weapon_passives
 from tools.phase1.extract_motion_workbook import (
     AOW_ATTACK_FIELDS,
+    MOTION_WORKBOOK_NAME,
     NATIVE_SKILL_ATTACK_FIELDS,
     ROUTE_ASSIGNMENT_FIELDS,
+    load_weapon_workbook_data,
 )
 from tools.phase1.phase1_dump import (
     MAX_EFFECTIVE_STRENGTH,
@@ -210,6 +212,47 @@ class Phase1DumpTests(unittest.TestCase):
                 (64_530_100, "Reverse-Bladed Sword"),
             ],
         )
+
+    def test_base_poise_comes_from_each_weapon_row_not_the_workbook(self) -> None:
+        # The workbook lists these two weapons under their Heavy IDs, so its row describes
+        # the Heavy param (7 and 4). The regulation's Standard rows hold 7.5 and 3.
+        workbook = load_weapon_workbook_data(ROOT / "data" / "phase1" / MOTION_WORKBOOK_NAME)
+        for standard_id, standard_poise, heavy_poise in ((12_520_000, "7.5", "7"), (22_000_000, "3", "4")):
+            with self.subTest(weapon_id=standard_id):
+                standard = weapon_param_row(
+                    id=str(standard_id), name="Series", originEquipWep=str(standard_id),
+                    wepType="5", attackBasePhysics="100", saWeaponDamage=standard_poise,
+                )
+                heavy = {**standard, "id": str(standard_id + 100), "sortId": "2",
+                         "reinforceTypeId": "100", "saWeaponDamage": heavy_poise}
+                rows = build_rows(
+                    [standard, heavy], player_weapon_data=workbook, use_workbook_weapon_metadata=True,
+                )
+                self.assertEqual(
+                    [row["base_poise"] for row in rows], [float(standard_poise), float(heavy_poise)]
+                )
+                self.assertEqual(rows[0]["move_count"], workbook[standard_id].move_count)
+
+    def test_per_move_poise_follows_each_weapon_rows_base(self) -> None:
+        # Workbook moves were computed from the Heavy bases (7 and 4); each row's own base
+        # rescales them, so the Heavy rows keep the workbook values.
+        workbook = load_weapon_workbook_data(ROOT / "data" / "phase1" / MOTION_WORKBOOK_NAME)
+        cases = (
+            (12_520_000, "7.5", "7", "one_hand_light_poise", "13.875", "12.95"),
+            (22_000_000, "3", "4", "two_hand_light_poise", "1.8 + 1.8", "2.4 + 2.4"),
+        )
+        for standard_id, standard_poise, heavy_poise, field, standard_move, heavy_move in cases:
+            with self.subTest(weapon_id=standard_id):
+                standard = weapon_param_row(
+                    id=str(standard_id), name="Series", originEquipWep=str(standard_id),
+                    wepType="5", attackBasePhysics="100", saWeaponDamage=standard_poise,
+                )
+                heavy = {**standard, "id": str(standard_id + 100), "sortId": "2",
+                         "reinforceTypeId": "100", "saWeaponDamage": heavy_poise}
+                rows = build_rows(
+                    [standard, heavy], player_weapon_data=workbook, use_workbook_weapon_metadata=True,
+                )
+                self.assertEqual([row[field] for row in rows], [standard_move, heavy_move])
 
     def test_profile_somber_types_set_upgrade_path(self) -> None:
         row = weapon_param_row(

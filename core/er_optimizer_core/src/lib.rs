@@ -42,8 +42,8 @@ mod tests {
     fn runtime_identity_names_the_current_scoring_contract() {
         // Persisted results and caches are keyed by this string; change it only with the model.
         assert_eq!(
-            super::runtime_model_version("aow-routes-effects-v8"),
-            "aow-routes-effects-v8/exact-v3"
+            super::runtime_model_version("aow-routes-effects-v9"),
+            "aow-routes-effects-v9/exact-v3"
         );
     }
 }

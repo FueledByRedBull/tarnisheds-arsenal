@@ -31,6 +31,12 @@ those compact fields. Runtime manifests list 12 shared tables. A profile other
 than Vanilla that declares class budgets also lists `classes.csv`, its
 character-creation class catalog; Vanilla's classes are built into the runtime.
 
+The table list, schema, model and extractor versions, the class catalog file and level
+offset, and each profile's id and folder are written once, in
+[`data/profile-facts.json`](../../data/profile-facts.json). The core's build script and
+the Python tools both read it. A new profile needs an entry there and a
+`ProfileDefinition` in `profiles.py`.
+
 The manifest records the snapshot model identity; the runtime adds the numerical
 contract to scoring and cache identities. Current identities and coverage are
 listed in the [model reference](../../docs/model-reference.md).

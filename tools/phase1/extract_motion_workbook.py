@@ -6,7 +6,8 @@ import re
 import struct
 import sys
 import zipfile
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
+from fractions import Fraction
 from pathlib import Path
 from typing import Mapping, TypedDict
 from xml.etree import ElementTree as ET
@@ -16,7 +17,13 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from tools.phase1.param_binary import ParamValue, load_param_table  # noqa: E402
-from tools.phase1.phase1_dump import format_float, read_csv, to_int, write_csv  # noqa: E402
+from tools.phase1.phase1_dump import (  # noqa: E402
+    WORKBOOK_POISE_FIELDS,
+    format_float,
+    read_csv,
+    to_int,
+    write_csv,
+)
 
 MAIN_NS = '{http://schemas.openxmlformats.org/spreadsheetml/2006/main}'
 REL_NS = '{http://schemas.openxmlformats.org/officeDocument/2006/relationships}'
@@ -53,6 +60,9 @@ PROJECTILE_HIT_COUNT_SOURCES = {300200867: (2300, 4)}
 # ArtsCaption 1017 permits the same thrust after either projectile charge.
 SHARED_CHARGE_ATTACK_SOURCES = {(1017, 300107910): 'Glintstone Dart R2'}
 # WeaponData keys these weapons by their Heavy (+100) param IDs.
+# The workbook lists these two weapons under their Heavy IDs, so their saWeaponDamage is the
+# Heavy param's, not the Standard one. Base poise therefore comes from the regulation, and
+# their per-move poise is rescaled to it by `move_poise_for_base`.
 WORKBOOK_WEAPON_ID_CORRECTIONS = {
     12_520_100: (12_520_000, 'Black Steel Greathammer'),
     22_000_100: (22_000_000, 'Hookclaws'),
@@ -154,6 +164,7 @@ class WeaponWorkbookData:
     weapon_id: int
     weapon_class: str
     name: str
+    # The saWeaponDamage the workbook's per-move poise values were computed from.
     base_poise: float
     stamina_consumption_rate: float
     physical_attribute_primary: str
@@ -375,6 +386,51 @@ def load_weapon_workbook_data(workbook_path: Path) -> dict[int, WeaponWorkbookDa
     if not out:
         raise ValueError('WeaponData contains no player weapon rows')
     return out
+
+
+MOVE_POISE_FIELDS = tuple(field for field in WORKBOOK_POISE_FIELDS if field != 'move_count')
+POISE_TERM = re.compile(r'\d+(?:\.\d+)?')
+MAX_POISE_DECIMALS = 6
+
+
+def move_poise_for_base(weapon: WeaponWorkbookData, base_poise: float) -> WeaponWorkbookData:
+    """Rescale the workbook's per-move poise from its own base poise to `base_poise`.
+
+    Each workbook move value is base poise times that move's motion value, so the
+    rescale is exact. Values the rule cannot rescale fail instead of passing through.
+    """
+    if base_poise == weapon.base_poise:
+        return weapon
+    if weapon.base_poise <= 0 or base_poise < 0:
+        raise ValueError(
+            f'cannot rescale poise for {weapon.name}: base {weapon.base_poise} to {base_poise}'
+        )
+    factor = Fraction(repr(base_poise)) / Fraction(repr(weapon.base_poise))
+    return replace(
+        weapon,
+        **{
+            field: _scale_poise_text(getattr(weapon, field), factor, weapon.name)
+            for field in MOVE_POISE_FIELDS
+        },
+    )
+
+
+def _scale_poise_text(text: str, factor: Fraction, weapon_name: str) -> str:
+    if text in {'', '-'}:
+        return text
+    terms = text.split(' + ')
+    if not all(POISE_TERM.fullmatch(term) for term in terms):
+        raise ValueError(f'cannot rescale poise value {text!r} for {weapon_name}')
+    return ' + '.join(_format_exact_decimal(Fraction(term) * factor, weapon_name) for term in terms)
+
+
+def _format_exact_decimal(value: Fraction, weapon_name: str) -> str:
+    for places in range(1, MAX_POISE_DECIMALS + 1):
+        scaled = value * 10**places
+        if scaled.denominator == 1:
+            whole, fraction = divmod(scaled.numerator, 10**places)
+            return f'{whole}.{fraction:0{places}d}'
+    raise ValueError(f'rescaled poise {value} for {weapon_name} has no short decimal form')
 
 
 def find_matching_aow(raw_name: str, aow_names: list[str]) -> str | None:

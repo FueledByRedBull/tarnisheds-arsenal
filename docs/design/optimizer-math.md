@@ -75,7 +75,9 @@ and derives the level from the entered stats. Every point above the class base i
 therefore free to move; floors and exact locks carry the user's constraints.
 Custom stats has zero class constants. For it, and for a profile without class
 budgets, the desktop locks every combat stat at its entered value and sends the
-eight-stat total as $L$; for Custom stats that makes $P=0$.
+eight-stat total as $L$. That makes $P=N_c-L_c$, which is zero for Custom stats; a
+class with nonzero constants would leave $P\ne0$ with every combat stat locked, and the
+request would be rejected.
 
 `build_combat_constraints` (`optimizer/preparation.rs`) applies requested floors and locks:
 
@@ -173,6 +175,8 @@ $$
 
 The coefficient $\sigma_{i,d}$ is the attack-element overwrite rate when present;
 otherwise it is weapon scaling $s_i$ times the attack-element influence rate.
+`math/correction.rs` is the single reader of this weapon rule and of the skill rule
+below; the exact, bound, estimate and preparation paths all go through it.
 Ordinary records have no overwrite and an influence rate of 1. An explicit zero
 overwrite suppresses scaling, while a positive overwrite can supply scaling even
 when $s_i=0$. Only STR changes under two-handing: $x_{\mathrm{STR}}'=\tau(x_{\mathrm{STR}})$.
@@ -207,6 +211,12 @@ evaluation instead of being ranked. Every $\beta_d$, $\theta_{i,d}$, $\kappa_{i,
 and $\gamma_d$ is therefore nonnegative at runtime, which the upper bound in Section 4 and the
 first-hit identity rely on.
 
+Preparation keeps a stat when its overwrite, or its scaling times influence, is
+positive. That can keep a stat the skill rule treats as constant (a positive
+overwrite with zero influence), which only enlarges the active set; it never drops
+a stat that scales. No row in either shipped snapshot hits that case, and a test
+fails if one appears.
+
 ### Non-additive corrections
 
 An AoW row with its own correction record applies each routed stat's influence
@@ -217,9 +227,12 @@ $$t_i=(\iota-1)+\iota\,s_i'\,q_i\,\gamma_d(x_i'),$$
 
 where $s_i'$ is the overwrite rate or weapon scaling. If any $t_i$ is negative,
 the most negative $t_i$ replaces the sum instead of adding positive and negative
-terms. That minimum couples stats, so it is not separable. Compiled routes reject
-it, and [Section 5](#5-compiled-routes-oracle-and-fallback) describes its
-exhaustive path.
+terms. That minimum couples stats, so it is not separable. Only an influence below 1
+can make a $t_i$ negative. The code does not test the sign: a record whose routed
+stats have any influence other than 1 on a damage type is treated as non-additive, so
+an influence above 1, where the sum is used and no $t_i$ is negative, is enumerated
+too. Compiled routes reject such a record, and
+[Section 5](#5-compiled-routes-oracle-and-fallback) describes its exhaustive path.
 
 > **Separability obligation.** A nonlinear operation applied after contributions from
 > multiple decision variables have been combined may break separability. Independent
@@ -484,8 +497,8 @@ $q_i$, $t$ is nondecreasing in each $t_i$, and $1+t>0$ because each
 $t_i\ge\iota_i-1>-1$. Every value is therefore no larger at $u$. The equal zero
 pattern keeps the same hits positive, so both upgrades take the same hit as the first
 damaging hit. Bleed's `f32` products and sums of nonnegative operands, its projection
-and its floors preserve order. A unit whose routes fail the influence condition, or a
-request with a negative damage multiplier, never skips.
+and its floors preserve order. A unit whose routes fail the influence condition never
+skips.
 
 #### Level ranges
 
@@ -506,9 +519,10 @@ still runs its own full search and returns exactly what an independent search re
   exactly as that level's own bound would; otherwise the level computes its own.
 - For skill objectives the highest level also records, per Ash, the largest route bound
   over every upgrade it solved that Ash at, when each of those upgrades bounded every
-  route. A lower level dominates at least those upgrades whenever it compares upgrades:
+  route. A lower level solves that Ash at no other upgrade whenever it compares upgrades:
   the input conditions do not depend on the level, and its largest ARC is no higher, so
-  a run of dominated upgrades is no shorter. A unit compares upgrades when each of its
+  a run of dominated upgrades is no shorter and each upgrade the highest level skipped
+  is skipped there too. A unit compares upgrades when each of its
   Ashes has positive corrections; otherwise only Ashes solved at every upgrade qualify.
   When every Ash of a unit qualifies with a bound strictly below the unit's cutoff, each
   route the unit would solve is pruned, and the unit is skipped.
@@ -604,8 +618,8 @@ positive factor keeps each component's order, so comparing the resulting integer
 (256-bit, or arbitrary precision when a value or sum could exceed that) selects the
 same allocation as exact rationals, and the winner is evaluated again exactly. A
 route whose first damaging hit could depend on the stats (a hit with scaling but no
-base, or a correction that could cancel a hit), or a request whose damage multiplier
-is not positive, is enumerated with exact rationals instead.
+base, or a correction that could cancel a hit) is enumerated with exact rationals
+instead.
 
 The existing exhaustive path shares the active set and cannot independently detect
 an omitted dependency. Separate small-budget tests enumerate all five bounded stats
@@ -618,6 +632,9 @@ support. The compiler is not a general nonseparability detector. A future
 cross-stat product, multi-stat clamp, damage-dependent transition, or proc
 threshold requires a new proof or an explicitly supported exhaustive path. Routing
 to exhaustive search does not itself implement an unsupported evaluator mechanic.
+Every objective scores the chosen Ash's route, so preparation skips Ash choices
+whose rows carry such an effect for all objectives, not only skill-damage
+objectives; no result row is produced for them.
 
 ## 6. Result ordering
 
@@ -663,8 +680,9 @@ Fix the weapon, affinity, skill, upgrade, budget, floors/locks, non-combat stats
 and handling/world settings. In the modeled status formula, only ARC can change
 bleed within that context. For each feasible ARC value, maximize AR over the
 remaining integer allocations, keeping the complete numeric/stat tie order.
-Any allocation with lower AR at the same ARC is dominated or has the same metric
-pair as the retained representative. Exact comparison of those representatives
+Any other allocation at the same ARC has lower AR, so another retained point
+dominates it, or it has the same metric pair as the retained representative. Exact
+comparison of those representatives
 therefore gives the complete nondominated AR/bleed pairs for this domain. This is
 not a frontier across weapons, affinities, or skill choices.
 

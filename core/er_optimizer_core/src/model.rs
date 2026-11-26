@@ -12,6 +12,12 @@ pub const STAT_FAI: usize = 3;
 pub const STAT_ARC: usize = 4;
 pub const COMBAT_STAT_COUNT: usize = 5;
 pub const DAMAGE_TYPE_COUNT: usize = 5;
+/// Highest value of any character stat.
+pub const MAX_STAT_VALUE: u8 = 99;
+/// Highest Rune Level of a class budget.
+pub const MAX_RUNE_LEVEL: u16 = 713;
+/// Affinity of an uninfused weapon.
+pub const STANDARD_AFFINITY: &str = "Standard";
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Stats {
@@ -172,7 +178,7 @@ impl Weapon {
 
     pub fn family_filter_id(&self) -> String {
         // Standard rows can be distinct forms inside one affinity-sized block.
-        let id = if self.affinity.eq_ignore_ascii_case("Standard") {
+        let id = if self.affinity.eq_ignore_ascii_case(STANDARD_AFFINITY) {
             self.weapon_id
         } else {
             self.weapon_id - self.weapon_id % 10_000
@@ -185,7 +191,7 @@ impl Weapon {
     }
 
     pub fn affinity_filter_id(&self) -> String {
-        let slot = if self.affinity.eq_ignore_ascii_case("Standard") {
+        let slot = if self.affinity.eq_ignore_ascii_case(STANDARD_AFFINITY) {
             0
         } else {
             self.weapon_id % 10_000 / 100
@@ -273,7 +279,7 @@ impl AowAttackRow {
     pub(crate) fn has_fixed_damage(&self, profile_id: &str) -> bool {
         // Patch 1.04 removed weapon/attribute scaling from Carian Retaliation swords.
         profile_id == crate::data::VANILLA_PROFILE_ID
-            && matches!(self.atk_id, 300_000_682 | 300_000_683)
+            && CARIAN_RETALIATION_BULLET_ATK_IDS.contains(&self.atk_id)
     }
 
     pub fn resolved_physical_attribute(&self, weapon: &Weapon) -> PhysicalAttackAttribute {
@@ -284,6 +290,9 @@ impl AowAttackRow {
         }
     }
 }
+
+/// Carian Retaliation's sword bullets, whose Vanilla damage is a fixed base.
+const CARIAN_RETALIATION_BULLET_ATK_IDS: [u32; 2] = [300_000_682, 300_000_683];
 
 #[derive(Clone, Copy, Debug, Default)]
 pub struct StatusBuildup {
@@ -366,7 +375,7 @@ pub struct Aow {
     pub scarlet_rot_buildup_add: f32,
     pub valid_weapon_types: String,
     pub valid_affinities: String,
-    pub buff_attack_power: [f32; DAMAGE_TYPE_COUNT],
+    pub(crate) buff_attack_power: [f32; DAMAGE_TYPE_COUNT],
     pub scaling_status_add: StatusBuildup,
     pub scaling_status_flags: StatusCorrectionFlags,
     pub persistent_weapon_status_add: StatusBuildup,
@@ -387,6 +396,10 @@ pub(crate) struct AshBuffExact {
 }
 
 impl Aow {
+    pub fn buff_attack_power(&self) -> &[f32; DAMAGE_TYPE_COUNT] {
+        &self.buff_attack_power
+    }
+
     pub(crate) fn buff_exact(&self) -> &AshBuffExact {
         self.buff_exact.get_or_init(|| {
             let components: Vec<_> = self
@@ -537,6 +550,18 @@ pub struct DataRules {
     pub status_buildup_scales: bool,
 }
 
+impl DataRules {
+    /// The highest upgrade the profile allows a weapon of one reinforcement group. A
+    /// single-path profile has one maximum, which the manifest holds in both fields.
+    pub fn max_upgrade(&self, is_somber: bool) -> u8 {
+        if is_somber && self.separate_upgrade_caps {
+            self.somber_max_upgrade
+        } else {
+            self.standard_max_upgrade
+        }
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct GameData {
     pub dataset_version: String,
@@ -564,10 +589,13 @@ pub struct GameData {
 }
 
 impl GameData {
-    /// The profile's class of that name, or the neutral Custom stats budget.
+    /// The profile's class of that name, or the neutral Custom stats budget where the
+    /// profile offers it.
     pub fn class_by_name(&self, name: &str) -> Option<crate::math::StartingClass> {
         if name.eq_ignore_ascii_case(crate::math::CUSTOM_STATS_CLASS_NAME) {
-            return Some(crate::math::custom_stats_class());
+            return self
+                .offers_custom_stats()
+                .then(crate::math::custom_stats_class);
         }
         self.starting_classes
             .iter()
@@ -577,9 +605,10 @@ impl GameData {
 
     /// Whether Custom stats is an exact-stat entry next to this profile's classes: a
     /// profile without class budgets, or a mod whose own catalog replaced Custom stats
-    /// as the only class. Vanilla offers only its classes.
+    /// as the only class. The built-in class-budget profile (Vanilla) offers only its classes.
     pub fn offers_custom_stats(&self) -> bool {
-        !self.capabilities.class_budget || self.profile_id != crate::data::VANILLA_PROFILE_ID
+        !self.capabilities.class_budget
+            || self.profile_id != crate::snapshot::BUILT_IN_CLASS_BUDGET_PROFILE_ID
     }
 
     pub fn weapon_ar_supported(&self, weapon: &Weapon) -> bool {
@@ -611,7 +640,7 @@ impl GameData {
         let Some(skill_id) = weapon.native_skill_id else {
             return false;
         };
-        if weapon.affinity.eq_ignore_ascii_case("Standard") {
+        if weapon.affinity.eq_ignore_ascii_case(STANDARD_AFFINITY) {
             return true;
         }
         self.aows

@@ -21,6 +21,15 @@ pub(super) trait SearchProgress {
     }
 }
 
+/// Raises `best` to `score` when it is higher; scores are only compared, never summed.
+fn raise_best_score(best: &mut Option<f32>, score: Option<f32>) {
+    if let Some(score) = score
+        && best.is_none_or(|current| score > current)
+    {
+        *best = Some(score);
+    }
+}
+
 pub(super) const PARALLEL_PROGRESS_BATCH: u64 = 8_192;
 pub(super) const PROGRESS_POLL_BATCH: u32 = 1_024;
 pub(super) const PROGRESS_MIN_INTERVAL: Duration = Duration::from_millis(100);
@@ -130,11 +139,7 @@ where
     ) -> Result<(), String> {
         self.checked = self.checked.saturating_add(checked_delta);
         self.eligible = self.eligible.saturating_add(eligible_delta);
-        if let Some(score) = best_score
-            && self.best_score.is_none_or(|current| score > current)
-        {
-            self.best_score = Some(score);
-        }
+        raise_best_score(&mut self.best_score, best_score);
         self.check_cancel()?;
         self.emit_if_due(false)
     }
@@ -220,14 +225,12 @@ where
         if eligible_delta > 0 {
             self.eligible.fetch_add(eligible_delta, Ordering::Relaxed);
         }
-        if let Some(score) = best_score {
+        if best_score.is_some() {
             let mut guard = self
                 .best_score
                 .lock()
                 .map_err(|_| "failed to lock progress best score".to_string())?;
-            if guard.is_none_or(|current| score > current) {
-                *guard = Some(score);
-            }
+            raise_best_score(&mut guard, best_score);
         }
         self.emit_if_due(force, false)
     }
@@ -267,7 +270,11 @@ where
                 last_checked: checked,
                 last_at: Instant::now(),
             };
-        } else if let Ok(mut emit_guard) = self.last_emit.lock() {
+        } else {
+            let mut emit_guard = self
+                .last_emit
+                .lock()
+                .map_err(|_| "failed to lock progress emit state".to_string())?;
             *emit_guard = ProgressEmitState {
                 last_checked: self.checked.load(Ordering::Relaxed),
                 last_at: Instant::now(),
@@ -358,11 +365,7 @@ where
     ) -> Result<(), String> {
         self.checked = self.checked.saturating_add(checked_delta);
         self.eligible = self.eligible.saturating_add(eligible_delta);
-        if let Some(score) = best_score
-            && self.best_score.is_none_or(|current| score > current)
-        {
-            self.best_score = Some(score);
-        }
+        raise_best_score(&mut self.best_score, best_score);
         self.shared.check_cancel()?;
         if self.checked >= PARALLEL_PROGRESS_BATCH {
             self.flush(false)?;

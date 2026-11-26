@@ -10,8 +10,10 @@ use crate::model::{
     StatusBuildup, StatusCorrectionFlags, Weapon,
 };
 
+pub(crate) mod correction;
 pub(crate) mod exact;
 pub(crate) mod exact_value;
+use correction::{Correction, Record};
 use exact_value::ExactRational;
 
 /// f32 scheduling estimate only (see `estimate_ar`); never rank or prune with it.
@@ -54,45 +56,20 @@ pub fn meets_requirements(weapon: &Weapon, effective_str: u16, stats: &Stats) ->
         && stats.arc >= weapon.requirements[STAT_ARC]
 }
 
-pub(crate) fn build_contributions(
-    weapon: &Weapon,
-    reinforce: &crate::model::ReinforceLevel,
-    aec: &crate::model::AttackElementCorrect,
+fn build_contributions(
+    correction: &Correction<'_>,
     curve_mults: &[f32; COMBAT_STAT_COUNT],
-    damage_type: DamageType,
+    damage_idx: usize,
 ) -> [ScalingContribution; COMBAT_STAT_COUNT] {
-    [
+    std::array::from_fn(|stat_idx| {
+        let scaling = correction.ar_scaling_f32(stat_idx, damage_idx);
         ScalingContribution {
-            scaling: weapon.scaling[STAT_STR],
-            scaling_mult: reinforce.scaling_mult[STAT_STR],
-            curve_mult: curve_mults[STAT_STR],
-            contributes: aec.stat_scales(STAT_STR, damage_type),
-        },
-        ScalingContribution {
-            scaling: weapon.scaling[STAT_DEX],
-            scaling_mult: reinforce.scaling_mult[STAT_DEX],
-            curve_mult: curve_mults[STAT_DEX],
-            contributes: aec.stat_scales(STAT_DEX, damage_type),
-        },
-        ScalingContribution {
-            scaling: weapon.scaling[STAT_INT],
-            scaling_mult: reinforce.scaling_mult[STAT_INT],
-            curve_mult: curve_mults[STAT_INT],
-            contributes: aec.stat_scales(STAT_INT, damage_type),
-        },
-        ScalingContribution {
-            scaling: weapon.scaling[STAT_FAI],
-            scaling_mult: reinforce.scaling_mult[STAT_FAI],
-            curve_mult: curve_mults[STAT_FAI],
-            contributes: aec.stat_scales(STAT_FAI, damage_type),
-        },
-        ScalingContribution {
-            scaling: weapon.scaling[STAT_ARC],
-            scaling_mult: reinforce.scaling_mult[STAT_ARC],
-            curve_mult: curve_mults[STAT_ARC],
-            contributes: aec.stat_scales(STAT_ARC, damage_type),
-        },
-    ]
+            scaling: scaling.unwrap_or(0.0),
+            scaling_mult: correction.reinforce.scaling_mult[stat_idx],
+            curve_mult: curve_mults[stat_idx],
+            contributes: scaling.is_some(),
+        }
+    })
 }
 
 pub(crate) fn calculate_ar_for_type(
@@ -164,22 +141,8 @@ pub(crate) fn estimate_ar(
     effective_str_value: u16,
     data: &GameData,
 ) -> Result<DamageBreakdown, String> {
-    let reinforce = data
-        .reinforce_level(weapon.reinforce_type, upgrade)
-        .ok_or_else(|| {
-            format!(
-                "missing reinforce level: type={} level={upgrade}",
-                weapon.reinforce_type
-            )
-        })?;
-    let aec = data
-        .attack_element(weapon.attack_element_correct_id)
-        .ok_or_else(|| {
-            format!(
-                "missing attack_element_correct_id={}",
-                weapon.attack_element_correct_id
-            )
-        })?;
+    let correction = Correction::resolve(weapon, upgrade, data)?;
+    let reinforce = correction.reinforce;
 
     let stat_values =
         stat_values_for_scaling(stats, effective_str_value, weapon.disable_two_hand_bonus);
@@ -204,8 +167,7 @@ pub(crate) fn estimate_ar(
             data.calc_curve_value(curve_id, stat_values[STAT_ARC])
                 .ok_or_else(|| format!("missing curve_id={curve_id} for {damage_type}"))?,
         ];
-        let contributions =
-            build_weapon_contributions(weapon, reinforce, aec, &curve_mults, damage_type, data);
+        let contributions = build_contributions(&correction, &curve_mults, damage_idx);
         let value = calculate_ar_for_type(actual_base, &contributions);
         match damage_type {
             DamageType::Physical => breakdown.physical = value,
@@ -243,43 +205,6 @@ pub(crate) fn calculate_skill_damage_for_type(
     .ok_or_else(|| "skill damage is outside the display range".to_string())
 }
 
-fn build_weapon_contributions(
-    weapon: &Weapon,
-    reinforce: &crate::model::ReinforceLevel,
-    aec: &crate::model::AttackElementCorrect,
-    curve_mults: &[f32; COMBAT_STAT_COUNT],
-    damage_type: DamageType,
-    data: &GameData,
-) -> [ScalingContribution; COMBAT_STAT_COUNT] {
-    match data.attack_element_ext(weapon.attack_element_correct_id) {
-        Some(ext) => build_override_contributions(
-            weapon,
-            reinforce,
-            ext,
-            curve_mults,
-            damage_type.as_index(),
-        ),
-        None => build_contributions(weapon, reinforce, aec, curve_mults, damage_type),
-    }
-}
-
-fn build_override_contributions(
-    weapon: &Weapon,
-    reinforce: &crate::model::ReinforceLevel,
-    aec_ext: &AttackElementCorrectExt,
-    curve_mults: &[f32; COMBAT_STAT_COUNT],
-    damage_idx: usize,
-) -> [ScalingContribution; COMBAT_STAT_COUNT] {
-    std::array::from_fn(|stat_idx| ScalingContribution {
-        scaling: aec_ext
-            .overwrite_rate(stat_idx, damage_idx)
-            .unwrap_or(weapon.scaling[stat_idx] * aec_ext.influence_rate(stat_idx, damage_idx)),
-        scaling_mult: reinforce.scaling_mult[stat_idx],
-        curve_mult: curve_mults[stat_idx],
-        contributes: aec_ext.stat_scales(stat_idx, damage_idx),
-    })
-}
-
 #[derive(Debug)]
 struct PendingRoute {
     label: String,
@@ -298,38 +223,27 @@ pub(crate) struct ScalarAowRoute<'a> {
 }
 
 impl ScalarAowRoute<'_> {
-    pub(crate) fn is_additive(&self, data: &GameData) -> bool {
-        self.hits.iter().all(|hit| {
+    /// The correction records the route's hits name for themselves.
+    fn overrides<'d>(
+        &self,
+        data: &'d GameData,
+    ) -> impl Iterator<Item = &'d AttackElementCorrectExt> {
+        self.hits.iter().filter_map(|hit| {
             hit.row
                 .overwrite_attack_element_correct_id
                 .and_then(|id| data.attack_element_ext(id))
-                .is_none_or(|ext| {
-                    (0..COMBAT_STAT_COUNT).all(|stat| {
-                        (0..DAMAGE_TYPE_COUNT).all(|damage| {
-                            !ext.stat_scales(stat, damage)
-                                || ext.influence_rate(stat, damage) == 1.0
-                        })
-                    })
-                })
         })
+    }
+
+    pub(crate) fn is_additive(&self, data: &GameData) -> bool {
+        self.overrides(data).all(correction::is_additive)
     }
 
     /// Whether every influence-corrected component has positive influence on each stat it
     /// scales with. Each contribution then stays above -1, so `1 + bonus` stays positive.
     /// Additive routes qualify (their influence is 1).
     pub(crate) fn has_positive_corrections(&self, data: &GameData) -> bool {
-        self.hits.iter().all(|hit| {
-            hit.row
-                .overwrite_attack_element_correct_id
-                .and_then(|id| data.attack_element_ext(id))
-                .is_none_or(|ext| {
-                    (0..COMBAT_STAT_COUNT).all(|stat| {
-                        (0..DAMAGE_TYPE_COUNT).all(|damage| {
-                            !ext.stat_scales(stat, damage) || ext.influence_rate(stat, damage) > 0.0
-                        })
-                    })
-                })
-        })
+        self.overrides(data).all(correction::has_positive_influence)
     }
 
     /// Active stats that share an influence-corrected damage type in some hit. That
@@ -340,20 +254,12 @@ impl ScalarAowRoute<'_> {
         active: [bool; COMBAT_STAT_COUNT],
     ) -> [bool; COMBAT_STAT_COUNT] {
         let mut coupled = [false; COMBAT_STAT_COUNT];
-        let overrides = self.hits.iter().filter_map(|hit| {
-            hit.row
-                .overwrite_attack_element_correct_id
-                .and_then(|id| data.attack_element_ext(id))
-        });
-        for ext in overrides {
+        for ext in self.overrides(data) {
+            let record = Record::Ext(ext);
             for damage in 0..DAMAGE_TYPE_COUNT {
-                let scales = |stat: usize| ext.stat_scales(stat, damage);
                 let shared: [bool; COMBAT_STAT_COUNT] =
-                    std::array::from_fn(|stat| active[stat] && scales(stat));
-                if shared.iter().filter(|&&stat| stat).count() > 1
-                    && (0..COMBAT_STAT_COUNT)
-                        .any(|stat| scales(stat) && ext.influence_rate(stat, damage) != 1.0)
-                {
+                    std::array::from_fn(|stat| active[stat] && record.scales(stat, damage));
+                if shared.iter().filter(|&&stat| stat).count() > 1 && !record.is_additive(damage) {
                     for (coupled, shared) in coupled.iter_mut().zip(shared) {
                         *coupled |= shared;
                     }
@@ -382,12 +288,13 @@ pub(crate) struct ScalarAowRouteMetric {
 
 type BuffActivationOrders = HashMap<(String, u16), u16>;
 
-/// The Ashes these rows name; the last entry wins for a repeated id, like a full-table map.
+/// The Ashes these rows name. Rows of a weapon's own skill carry ids outside `data.aows`,
+/// have no Ash buffs and get no entry; Ash ids are unique, which the loader checks.
 fn aows_by_id<'a>(attack_rows: &[&AowAttackRow], data: &'a GameData) -> HashMap<u16, &'a Aow> {
     attack_rows
         .iter()
         .filter_map(|row| {
-            let aow = data.aows.iter().rfind(|aow| aow.aow_id == row.aow_id)?;
+            let aow = data.aows.iter().find(|aow| aow.aow_id == row.aow_id)?;
             Some((row.aow_id, aow))
         })
         .collect()
@@ -846,6 +753,10 @@ pub(crate) fn calculate_aow_routes_scaled_with_cancel(
     Ok(routes)
 }
 
+/// Vanilla's Occult Fingerprint Shield loses Madness despite its passive params. TClark's 1.17
+/// reference documents the same game exception in buildData.ts.
+const VANILLA_NO_MADNESS_WEAPON_ID: u32 = 32_131_200;
+
 pub fn calculate_status_buildup(
     weapon: &Weapon,
     upgrade: u8,
@@ -856,9 +767,9 @@ pub fn calculate_status_buildup(
     if let Some(overlay) = data.weapon_passive_overlay(weapon.weapon_id, upgrade) {
         base = merge_status_effect_source(base, overlay);
     }
-    // Vanilla Occult Fingerprint Shield loses Madness despite its passive params.
-    // TClark's 1.17 reference documents the same game exception in buildData.ts.
-    if data.profile_id == crate::data::VANILLA_PROFILE_ID && weapon.weapon_id == 32_131_200 {
+    if data.profile_id == crate::data::VANILLA_PROFILE_ID
+        && weapon.weapon_id == VANILLA_NO_MADNESS_WEAPON_ID
+    {
         base.buildup.madness = 0.0;
     }
     if base.buildup.bleed <= 0.0
@@ -957,14 +868,7 @@ pub fn apply_aow_bleed_buffs(
         if !data.rules.status_buildup_scales {
             bleed += scaling.bleed;
         } else {
-            let reinforce = data
-                .reinforce_level(weapon.reinforce_type, upgrade)
-                .ok_or_else(|| {
-                    format!(
-                        "missing reinforce level: type={} level={upgrade}",
-                        weapon.reinforce_type
-                    )
-                })?;
+            let reinforce = exact::reinforce_level(weapon, upgrade, data)?;
             bleed += scale_status_value(
                 scaling.bleed,
                 STAT_ARC,
@@ -991,14 +895,7 @@ fn scale_status_additions(
     if !data.rules.status_buildup_scales {
         return Ok(buildup);
     }
-    let reinforce = data
-        .reinforce_level(weapon.reinforce_type, upgrade)
-        .ok_or_else(|| {
-            format!(
-                "missing reinforce level: type={} level={upgrade}",
-                weapon.reinforce_type
-            )
-        })?;
+    let reinforce = exact::reinforce_level(weapon, upgrade, data)?;
     let scale =
         |value: f32, stat_idx: usize, stat_value: u8, curve_id: usize, flag: Option<bool>| {
             scale_status_value(
@@ -1052,10 +949,7 @@ fn scale_status_value(
     reinforce: &crate::model::ReinforceLevel,
     data: &GameData,
 ) -> Result<f32, String> {
-    if value <= 0.0
-        || !uses_status_correction(flag, weapon.scaling[stat_idx] > 0.0)
-        || weapon.scaling[stat_idx] <= 0.0
-    {
+    if value <= 0.0 || weapon.scaling[stat_idx] <= 0.0 || !uses_status_correction(flag) {
         return Ok(value);
     }
     let curve_mult = data
@@ -1076,8 +970,9 @@ fn truncate_status_buildup(buildup: StatusBuildup) -> StatusBuildup {
     }
 }
 
-pub(crate) fn uses_status_correction(flag: Option<bool>, fallback: bool) -> bool {
-    flag.unwrap_or(fallback)
+/// A status value without an explicit correction flag scales with the stat.
+pub(crate) fn uses_status_correction(flag: Option<bool>) -> bool {
+    flag.unwrap_or(true)
 }
 
 fn merge_status_effect_source(

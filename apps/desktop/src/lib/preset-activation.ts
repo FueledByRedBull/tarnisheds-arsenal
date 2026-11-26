@@ -1,5 +1,5 @@
 import { api } from "./api";
-import { buildOptimizeRequest } from "./session";
+import { buildOptimizeRequest, upgradeCapPatch } from "./session";
 import type { BuildPreset, CatalogDto, OptimizeRequestDto, SolvedBuildDto } from "./types";
 
 // Convergence class names now come from the game's menu text; earlier saves hold the data row names.
@@ -92,8 +92,7 @@ export async function verifyPresetResults(preset: BuildPreset, catalog: CatalogD
       weaponName: row.weaponName, affinity: row.affinity, aowName: row.aowName,
       weaponTypeKey: null, somberFilter: "all", filters: { version: 1, entries: [] },
       exactUpgrade: true,
-      standardMaxUpgrade: unifiedCaps || !row.isSomber ? row.upgrade : preset.request.standardMaxUpgrade,
-      somberMaxUpgrade: unifiedCaps || row.isSomber ? row.upgrade : preset.request.somberMaxUpgrade,
+      ...upgradeCapPatch(!unifiedCaps, row.isSomber, row.upgrade),
       minStr: 0, minDex: 0, minInt: 0, minFai: 0, minArc: 0,
       lockStr: row.stats.strStat, lockDex: row.stats.dex, lockInt: row.stats.intStat,
       lockFai: row.stats.fai, lockArc: row.stats.arc,

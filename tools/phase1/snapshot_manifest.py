@@ -13,34 +13,21 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from tools.phase1.extract_motion_workbook import MOTION_WORKBOOK_NAME  # noqa: E402
-from tools.phase1.profiles import ProfileDefinition  # noqa: E402
+from tools.phase1.profiles import PROFILE_FACTS, ProfileDefinition  # noqa: E402
 
 
-SCHEMA_VERSION = 6
-MODEL_VERSION = "aow-routes-effects-v9"
-EXTRACTOR_VERSION = "phase1-python-v15-f32-shortest-floats"
+SCHEMA_VERSION = PROFILE_FACTS["schemaVersion"]
+MODEL_VERSION = PROFILE_FACTS["modelVersion"]
+EXTRACTOR_VERSION = PROFILE_FACTS["extractorVersion"]
 # Source kind of the animation archive AoW rows are extracted from instead of a workbook.
 SKILL_ANIMATION_SOURCE = "skillAnimations"
-RUNTIME_FILES = {
-    "aow.csv",
-    "aow_attack_data.csv",
-    "aow_effect_data.csv",
-    "aow_route_assignments.csv",
-    "attack_element_correct.csv",
-    "attack_element_correct_ext.csv",
-    "calc_correct.csv",
-    "native_skill_attack_data.csv",
-    "reinforce.csv",
-    "weapon_passive_overlays.csv",
-    "weapon_passives.csv",
-    "weapons.csv",
-}
-CLASS_CATALOG_FILE = "classes.csv"
+RUNTIME_FILES = set(PROFILE_FACTS["runtimeFiles"])
+CLASS_CATALOG_FILE = PROFILE_FACTS["classCatalogFile"]
 
 
 def runtime_files_for(profile_id: str, class_budget: bool) -> set[str]:
-    """Vanilla's class budgets are built into the runtime; another profile ships its own."""
-    if class_budget and profile_id != "vanilla":
+    """The built-in profile's class budgets are part of the runtime; another profile ships its own."""
+    if class_budget and profile_id != PROFILE_FACTS["builtInClassBudgetProfile"]:
         return RUNTIME_FILES | {CLASS_CATALOG_FILE}
     return set(RUNTIME_FILES)
 

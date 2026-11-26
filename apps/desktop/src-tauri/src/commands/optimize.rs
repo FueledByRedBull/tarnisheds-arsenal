@@ -362,7 +362,7 @@ fn prepare_ar_bleed_frontier(
         ));
     }
     base.objective = OptimizeObjective::MaxAr;
-    request::set_exact_upgrade(&mut base, solved.upgrade, solved.is_somber);
+    request::set_exact_upgrade(&mut base, profile, solved.upgrade, solved.is_somber);
     let mut core_request = pinned_build(
         base,
         profile,

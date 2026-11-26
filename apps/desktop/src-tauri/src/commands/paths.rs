@@ -266,7 +266,7 @@ fn build_path_preview_inner(
     if !should_continue() {
         return Err(AppError::new("cancelled"));
     }
-    let target = path_target_build(&lane, target_level, &evaluator, &should_continue)?;
+    let target = path_target_build(&lane, target_level, profile, &evaluator, &should_continue)?;
     if !should_continue() {
         return Err(AppError::new("cancelled"));
     }
@@ -315,7 +315,7 @@ fn build_optimum_envelope(
     let last_level = first_level.saturating_add(lane.levels_ahead);
     let levels = (first_level..=last_level).collect::<Vec<_>>();
     let mut template = lane.base.clone();
-    set_path_loadout(&mut template, &lane.solved);
+    set_path_loadout(&mut template, &lane.solved, profile);
     request::unlock_stats(&mut template);
     request::settle_upgrade_caps(&mut template, profile)?;
     let rows = optimize_level_range_with_progress(
@@ -387,7 +387,7 @@ fn prepare_path_evaluator<'a>(
 ) -> Result<PreparedLoadoutEvaluator<'a>, AppError> {
     let mut template = lane.base.clone();
     template.character_level = target_level;
-    set_path_loadout(&mut template, &lane.solved);
+    set_path_loadout(&mut template, &lane.solved, profile);
     prepare_loadout_evaluator_with_cancel(&template, &profile.data, should_continue)
         .map_err(AppError::from)
 }
@@ -395,12 +395,13 @@ fn prepare_path_evaluator<'a>(
 fn path_target_build(
     lane: &PathLane,
     target_level: u16,
+    profile: &ProfileData,
     evaluator: &PreparedLoadoutEvaluator<'_>,
     should_continue: &(impl Fn() -> bool + Sync),
 ) -> Result<Option<SolvedBuildDto>, AppError> {
     let mut target_request = lane.base.clone();
     target_request.character_level = target_level;
-    set_path_loadout(&mut target_request, &lane.solved);
+    set_path_loadout(&mut target_request, &lane.solved, profile);
     request::unlock_stats(&mut target_request);
     request::set_min_stats(
         &mut target_request,
@@ -463,7 +464,7 @@ fn evaluate_step(
 ) -> Result<EvaluatedPathStep, AppError> {
     let mut request = lane.base.clone();
     request.character_level = level;
-    set_path_loadout(&mut request, &lane.solved);
+    set_path_loadout(&mut request, &lane.solved, profile);
     request::set_min_stats(&mut request, [0; COMBAT_STAT_COUNT]);
     request::lock_to_stats(&mut request, stats);
 
@@ -489,14 +490,14 @@ fn evaluate_step(
     })
 }
 
-fn set_path_loadout(request: &mut OptimizeRequest, solved: &SolvedBuildDto) {
+fn set_path_loadout(request: &mut OptimizeRequest, solved: &SolvedBuildDto, profile: &ProfileData) {
     request::pin_loadout(
         request,
         &solved.weapon_name,
         Some(&solved.affinity),
         solved.aow_name.as_deref(),
     );
-    request::set_exact_upgrade(request, solved.upgrade, solved.is_somber);
+    request::set_exact_upgrade(request, profile, solved.upgrade, solved.is_somber);
 }
 
 fn requirement_gap(

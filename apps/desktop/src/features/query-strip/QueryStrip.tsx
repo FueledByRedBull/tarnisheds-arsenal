@@ -7,7 +7,7 @@ import { useWeaponProfile } from "../../lib/hooks";
 import { isTextEntry, keyboardOwnedByOverlay } from "../../lib/keyboard";
 import { describeStep, redoQuery, trackQueryHistory, undoQuery, useQueryHistory } from "../../lib/query-history";
 import { flashChanged } from "../../lib/motion";
-import { budgetSnapshot, classMeta, derivedLevel, EIGHT_STAT_KEYS, hasCombatStatLocks, optimalStartingClass, startingClassLevel, usesFixedStats } from "../../lib/session";
+import { budgetSnapshot, classLabel, classMeta, derivedLevel, EIGHT_STAT_KEYS, hasCombatStatLocks, optimalStartingClass, startingClassLevel, usesFixedStats } from "../../lib/session";
 import { defaultRequest, useDesktopStore } from "../../lib/state";
 import { EightStatsDto, OptimizeRequestDto } from "../../lib/types";
 import { effectiveWeaponStrength } from "../../lib/weapon-handling";
@@ -132,7 +132,7 @@ export function QueryStrip({ profile, coverage, onProfileChange }: {
   ].filter(Boolean);
   const optionsSummary = optionParts.join(", ");
   const loadout = loadoutSummary(catalog, request);
-  const classSummary = fixedStats ? "Custom stats" : request.className;
+  const classSummary = fixedStats ? "Custom stats" : classLabel(catalog, request.className);
 
   useEffect(() => trackQueryHistory(), []);
 
