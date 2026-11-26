@@ -6,6 +6,7 @@ use num_integer::Integer;
 use num_rational::{BigRational, Ratio};
 use num_traits::{One, Signed, ToPrimitive, Zero};
 
+use crate::error::SearchError;
 use crate::math::exact_value::ExactRational;
 use crate::model::COMBAT_STAT_COUNT;
 
@@ -34,7 +35,7 @@ pub fn solve<const N: usize>(
     primary_only: bool,
     allowed: Option<&Additions>,
     should_continue: &mut impl FnMut() -> bool,
-) -> Result<DpResult, String> {
+) -> Result<DpResult, SearchError> {
     let slots = budget
         .checked_add(1)
         .ok_or_else(|| "exact DP budget is too large".to_string())?;
@@ -76,7 +77,7 @@ pub fn solve_exact<const N: usize>(
     primary_only: bool,
     allowed: Option<&Additions>,
     should_continue: &mut impl FnMut() -> bool,
-) -> Result<DpResult, String> {
+) -> Result<DpResult, SearchError> {
     let slots = budget
         .checked_add(1)
         .ok_or_else(|| "exact DP budget is too large".to_string())?;
@@ -121,11 +122,11 @@ struct Normalized<const N: usize> {
     fits_i128: bool,
 }
 
-fn check_continue<F: FnMut() -> bool + ?Sized>(should_continue: &mut F) -> Result<(), String> {
+fn check_continue<F: FnMut() -> bool + ?Sized>(should_continue: &mut F) -> Result<(), SearchError> {
     if should_continue() {
         Ok(())
     } else {
-        Err("cancelled".to_string())
+        Err(SearchError::Cancelled)
     }
 }
 
@@ -135,7 +136,7 @@ fn normalize<const N: usize>(
     active: [bool; COMBAT_STAT_COUNT],
     slots: usize,
     should_continue: &mut impl FnMut() -> bool,
-) -> Result<Normalized<N>, String> {
+) -> Result<Normalized<N>, SearchError> {
     let mut normalized_deltas: BigDeltas<N> = std::array::from_fn(|_| Vec::new());
     for stat in 0..COMBAT_STAT_COUNT {
         if !active[stat] {
@@ -143,7 +144,7 @@ fn normalize<const N: usize>(
         }
         check_continue(should_continue)?;
         if deltas[stat].is_empty() {
-            return Err(format!("exact DP stat {stat} is missing its zero delta"));
+            return Err(format!("exact DP stat {stat} is missing its zero delta").into());
         }
         let length = deltas[stat].len().min(slots);
         normalized_deltas[stat] = vec![std::array::from_fn(|_| BigInt::zero()); length];
@@ -299,7 +300,7 @@ struct PollTicker(usize);
 const POLL_STRIDE: usize = 64;
 
 impl PollTicker {
-    fn tick(&mut self, should_continue: &mut impl FnMut() -> bool) -> Result<(), String> {
+    fn tick(&mut self, should_continue: &mut impl FnMut() -> bool) -> Result<(), SearchError> {
         self.0 += 1;
         if self.0.is_multiple_of(POLL_STRIDE) {
             check_continue(should_continue)?;
@@ -314,7 +315,7 @@ fn normalize_small<const N: usize>(
     active: [bool; COMBAT_STAT_COUNT],
     slots: usize,
     should_continue: &mut impl FnMut() -> bool,
-) -> Result<Option<(SmallKey<N>, SmallDeltas<N>)>, String> {
+) -> Result<Option<(SmallKey<N>, SmallDeltas<N>)>, SearchError> {
     let mut ticker = PollTicker::default();
     let mut normalized_deltas: SmallDeltas<N> = std::array::from_fn(|_| Vec::new());
     for stat in 0..COMBAT_STAT_COUNT {
@@ -323,7 +324,7 @@ fn normalize_small<const N: usize>(
         }
         check_continue(should_continue)?;
         if deltas[stat].is_empty() {
-            return Err(format!("exact DP stat {stat} is missing its zero delta"));
+            return Err(format!("exact DP stat {stat} is missing its zero delta").into());
         }
         let length = deltas[stat].len().min(slots);
         normalized_deltas[stat] = vec![[0i128; N]; length];
@@ -544,7 +545,7 @@ fn checked_scale_ratio(value: &Ratio<i128>, denominator: i128) -> Option<i128> {
 
 fn to_i128<const N: usize>(
     normalized: &Normalized<N>,
-) -> Result<(SmallKey<N>, SmallDeltas<N>), String> {
+) -> Result<(SmallKey<N>, SmallDeltas<N>), SearchError> {
     let mut base = [0i128; N];
     for (index, value) in normalized.base.iter().enumerate() {
         base[index] = value
@@ -565,7 +566,7 @@ fn to_i128<const N: usize>(
                 }
                 Ok(converted)
             })
-            .collect::<Result<_, String>>()?;
+            .collect::<Result<_, SearchError>>()?;
     }
     Ok((base, deltas))
 }
@@ -586,7 +587,7 @@ fn run_dp<I, const N: usize>(
     primary_only: bool,
     allowed: Option<&Additions>,
     should_continue: &mut impl FnMut() -> bool,
-) -> Result<DpResult, String>
+) -> Result<DpResult, SearchError>
 where
     I: Clone + Ord + Add<Output = I>,
 {
@@ -708,7 +709,7 @@ fn consider<I, const N: usize>(
     add: usize,
     primary_only: bool,
     additions: &mut Vec<u8>,
-) -> Result<(), String>
+) -> Result<(), SearchError>
 where
     I: Clone + Ord + Add<Output = I>,
 {
@@ -1402,7 +1403,7 @@ mod tests {
             &mut initially_cancelled,
         )
         .expect_err("initial cancellation should stop normalization");
-        assert_eq!(error, "cancelled");
+        assert_eq!(error, SearchError::Cancelled);
         assert_eq!(initial_calls, 1);
 
         let mut periodic_calls = 0;
@@ -1421,7 +1422,7 @@ mod tests {
             &mut cancel_during_normalization,
         )
         .expect_err("normalization cancellation should stop the DP");
-        assert_eq!(error, "cancelled");
+        assert_eq!(error, SearchError::Cancelled);
         assert_eq!(periodic_calls, 5);
     }
 }

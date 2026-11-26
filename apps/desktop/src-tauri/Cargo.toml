@@ -20,7 +20,7 @@ tauri-build = { version = "2", features = [] }
 
 [dependencies]
 er_optimizer_core = { path = "../../../core/er_optimizer_core" }
-serde = { version = "1", features = ["derive"] }
+serde = { version = "1", features = ["derive", "rc"] }
 tauri = { version = "2", features = [] }
 
 [dev-dependencies]

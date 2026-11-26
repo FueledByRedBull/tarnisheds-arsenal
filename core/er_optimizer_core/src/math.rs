@@ -3,6 +3,7 @@ use std::collections::{BTreeMap, HashMap};
 
 use num_traits::Zero;
 
+use crate::error::SearchError;
 use crate::model::{
     Aow, AowActionResult, AowAttackRow, AowEffect, AowEffectRole, AowHitResult, AowRouteAssignment,
     AowRouteResult, AttackElementCorrectExt, COMBAT_STAT_COUNT, DAMAGE_TYPE_COUNT, DamageBreakdown,
@@ -307,11 +308,11 @@ fn buff_activation_orders(
     data: &GameData,
     aows_by_id: &HashMap<u16, &Aow>,
     should_continue: &mut impl FnMut() -> bool,
-) -> Result<BuffActivationOrders, String> {
+) -> Result<BuffActivationOrders, SearchError> {
     let mut activation_orders = BuffActivationOrders::new();
     for row in attack_rows.iter().filter(|row| !row.is_lacking_fp) {
         if !should_continue() {
-            return Err("cancelled".into());
+            return Err(SearchError::Cancelled);
         }
         let Some(activation_action_id) = aows_by_id
             .get(&row.aow_id)
@@ -321,7 +322,7 @@ fn buff_activation_orders(
         };
         for assignment in data.aow_route_assignments(row.aow_id, row.sheet_row) {
             if !should_continue() {
-                return Err("cancelled".into());
+                return Err(SearchError::Cancelled);
             }
             if assignment.action_id == activation_action_id {
                 activation_orders
@@ -382,7 +383,7 @@ pub(crate) fn has_unmodeled_attack_power(row: &AowAttackRow, data: &GameData) ->
 pub(crate) fn prepare_scalar_aow_routes<'a>(
     attack_rows: &[&'a AowAttackRow],
     data: &'a GameData,
-) -> Result<Option<Vec<ScalarAowRoute<'a>>>, String> {
+) -> Result<Option<Vec<ScalarAowRoute<'a>>>, SearchError> {
     let aows_by_id = aows_by_id(attack_rows, data);
     let activation_orders = buff_activation_orders(attack_rows, data, &aows_by_id, &mut || true)?;
 
@@ -480,7 +481,7 @@ pub(crate) fn calculate_aow_routes(
     stats: &Stats,
     effective_str_value: u16,
     data: &GameData,
-) -> Result<Vec<AowRouteResult>, String> {
+) -> Result<Vec<AowRouteResult>, SearchError> {
     calculate_aow_routes_scaled_with_cancel(
         weapon,
         attack_rows,
@@ -505,9 +506,9 @@ pub(crate) fn calculate_aow_routes_scaled_with_cancel(
     data: &GameData,
     selected_route: Option<&str>,
     should_continue: &mut impl FnMut() -> bool,
-) -> Result<Vec<AowRouteResult>, String> {
+) -> Result<Vec<AowRouteResult>, SearchError> {
     if !should_continue() {
-        return Err("cancelled".into());
+        return Err(SearchError::Cancelled);
     }
     let damage_multiplier = exact::rational(damage_multiplier, "damage multiplier")?;
     let weapon_status = calculate_status_buildup(weapon, upgrade, stats, data)?;
@@ -519,7 +520,7 @@ pub(crate) fn calculate_aow_routes_scaled_with_cancel(
 
     for row in attack_rows.iter().filter(|row| !row.is_lacking_fp) {
         if !should_continue() {
-            return Err("cancelled".into());
+            return Err(SearchError::Cancelled);
         }
         let effects = data.aow_effects(row.aow_id, row.sheet_row).to_vec();
         let assignments = route_assignments(row, &effects, data)?;
@@ -552,7 +553,7 @@ pub(crate) fn calculate_aow_routes_scaled_with_cancel(
         warnings.dedup();
         for effect in &effects {
             if !should_continue() {
-                return Err("cancelled".into());
+                return Err(SearchError::Cancelled);
             }
             if !effect.is_supported {
                 warnings.push(format!(
@@ -589,7 +590,8 @@ pub(crate) fn calculate_aow_routes_scaled_with_cancel(
                     return Err(format!(
                         "supported per-hit attack-power effect is not implemented: skill={} sheet_row={} effect={}",
                         row.aow_id, row.sheet_row, effect.effect_id
-                    ));
+                    )
+                    .into());
                 }
                 _ => {}
             }
@@ -603,7 +605,7 @@ pub(crate) fn calculate_aow_routes_scaled_with_cancel(
             std::iter::repeat_n(assignment, usize::from(assignment.hit_count))
         }) {
             if !should_continue() {
-                return Err("cancelled".into());
+                return Err(SearchError::Cancelled);
             }
             let aow = aows_by_id.get(&row.aow_id).copied();
             let buff_active = buff_active(&activation_orders, row, assignment);
@@ -684,12 +686,12 @@ pub(crate) fn calculate_aow_routes_scaled_with_cancel(
     let mut routes = Vec::with_capacity(selected_route.map_or(pending.len(), |_| 1));
     for (route_id, pending) in pending {
         if !should_continue() {
-            return Err("cancelled".into());
+            return Err(SearchError::Cancelled);
         }
         let mut actions = pending.actions.into_values().collect::<Vec<_>>();
         for action in &mut actions {
             if !should_continue() {
-                return Err("cancelled".into());
+                return Err(SearchError::Cancelled);
             }
             action
                 .hits
@@ -708,7 +710,7 @@ pub(crate) fn calculate_aow_routes_scaled_with_cancel(
             total_stamina_cost += action.stamina_cost;
             for hit in &action.hits {
                 if !should_continue() {
-                    return Err("cancelled".into());
+                    return Err(SearchError::Cancelled);
                 }
                 total_poise_damage += hit.poise_damage;
                 total_status_buildup = total_status_buildup.combined_with(hit.status_buildup);
@@ -748,7 +750,7 @@ pub(crate) fn calculate_aow_routes_scaled_with_cancel(
             .then_with(|| left.route_id.cmp(&right.route_id))
     });
     if !should_continue() {
-        return Err("cancelled".into());
+        return Err(SearchError::Cancelled);
     }
     Ok(routes)
 }
@@ -1808,7 +1810,7 @@ mod tests {
     }
 
     #[test]
-    fn scaled_buff_route_matches_exact_full_sequence_score() -> Result<(), String> {
+    fn scaled_buff_route_matches_exact_full_sequence_score() -> Result<(), SearchError> {
         let data_path = Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("..")
             .join("..")

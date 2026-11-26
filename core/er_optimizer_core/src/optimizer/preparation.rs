@@ -88,7 +88,7 @@ pub(super) fn prepare_weapons<'a>(
     request: &OptimizeRequest,
     data: &'a GameData,
     constraints: CombatConstraints,
-) -> Result<Vec<PreparedWeapon<'a>>, String> {
+) -> Result<Vec<PreparedWeapon<'a>>, SearchError> {
     prepare_weapons_with_cancel(request, data, Some(constraints), &mut || true)
 }
 
@@ -106,7 +106,7 @@ pub(super) fn prepare_weapons_with_cancel<'a>(
     data: &'a GameData,
     constraints: Option<CombatConstraints>,
     should_continue: &mut impl FnMut() -> bool,
-) -> Result<Vec<PreparedWeapon<'a>>, String> {
+) -> Result<Vec<PreparedWeapon<'a>>, SearchError> {
     // Each weapon prepares independently, so chunks run in parallel. Results keep weapon
     // order and the first error by weapon order wins, exactly as a serial pass would.
     let templates = ash_templates(
@@ -120,7 +120,7 @@ pub(super) fn prepare_weapons_with_cancel<'a>(
     let mut out = Vec::new();
     for chunk in data.weapons.chunks(prepare_weapon_chunk()) {
         if !should_continue() {
-            return Err("cancelled".to_string());
+            return Err(SearchError::Cancelled);
         }
         let prepared: Vec<Result<Option<PreparedWeapon<'a>>, String>> = chunk
             .par_iter()
@@ -343,13 +343,13 @@ fn par_map_cancellable<T: Send, R: Send>(
     items: Vec<T>,
     should_continue: &mut impl FnMut() -> bool,
     map: impl Fn(T) -> R + Sync + Send,
-) -> Result<Vec<R>, String> {
+) -> Result<Vec<R>, SearchError> {
     let chunk = prepare_weapon_chunk();
     let mut out = Vec::with_capacity(items.len());
     let mut items = items.into_iter();
     loop {
         if !should_continue() {
-            return Err("cancelled".to_string());
+            return Err(SearchError::Cancelled);
         }
         let batch: Vec<T> = items.by_ref().take(chunk).collect();
         if batch.is_empty() {
@@ -364,7 +364,7 @@ pub(super) fn ash_templates<'a>(
     request: &OptimizeRequest,
     data: &'a GameData,
     should_continue: &mut impl FnMut() -> bool,
-) -> Result<AshTemplates<'a>, String> {
+) -> Result<AshTemplates<'a>, SearchError> {
     let mut representatives = HashMap::new();
     let mut native = HashMap::new();
     for weapon in weapons {
@@ -441,9 +441,11 @@ pub(super) fn resolve_aow_choices<'a>(
     weapon: &'a Weapon,
     request: &OptimizeRequest,
     data: &'a GameData,
-) -> Result<Option<Vec<AowChoice<'a>>>, String> {
+) -> Result<Option<Vec<AowChoice<'a>>>, SearchError> {
     let templates = ash_templates(std::iter::once(weapon), request, data, &mut || true)?;
-    resolve_aow_choices_cached(weapon, request, data, &templates)
+    Ok(resolve_aow_choices_cached(
+        weapon, request, data, &templates,
+    )?)
 }
 
 pub(super) fn resolve_aow_choices_cached<'a>(

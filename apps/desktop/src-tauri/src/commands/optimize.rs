@@ -4,8 +4,8 @@ use std::time::{Duration, Instant};
 
 use er_optimizer_core::model::COMBAT_STAT_COUNT;
 use er_optimizer_core::{
-    FilterDimension, FilterMode, GameData, OptimizeObjective, OptimizeRequest, StableFilter,
-    Weapon, optimize_prepared_with_progress, optimize_with_cancel,
+    FilterDimension, FilterMode, GameData, OptimizeObjective, OptimizeRequest, SearchError,
+    StableFilter, Weapon, optimize_prepared_with_progress, optimize_with_cancel,
     prepare_loadout_evaluator_with_cancel, prepare_search_with_cancel,
     prepare_upgrade_series_evaluator_with_cancel,
 };
@@ -18,7 +18,7 @@ use crate::dto::{
     SearchProgressDto, SolveBuildRequestDto, SolvedBuildDto, StartSearchResponseDto,
     UpgradePointDto, UpgradeSeriesRequestDto, check_len, finish, metric_for_objective,
 };
-use crate::errors::AppError;
+use crate::errors::{AppError, JobOutcome};
 use crate::request::{self, cancel_job, job_status};
 use crate::{AppState, ProfileData};
 
@@ -44,23 +44,10 @@ pub fn run_search_inner(
         &AtomicBool::new(false),
         &status,
     );
-    finished
-        .error
-        .map_or(Ok(finished.rows), |error| Err(AppError::new(error)))
-}
-
-/// The payload, error and cancellation of a finished worker. A result completed after
-/// cancellation was requested is discarded.
-fn split_outcome<T>(
-    result: Result<T, String>,
-    cancel_flag: &AtomicBool,
-) -> (Option<T>, Option<String>, bool) {
-    match result {
-        Ok(value) if !cancel_flag.load(Ordering::Relaxed) => (Some(value), None, false),
-        Ok(_) => (None, None, true),
-        Err(message) if message == "cancelled" => (None, None, true),
-        Err(message) => (None, Some(message), false),
+    if let Some(error) = finished.error() {
+        return Err(AppError::new(error));
     }
+    Ok(finished.rows)
 }
 
 /// Pins the validated request to one loadout and fits the upgrade caps to the weapon.
@@ -109,7 +96,7 @@ fn prepare_solve_build(
 fn solve_build_inner(
     request: SolveBuildRequestDto,
     state: &AppState,
-) -> Result<Option<SolvedBuildDto>, AppError> {
+) -> Result<Option<SolvedBuildDto>, SearchError> {
     solve_build_inner_with_cancel(request, state, || true)
 }
 
@@ -118,14 +105,13 @@ fn solve_build_inner_with_cancel<F>(
     request: SolveBuildRequestDto,
     state: &AppState,
     should_continue: F,
-) -> Result<Option<SolvedBuildDto>, AppError>
+) -> Result<Option<SolvedBuildDto>, SearchError>
 where
     F: Fn() -> bool + Sync,
 {
     let (request, data) = prepare_solve_build(&request, state)?;
     optimize_with_cancel(&request, &data, should_continue)
         .map(|mut rows| rows.pop().map(SolvedBuildDto::from))
-        .map_err(AppError::from)
 }
 
 #[tauri::command]
@@ -142,16 +128,10 @@ pub fn start_solve_build(
                 !cancel_flag.load(Ordering::Relaxed)
             })
             .map(|mut rows| rows.pop().map(SolvedBuildDto::from));
-            let (result, error, cancelled) = split_outcome(result, &cancel_flag);
-            AnalysisFinishedDto {
+            AnalysisFinishedDto::solve_build(
                 job_id,
-                kind: AnalysisJobKindDto::SolveBuild,
-                cancelled,
-                result: result.flatten(),
-                points: Vec::new(),
-                frontier: Vec::new(),
-                error,
-            }
+                JobOutcome::new(result, cancel_flag.load(Ordering::Relaxed)),
+            )
         },
         |status, outcome, job_id, cancelled| {
             publish_analysis_finished(
@@ -169,7 +149,7 @@ pub fn start_solve_build(
 pub fn build_upgrade_series_inner(
     request: UpgradeSeriesRequestDto,
     state: &AppState,
-) -> Result<Vec<UpgradePointDto>, AppError> {
+) -> Result<Vec<UpgradePointDto>, SearchError> {
     build_upgrade_series_inner_with_cancel(request, state, || true)
 }
 
@@ -211,16 +191,14 @@ fn evaluate_upgrade_series_with_cancel<F>(
     max_upgrade: u8,
     objective: OptimizeObjective,
     mut should_continue: F,
-) -> Result<Vec<UpgradePointDto>, AppError>
+) -> Result<Vec<UpgradePointDto>, SearchError>
 where
     F: FnMut() -> bool + Send,
 {
     let evaluator =
-        prepare_upgrade_series_evaluator_with_cancel(core_request, data, &mut should_continue)
-            .map_err(AppError::from)?;
+        prepare_upgrade_series_evaluator_with_cancel(core_request, data, &mut should_continue)?;
     Ok(evaluator
-        .evaluate_with_cancel(core_request, max_upgrade, &mut should_continue)
-        .map_err(AppError::from)?
+        .evaluate_with_cancel(core_request, max_upgrade, &mut should_continue)?
         .into_iter()
         .map(SolvedBuildDto::from)
         .map(|solved| UpgradePointDto {
@@ -235,7 +213,7 @@ pub fn build_upgrade_series_inner_with_cancel<F>(
     request: UpgradeSeriesRequestDto,
     state: &AppState,
     mut should_continue: F,
-) -> Result<Vec<UpgradePointDto>, AppError>
+) -> Result<Vec<UpgradePointDto>, SearchError>
 where
     F: FnMut() -> bool + Send,
 {
@@ -265,18 +243,11 @@ pub fn start_upgrade_series(
                 max_upgrade,
                 objective,
                 || !cancel_flag.load(Ordering::Relaxed),
-            )
-            .map_err(|error| error.message);
-            let (points, error, cancelled) = split_outcome(result, &cancel_flag);
-            AnalysisFinishedDto {
+            );
+            AnalysisFinishedDto::upgrade_series(
                 job_id,
-                kind: AnalysisJobKindDto::UpgradeSeries,
-                cancelled,
-                result: None,
-                points: points.unwrap_or_default(),
-                frontier: Vec::new(),
-                error,
-            }
+                JobOutcome::new(result, cancel_flag.load(Ordering::Relaxed)),
+            )
         },
         |status, outcome, job_id, cancelled| {
             publish_analysis_finished(
@@ -384,12 +355,11 @@ fn evaluate_ar_bleed_frontier<F>(
     request: &OptimizeRequest,
     data: &GameData,
     should_continue: F,
-) -> Result<Vec<ArBleedFrontierPointDto>, AppError>
+) -> Result<Vec<ArBleedFrontierPointDto>, SearchError>
 where
     F: Fn() -> bool + Sync,
 {
-    let evaluator = prepare_loadout_evaluator_with_cancel(request, data, &should_continue)
-        .map_err(AppError::from)?;
+    let evaluator = prepare_loadout_evaluator_with_cancel(request, data, &should_continue)?;
     evaluator
         .evaluate_ar_bleed_frontier_with_cancel(request, &should_continue)
         .map(|points| {
@@ -404,7 +374,6 @@ where
                 })
                 .collect()
         })
-        .map_err(AppError::from)
 }
 
 #[tauri::command]
@@ -419,18 +388,11 @@ pub fn start_ar_bleed_frontier(
         move |job_id, cancel_flag, _| {
             let result = evaluate_ar_bleed_frontier(&request, &data, || {
                 !cancel_flag.load(Ordering::Relaxed)
-            })
-            .map_err(|error| error.message);
-            let (frontier, error, cancelled) = split_outcome(result, &cancel_flag);
-            AnalysisFinishedDto {
+            });
+            AnalysisFinishedDto::ar_bleed_frontier(
                 job_id,
-                kind: AnalysisJobKindDto::ArBleedFrontier,
-                cancelled,
-                result: None,
-                points: Vec::new(),
-                frontier: frontier.unwrap_or_default(),
-                error,
-            }
+                JobOutcome::new(result, cancel_flag.load(Ordering::Relaxed)),
+            )
         },
         |status, outcome, job_id, cancelled| {
             publish_analysis_finished(
@@ -451,14 +413,8 @@ fn publish_analysis_finished(
     kind: AnalysisJobKindDto,
     cancelled: bool,
 ) {
-    status.finished = Some(finish(outcome, cancelled, |error| AnalysisFinishedDto {
-        job_id,
-        kind,
-        cancelled: false,
-        result: None,
-        points: Vec::new(),
-        frontier: Vec::new(),
-        error: Some(error),
+    status.finished = Some(finish(outcome, cancelled, |error| {
+        AnalysisFinishedDto::failed(job_id, kind, error)
     }));
 }
 
@@ -516,14 +472,9 @@ fn run_search_worker(
         !cancel_flag.load(Ordering::Relaxed)
     }) {
         Ok(plan) => plan,
-        Err(message) => {
-            return SearchFinishedDto {
-                job_id,
-                cancelled: message == "cancelled",
-                rows: Vec::new(),
-                error: (message != "cancelled").then_some(message),
-                setups: 0,
-            };
+        Err(error) => {
+            let outcome = JobOutcome::new(Err(error), cancel_flag.load(Ordering::Relaxed));
+            return SearchFinishedDto::new(job_id, outcome, 0);
         }
     };
     let mut last_progress_at: Option<Instant> = None;
@@ -550,22 +501,12 @@ fn run_search_worker(
         },
     );
 
-    let (rows, error, cancelled) = match result {
-        Ok(rows) => (
-            rows.into_iter().map(SolvedBuildDto::from).collect(),
-            None,
-            false,
-        ),
-        Err(message) if message == "cancelled" => (Vec::new(), None, true),
-        Err(message) => (Vec::new(), Some(message), false),
-    };
-    SearchFinishedDto {
+    let rows = result.map(|rows| rows.into_iter().map(SolvedBuildDto::from).collect());
+    SearchFinishedDto::new(
         job_id,
-        cancelled,
-        rows,
-        error,
-        setups: plan.estimate().combinations,
-    }
+        JobOutcome::new(rows, cancel_flag.load(Ordering::Relaxed)),
+        plan.estimate().combinations,
+    )
 }
 
 fn publish_search_finished(
@@ -574,12 +515,8 @@ fn publish_search_finished(
     job_id: String,
     cancelled: bool,
 ) {
-    status.finished = Some(finish(outcome, cancelled, |error| SearchFinishedDto {
-        job_id,
-        cancelled: false,
-        rows: Vec::new(),
-        error: Some(error),
-        setups: 0,
+    status.finished = Some(finish(outcome, cancelled, |error| {
+        SearchFinishedDto::new(job_id, JobOutcome::Failed(error), 0)
     }));
 }
 
@@ -795,13 +732,11 @@ mod integration_tests {
                         true
                     })
                     .unwrap();
-                    SearchFinishedDto {
-                        job_id: "first".into(),
-                        cancelled: false,
-                        rows: rows.into_iter().map(SolvedBuildDto::from).collect(),
-                        error: None,
-                        setups: 0,
-                    }
+                    SearchFinishedDto::new(
+                        "first".into(),
+                        JobOutcome::Completed(rows.into_iter().map(SolvedBuildDto::from).collect()),
+                        0,
+                    )
                 },
                 move |status, outcome| {
                     published.fetch_add(1, Ordering::Relaxed);
@@ -818,8 +753,8 @@ mod integration_tests {
             assert_eq!(publications.load(Ordering::Relaxed), 1);
             let terminal = status.lock().unwrap();
             let finished = terminal.finished.as_ref().unwrap();
-            assert!(finished.error.is_some());
-            assert!(!finished.cancelled);
+            assert!(finished.error().is_some());
+            assert!(!finished.cancelled());
             assert!(finished.rows.is_empty());
             drop(terminal);
             registry
@@ -922,40 +857,46 @@ mod integration_tests {
                             }
                             true
                         };
-                        let mut finished = AnalysisFinishedDto {
-                            job_id: "first".into(),
-                            kind,
-                            cancelled: false,
-                            result: None,
-                            points: Vec::new(),
-                            frontier: Vec::new(),
-                            error: None,
-                        };
+                        let id = String::from("first");
                         match kind {
-                            AnalysisJobKindDto::SolveBuild => {
-                                finished.result =
+                            AnalysisJobKindDto::SolveBuild => AnalysisFinishedDto::solve_build(
+                                id,
+                                JobOutcome::Completed(
                                     optimize_with_cancel(&core_request, &data, checkpoint)
                                         .unwrap()
                                         .pop()
-                                        .map(SolvedBuildDto::from)
-                            }
+                                        .map(SolvedBuildDto::from),
+                                ),
+                            ),
                             AnalysisJobKindDto::UpgradeSeries => {
-                                finished.points = evaluate_upgrade_series_with_cancel(
-                                    &core_request,
-                                    &data,
-                                    0,
-                                    core_request.objective,
-                                    checkpoint,
+                                AnalysisFinishedDto::upgrade_series(
+                                    id,
+                                    JobOutcome::Completed(
+                                        evaluate_upgrade_series_with_cancel(
+                                            &core_request,
+                                            &data,
+                                            0,
+                                            core_request.objective,
+                                            checkpoint,
+                                        )
+                                        .unwrap(),
+                                    ),
                                 )
-                                .unwrap()
                             }
                             AnalysisJobKindDto::ArBleedFrontier => {
-                                finished.frontier =
-                                    evaluate_ar_bleed_frontier(&core_request, &data, checkpoint)
-                                        .unwrap()
+                                AnalysisFinishedDto::ar_bleed_frontier(
+                                    id,
+                                    JobOutcome::Completed(
+                                        evaluate_ar_bleed_frontier(
+                                            &core_request,
+                                            &data,
+                                            checkpoint,
+                                        )
+                                        .unwrap(),
+                                    ),
+                                )
                             }
                         }
-                        finished
                     },
                     move |status, outcome| {
                         published.fetch_add(1, Ordering::Relaxed);
@@ -977,8 +918,8 @@ mod integration_tests {
                 let terminal = status.lock().unwrap();
                 let finished = terminal.finished.as_ref().unwrap();
                 assert_eq!(finished.kind, kind);
-                assert!(finished.error.is_some());
-                assert!(!finished.cancelled);
+                assert!(finished.error().is_some());
+                assert!(!finished.cancelled());
                 assert!(finished.result.is_none());
                 assert!(finished.points.is_empty());
                 assert!(finished.frontier.is_empty());
@@ -1007,40 +948,36 @@ mod integration_tests {
         };
         publish_search_finished(
             &mut status,
-            Ok(SearchFinishedDto {
-                job_id: "search-publish".into(),
-                cancelled: false,
-                rows,
-                error: None,
-                setups: 0,
-            }),
+            Ok(SearchFinishedDto::new(
+                "search-publish".into(),
+                JobOutcome::Completed(rows),
+                0,
+            )),
             "search-publish".into(),
             true,
         );
         let finished = status.finished.take().unwrap();
-        assert!(finished.cancelled);
+        assert!(finished.cancelled());
         assert!(finished.rows.is_empty());
-        assert!(finished.error.is_none());
+        assert!(finished.error().is_none());
 
         for outcome in [
-            Ok(SearchFinishedDto {
-                job_id: "search-publish".into(),
-                cancelled: false,
-                rows: Vec::new(),
-                error: Some("calculation failed".into()),
-                setups: 0,
-            }),
+            Ok(SearchFinishedDto::new(
+                "search-publish".into(),
+                JobOutcome::Failed("calculation failed".into()),
+                0,
+            )),
             Err(String::from("worker panicked")),
         ] {
             let expected_error = match &outcome {
-                Ok(finished) => finished.error.as_deref().unwrap(),
+                Ok(finished) => finished.error().unwrap(),
                 Err(error) => error.as_str(),
             }
             .to_string();
             publish_search_finished(&mut status, outcome, "search-publish".into(), true);
             let finished = status.finished.take().unwrap();
-            assert_eq!(finished.error.as_deref(), Some(expected_error.as_str()));
-            assert!(!finished.cancelled);
+            assert_eq!(finished.error(), Some(expected_error.as_str()));
+            assert!(!finished.cancelled());
             assert!(finished.rows.is_empty());
         }
     }
@@ -1058,31 +995,35 @@ mod integration_tests {
             AnalysisJobKindDto::UpgradeSeries,
             AnalysisJobKindDto::ArBleedFrontier,
         ] {
-            let mut completed = AnalysisFinishedDto {
-                job_id: "analysis-publish".into(),
-                kind,
-                cancelled: false,
-                result: None,
-                points: Vec::new(),
-                frontier: Vec::new(),
-                error: None,
-            };
-            match kind {
-                AnalysisJobKindDto::SolveBuild => completed.result = Some(solved.clone()),
-                AnalysisJobKindDto::UpgradeSeries => completed.points.push(UpgradePointDto {
-                    upgrade: solved.upgrade,
-                    metric: solved.score,
-                }),
-                AnalysisJobKindDto::ArBleedFrontier => {
-                    completed.frontier.push(ArBleedFrontierPointDto {
+            let id = String::from("analysis-publish");
+            let completed = match kind {
+                AnalysisJobKindDto::SolveBuild => AnalysisFinishedDto::solve_build(
+                    id,
+                    JobOutcome::Completed(Some(solved.clone())),
+                ),
+                AnalysisJobKindDto::UpgradeSeries => AnalysisFinishedDto::upgrade_series(
+                    id,
+                    JobOutcome::Completed(vec![UpgradePointDto {
+                        upgrade: solved.upgrade,
+                        metric: solved.score,
+                    }]),
+                ),
+                AnalysisJobKindDto::ArBleedFrontier => AnalysisFinishedDto::ar_bleed_frontier(
+                    id,
+                    JobOutcome::Completed(vec![ArBleedFrontierPointDto {
                         result: solved.clone(),
                         ar_loss: 0.0,
                         ar_loss_percent: 0.0,
                         minimum_ar_loss_bps: 0,
                         bleed_gain: 0.0,
-                    })
-                }
-            }
+                    }]),
+                ),
+            };
+            assert!(
+                completed.result.is_some()
+                    || !completed.points.is_empty()
+                    || !completed.frontier.is_empty()
+            );
             publish_analysis_finished(
                 &mut status,
                 Ok(completed),
@@ -1092,26 +1033,22 @@ mod integration_tests {
             );
             let finished = status.finished.take().unwrap();
             assert_eq!(finished.kind, kind);
-            assert!(finished.cancelled);
+            assert!(finished.cancelled());
             assert!(finished.result.is_none());
             assert!(finished.points.is_empty());
             assert!(finished.frontier.is_empty());
-            assert!(finished.error.is_none());
+            assert!(finished.error().is_none());
 
             for outcome in [
-                Ok(AnalysisFinishedDto {
-                    job_id: "analysis-publish".into(),
+                Ok(AnalysisFinishedDto::failed(
+                    "analysis-publish".into(),
                     kind,
-                    cancelled: false,
-                    result: None,
-                    points: Vec::new(),
-                    frontier: Vec::new(),
-                    error: Some("calculation failed".into()),
-                }),
+                    "calculation failed".into(),
+                )),
                 Err(String::from("worker panicked")),
             ] {
                 let expected_error = match &outcome {
-                    Ok(finished) => finished.error.as_deref().unwrap(),
+                    Ok(finished) => finished.error().unwrap(),
                     Err(error) => error.as_str(),
                 }
                 .to_string();
@@ -1124,8 +1061,8 @@ mod integration_tests {
                 );
                 let finished = status.finished.take().unwrap();
                 assert_eq!(finished.kind, kind);
-                assert_eq!(finished.error.as_deref(), Some(expected_error.as_str()));
-                assert!(!finished.cancelled);
+                assert_eq!(finished.error(), Some(expected_error.as_str()));
+                assert!(!finished.cancelled());
                 assert!(finished.result.is_none());
                 assert!(finished.points.is_empty());
                 assert!(finished.frontier.is_empty());
@@ -1254,7 +1191,7 @@ mod integration_tests {
             &AtomicBool::new(false),
             &status,
         );
-        assert!(!finished.cancelled && finished.error.is_none());
+        assert!(!finished.cancelled() && finished.error().is_none());
         assert_eq!(finished.rows.len(), 1);
         assert!(finished.setups > 0);
         // The first snapshot with all setups scored is always published.
@@ -1269,8 +1206,8 @@ mod integration_tests {
             &AtomicBool::new(true),
             &status,
         );
-        assert!(cancelled.cancelled);
-        assert!(cancelled.rows.is_empty() && cancelled.error.is_none());
+        assert!(cancelled.cancelled());
+        assert!(cancelled.rows.is_empty() && cancelled.error().is_none());
     }
 
     #[test]
@@ -1284,7 +1221,7 @@ mod integration_tests {
         };
         let error = solve_build_inner_with_cancel(request, &state, || false)
             .expect_err("cancelled solve-build must fail closed");
-        assert_eq!(error.message, "cancelled");
+        assert_eq!(error, SearchError::Cancelled);
     }
 
     #[test]
@@ -1319,10 +1256,8 @@ mod integration_tests {
         }
         assert_eq!(points[0].minimum_ar_loss_bps, 0);
         assert_eq!(
-            evaluate_ar_bleed_frontier(&request, &data, || false)
-                .unwrap_err()
-                .message,
-            "cancelled"
+            evaluate_ar_bleed_frontier(&request, &data, || false).unwrap_err(),
+            SearchError::Cancelled
         );
         base.profile_id = "convergence".into();
         assert!(
@@ -1394,15 +1329,13 @@ mod integration_tests {
                 AnalysisJobStatusDto { finished: None },
                 move |_, _, _| worker(),
                 |status, _, job_id, cancelled| {
-                    status.finished = Some(AnalysisFinishedDto {
-                        job_id,
-                        kind: AnalysisJobKindDto::SolveBuild,
-                        cancelled,
-                        result: None,
-                        points: Vec::new(),
-                        frontier: Vec::new(),
-                        error: None,
-                    });
+                    let outcome = if cancelled {
+                        JobOutcome::Cancelled
+                    } else {
+                        JobOutcome::Completed(None)
+                    };
+                    status.finished =
+                        Some(Arc::new(AnalysisFinishedDto::solve_build(job_id, outcome)));
                 },
             )
         };
@@ -1425,7 +1358,7 @@ mod integration_tests {
         );
         let error = build_upgrade_series_inner_with_cancel(request, &state, || false)
             .expect_err("cancelled upgrade series must fail closed");
-        assert_eq!(error.message, "cancelled");
+        assert_eq!(error, SearchError::Cancelled);
     }
 
     #[test]
@@ -1783,10 +1716,10 @@ mod integration_tests {
                     &AtomicBool::new(false),
                     &status,
                 );
-                assert!(finished.error.is_none(), "{:?}", finished.error);
+                assert!(finished.error().is_none(), "{:?}", finished.error());
                 serde_json::to_vec(&SearchJobStatusDto {
                     progress: None,
-                    finished: Some(finished),
+                    finished: Some(Arc::new(finished)),
                 })
                 .unwrap()
             });
