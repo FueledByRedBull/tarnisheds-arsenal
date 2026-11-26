@@ -1,7 +1,12 @@
 import struct
+import tempfile
 import unittest
+from pathlib import Path
+from unittest.mock import patch
 
+from tools.phase1 import extract_skill_animations
 from tools.phase1.extract_skill_animations import (
+    ROOT,
     ATTACK_BEHAVIOR_EVENT,
     BULLET_BEHAVIOR_EVENT,
     SP_EFFECT_EVENT,
@@ -23,6 +28,7 @@ from tools.phase1.extract_skill_animations import (
     weapon_section_route_assignments,
 )
 from tools.phase1.extract_motion_workbook import ATTACK_PARAM_FIELDS
+from tools.phase1.profiles import PROFILE_DIRECTORIES
 
 CATEGORY_SCRIPT = """
 SWORD_ART_DIFF_CAT_DEFAULT = 0
@@ -385,6 +391,29 @@ class AttackRowTests(unittest.TestCase):
             (row["physical_attack_attribute"], row["stamina_cost"], row["sp_effect_id0"]),
             ("adaptive_primary", "40", "-1"),
         )
+
+
+class CommandLineTests(unittest.TestCase):
+    def run_main(self, *arguments: str) -> None:
+        with (
+            patch("sys.argv", ["extract_skill_animations.py", *arguments]),
+            patch("tools.phase1.phase1_dump.unpack_regulation", side_effect=AssertionError("must stop first")),
+        ):
+            extract_skill_animations.main()
+
+    def test_tracked_snapshots_are_refused(self) -> None:
+        for directory in PROFILE_DIRECTORIES.values():
+            with self.subTest(directory=directory), self.assertRaisesRegex(ValueError, "tracked snapshot"):
+                self.run_main(str(ROOT / directory))
+
+    def test_regulation_must_match_the_profile_pin(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            raw = Path(temporary)
+            with self.assertRaisesRegex(FileNotFoundError, "regulation.bin not found"):
+                self.run_main(str(raw / "copy"), "--raw-dir", str(raw))
+            (raw / "regulation.bin").write_bytes(b"another regulation")
+            with self.assertRaisesRegex(ValueError, "expects"):
+                self.run_main(str(raw / "copy"), "--raw-dir", str(raw))
 
 
 if __name__ == "__main__":
