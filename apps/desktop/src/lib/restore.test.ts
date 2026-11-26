@@ -34,7 +34,7 @@ function catalog(profileId = "vanilla"): CatalogDto {
   };
 }
 
-const saved: OptimizeRequestDto = { ...defaultRequest, className: "samurai", weaponTypeKey: "katana",
+const saved: OptimizeRequestDto = { ...defaultRequest, className: "Samurai", weaponTypeKey: "katana",
   weaponName: "Uchigatana", affinity: "Keen", aowName: "Unsheathe" };
 
 function restored(request: OptimizeRequestDto, current = catalog()) {
@@ -45,15 +45,22 @@ function restored(request: OptimizeRequestDto, current = catalog()) {
 
 describe("restoreSavedRequest", () => {
   it("keeps names the current data still has, by key or by older label", () => {
-    expect(restored(saved)).toEqual({ ok: true, request: { ...saved, className: "Samurai" }, repairs: [] });
+    expect(restored(saved)).toEqual({ ok: true, request: saved, repairs: [] });
     expect(restored({ ...saved, weaponTypeKey: "Katana" }).repairs).toEqual([]);
+  });
+
+  it("names the class it canonicalizes from a differently cased name", () => {
+    expect(restored({ ...saved, className: "samurai" })).toEqual({ ok: true, request: saved,
+      repairs: [{ kind: "class", detail: "starting class 'samurai' is now named Samurai" }] });
   });
 
   it("loads Convergence classes saved under their former data names", () => {
     const convergence = catalog("convergence");
     convergence.classes = [{ ...STARTING_CLASS_METADATA[0], name: "Stormcaller" }];
-    const old = { ...saved, profileId: "convergence", className: "Storm Caller", standardMaxUpgrade: 15, somberMaxUpgrade: 15 };
-    expect(restored(old, convergence).request.className).toBe("Stormcaller");
+    const old = { ...saved, profileId: "convergence", className: "Storm Caller", ...STARTING_CLASS_METADATA[0].baseStats,
+      standardMaxUpgrade: 15, somberMaxUpgrade: 15 };
+    expect(restored(old, convergence)).toMatchObject({ request: { className: "Stormcaller" },
+      repairs: [{ kind: "class", detail: "starting class 'Storm Caller' is now named Stormcaller" }] });
     expect(restoreSavedRequest({ ...old, profileId: "vanilla" }, catalog())).toMatchObject({
       ok: false, reason: "unknown-class", message: expect.stringContaining("Starting class 'Storm Caller'") });
   });
@@ -110,6 +117,16 @@ describe("restoreSessionQuery", () => {
     const { request, repairs } = restoreSessionQuery({ ...defaultRequest, dex: 10 }, catalog());
     expect(request.dex).toBe(15);
     expect(repairs).toEqual([{ kind: "stats", detail: "stats below Samurai's starting stats were reset to them" }]);
+  });
+
+  it("says when a renamed class is updated to its current name", () => {
+    const convergence = catalog("convergence");
+    convergence.classes = [{ ...STARTING_CLASS_METADATA[0], name: "Retainer (Alt)" }];
+    const { request, repairs } = restoreSessionQuery({ ...defaultRequest, profileId: "convergence",
+      className: "Retainer Alt (Tarnished Edition)", ...STARTING_CLASS_METADATA[0].baseStats,
+      standardMaxUpgrade: 15, somberMaxUpgrade: 15 }, convergence);
+    expect(request.className).toBe("Retainer (Alt)");
+    expect(repairs).toEqual([{ kind: "class", detail: "starting class 'Retainer Alt (Tarnished Edition)' is now named Retainer (Alt)" }]);
   });
 });
 

@@ -126,6 +126,10 @@ function fitToCatalog(
   classInfo: ClassMetadataDto,
   repairs: RestoreRepair[],
 ): { request: OptimizeRequestDto; repairs: RestoreRepair[] } {
+  // A renamed or differently cased class is the same class, but the name changes, so say so.
+  if (request.className !== classInfo.name) {
+    repairs.push({ kind: "class", detail: `starting class '${request.className}' is now named ${classInfo.name}` });
+  }
   let fitted: OptimizeRequestDto = { ...request, className: classInfo.name };
   // Profiles can share a class name with different starting stats (Prisoner), and a data
   // revision can raise them; stats below the class's own restart from it.

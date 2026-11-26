@@ -123,8 +123,9 @@ Status: accepted. These rules describe contracts that tests and future refactors
   Compare, Paths, or Affinity Watch; Compare clears its visible series and target until
   fresh Rankings results exist.
 - A preset's starting class must match the active catalog before activation can
-  mutate workspace or storage. An unambiguous case-insensitive match is
-  canonicalized; unknown classes are rejected rather than replaced.
+  mutate workspace or storage. An unambiguous case-insensitive match, or a class
+  the profile has renamed, is canonicalized with a notice naming the old and new
+  name; unknown classes are rejected rather than replaced.
 - A first visit to a profile starts from that profile's default class at its own
   starting stats, never from the class being left. A restored session query whose
   class the profile lacks is not rejected: it starts from the default class, with a
