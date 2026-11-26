@@ -319,9 +319,11 @@ export const useDesktopStore = create<DesktopState>()((set, get) => ({
       const remembered = keepEdited ? undefined : profileQueries[profileId] ?? stored.query ?? undefined;
       const profileName = (id: string) => state.profiles.find((entry) => entry.profile.id === id)?.profile.displayName ?? id;
       // A profile with no query of its own starts from the default query, keeping only the
-      // handling settings of the query being left.
-      const request = remembered ? applyProfileRules(remembered.request, rules)
-        : keepEdited ? applyProfileRules(state.request, rules)
+      // handling settings of the query being left, under the profile's own upgrade caps. A
+      // remembered or edited query gets the profile's rules from setCatalog's restore, which
+      // says what they changed.
+      const request = remembered ? remembered.request
+        : keepEdited ? state.request
           : applyProfileRules({ ...defaultRequest, profileId, ...carriedHandling(state.request) }, rules, true);
       return ({
       ...invalidateAllJobs(state),

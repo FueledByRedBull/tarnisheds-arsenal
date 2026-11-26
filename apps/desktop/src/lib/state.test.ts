@@ -1156,6 +1156,40 @@ describe("saved profile queries", () => {
     }
   });
 
+  it("says which profile rules changed a saved query when its profile loads", () => {
+    const values = memoryStorage();
+    try {
+      const convergence = catalog("convergence");
+      values.set("tarnisheds-arsenal.query.v1.convergence", JSON.stringify({ version: 1, lockedStatMode: false, request: {
+        ...defaultRequest, profileId: "convergence", standardMaxUpgrade: 25, somberMaxUpgrade: 25,
+        somberFilter: "somber_only", dlcScaling: true, scadutreeLevel: 20 } }));
+      useDesktopStore.setState({ catalog: null, catalogStatus: "loading", profiles: [convergence.dataManifest],
+        request: defaultRequest, profileQueries: {}, notices: [] });
+      useDesktopStore.getState().beginProfileSwitch("convergence");
+      useDesktopStore.getState().setCatalog(convergence);
+
+      const state = useDesktopStore.getState();
+      expect(state.request).toMatchObject({ standardMaxUpgrade: 15, somberMaxUpgrade: 15, somberFilter: "all", dlcScaling: false, scadutreeLevel: 0 });
+      expect(state.notices.map((notice) => notice.message)).toContain("Your saved query was adjusted to the current game data: "
+        + "upgrade cap lowered to +15; the Somber filter was cleared, since this profile has one upgrade path; "
+        + "Scadutree blessing was turned off, since this profile has none.");
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("says which profile rules changed the query being edited when its profile's load is retried", () => {
+    const convergence = catalog("convergence");
+    useDesktopStore.setState({ catalog: null, catalogStatus: "error", profiles: [convergence.dataManifest], profileQueries: {}, notices: [],
+      request: { ...defaultRequest, profileId: "convergence", standardMaxUpgrade: 25, somberMaxUpgrade: 25 } });
+    useDesktopStore.getState().beginProfileSwitch("convergence");
+    useDesktopStore.getState().setCatalog(convergence);
+
+    expect(useDesktopStore.getState().request).toMatchObject({ standardMaxUpgrade: 15, somberMaxUpgrade: 15 });
+    expect(useDesktopStore.getState().notices.map((notice) => notice.message)).toContain(
+      "Your saved query was adjusted to the current game data: upgrade cap lowered to +15.");
+  });
+
   it("round-trips a Custom stats query through storage", () => {
     const values = memoryStorage();
     const profile = catalog("convergence");
