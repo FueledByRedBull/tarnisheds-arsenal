@@ -1075,7 +1075,7 @@ pub(super) fn bleed_source_stat_can_scale(
 }
 
 pub(super) fn status_value_can_scale(value: f32, flag: Option<bool>) -> bool {
-    value > 0.0 && crate::math::uses_status_correction(flag, true)
+    value > 0.0 && crate::math::uses_status_correction(flag)
 }
 
 pub(super) fn minimum_str_for_requirement(

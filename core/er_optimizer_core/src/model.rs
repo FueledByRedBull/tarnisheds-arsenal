@@ -605,9 +605,10 @@ impl GameData {
 
     /// Whether Custom stats is an exact-stat entry next to this profile's classes: a
     /// profile without class budgets, or a mod whose own catalog replaced Custom stats
-    /// as the only class. Vanilla offers only its classes.
+    /// as the only class. The built-in class-budget profile (Vanilla) offers only its classes.
     pub fn offers_custom_stats(&self) -> bool {
-        !self.capabilities.class_budget || self.profile_id != crate::data::VANILLA_PROFILE_ID
+        !self.capabilities.class_budget
+            || self.profile_id != crate::snapshot::BUILT_IN_CLASS_BUDGET_PROFILE_ID
     }
 
     pub fn weapon_ar_supported(&self, weapon: &Weapon) -> bool {

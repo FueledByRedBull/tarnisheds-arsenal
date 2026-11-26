@@ -949,7 +949,7 @@ fn scale_status_value(
     reinforce: &crate::model::ReinforceLevel,
     data: &GameData,
 ) -> Result<f32, String> {
-    if value <= 0.0 || weapon.scaling[stat_idx] <= 0.0 || !uses_status_correction(flag, true) {
+    if value <= 0.0 || weapon.scaling[stat_idx] <= 0.0 || !uses_status_correction(flag) {
         return Ok(value);
     }
     let curve_mult = data
@@ -970,8 +970,9 @@ fn truncate_status_buildup(buildup: StatusBuildup) -> StatusBuildup {
     }
 }
 
-pub(crate) fn uses_status_correction(flag: Option<bool>, fallback: bool) -> bool {
-    flag.unwrap_or(fallback)
+/// A status value without an explicit correction flag scales with the stat.
+pub(crate) fn uses_status_correction(flag: Option<bool>) -> bool {
+    flag.unwrap_or(true)
 }
 
 fn merge_status_effect_source(

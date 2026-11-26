@@ -4254,13 +4254,29 @@ fn ash_template_preparation_polls_cancellation_between_phases() {
     let game_data = load_data();
     let request = base_request();
     let mut polls = 0;
-    let error = prepare_weapons_with_cancel(&request, &game_data, None, &mut || {
+    let completed = ash_templates(game_data.weapons.iter(), &request, &game_data, &mut || {
         polls += 1;
-        polls < 2
-    })
-    .expect_err("cancellation must stop template preparation");
+        true
+    });
+    assert!(completed.is_ok());
+    // One poll per chunk and at least one per phase: compatibility, then rows and routes.
+    assert!(polls >= 2, "template preparation polled {polls} times");
+    for stop_at in [1, polls] {
+        let mut seen = 0;
+        let stopped = ash_templates(game_data.weapons.iter(), &request, &game_data, &mut || {
+            seen += 1;
+            seen < stop_at
+        });
+        assert_eq!(
+            stopped.err().as_deref(),
+            Some("cancelled"),
+            "stop at poll {stop_at}"
+        );
+        assert_eq!(seen, stop_at);
+    }
+    let error = prepare_weapons_with_cancel(&request, &game_data, None, &mut || false)
+        .expect_err("preparation must stop when cancelled");
     assert_eq!(error, "cancelled");
-    assert_eq!(polls, 2);
 }
 
 #[test]

@@ -201,7 +201,7 @@ function statCommands(
   const base = Math.max(1, classMeta(catalog, request.className).baseStats[stat.key]);
   const entered = Math.max(base, value);
   const set = command(`set-${stat.key}`, "Stats", `Set ${stat.short} to ${entered}`,
-    entered !== value ? `${request.className} starts at ${base}` : current(String(request[stat.key])),
+    entered !== value ? `${classLabel(catalog, request.className)} starts at ${base}` : current(String(request[stat.key])),
     { kind: "patch", patch: { [stat.key]: entered } });
   const combat = stat.key === "strStat" || stat.key === "dex" || stat.key === "intStat" || stat.key === "fai" || stat.key === "arc";
   if (!combat || fixedStats) return [set];

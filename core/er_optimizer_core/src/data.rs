@@ -8,8 +8,9 @@ use crate::model::Stats;
 use crate::model::{
     Aow, AowAttackRow, AowEffect, AowEffectRole, AowRouteAssignment, AttackElementCorrect,
     AttackElementCorrectExt, COMBAT_STAT_COUNT, DAMAGE_TYPE_COUNT, DataCapabilities, DataRules,
-    DisplayPoiseDamage, GameData, PhysicalAttackAttribute, ReinforceLevel, StaminaCostMode,
-    StatusBuildup, StatusCorrectionFlags, StatusCurveIds, StatusEffectSource, Weapon,
+    DisplayPoiseDamage, GameData, MAX_STAT_VALUE, PhysicalAttackAttribute, ReinforceLevel,
+    StaminaCostMode, StatusBuildup, StatusCorrectionFlags, StatusCurveIds, StatusEffectSource,
+    Weapon,
 };
 use crate::snapshot::{
     CLASS_CATALOG_FILE, CLASS_LEVEL_OFFSET, EMBEDDED_MANIFESTS, EMBEDDED_TABLES, SnapshotManifest,
@@ -20,8 +21,6 @@ pub const VANILLA_PROFILE_ID: &str = "vanilla";
 pub const CONVERGENCE_PROFILE_ID: &str = "convergence";
 /// Calc-correct curves are tabulated through stat 999; ids bound the per-curve allocation.
 const MAX_CURVE_STAT_VALUE: usize = 999;
-/// Highest value an attribute can be raised to.
-const MAX_ATTRIBUTE_LEVEL: u8 = 99;
 
 #[derive(Clone, Debug, Default)]
 struct AowBuffRow {
@@ -387,8 +386,8 @@ fn load_validated_game_data<'a>(
 /// Highest stat value the scoring math reads this weapon's curves at: the maximum attribute,
 /// or one and a half times it for Strength when two-handing is allowed.
 fn reachable_curve_end(weapon: &Weapon) -> u16 {
-    effective_str(MAX_ATTRIBUTE_LEVEL, true, weapon.disable_two_hand_bonus)
-        .max(u16::from(MAX_ATTRIBUTE_LEVEL))
+    effective_str(MAX_STAT_VALUE, true, weapon.disable_two_hand_bonus)
+        .max(u16::from(MAX_STAT_VALUE))
 }
 
 /// The smallest key `is_known` rejects, so a snapshot with several dangling rows always
@@ -403,6 +402,18 @@ fn first_unknown<K: Ord + Copy>(
 /// Rejects ambiguous keys, dangling references and capability/table disagreement at load time
 /// instead of failing per weapon during a search.
 fn validate_cross_table_references(data: &GameData) -> Result<(), String> {
+    // The extractor applies this rule by rewriting row 0, and the math reads only the tables.
+    if data.rules.zero_attack_element_uses_weapon_scaling
+        && !data
+            .attack_element(0)
+            .is_some_and(|row| row.scales.iter().flatten().all(|scales| *scales))
+    {
+        return Err(
+            "zeroAttackElementUsesWeaponScaling requires attack-element row 0 to scale every \
+             stat and damage type"
+                .into(),
+        );
+    }
     let mut weapon_ids = HashSet::with_capacity(data.weapons.len());
     let mut checked_curve_end = HashMap::<usize, u16>::new();
     for weapon in &data.weapons {
@@ -609,9 +620,9 @@ fn load_starting_classes(table: CsvTable) -> Result<Vec<StartingClass>, String> 
     for row in &table.rows {
         let stat = |index: usize, field: &str| -> Result<u8, String> {
             let value = parse_u8(&row[index], field)?;
-            if !(1..=MAX_ATTRIBUTE_LEVEL).contains(&value) {
+            if !(1..=MAX_STAT_VALUE).contains(&value) {
                 return Err(format!(
-                    "{CLASS_CATALOG_FILE} {field} must be 1..{MAX_ATTRIBUTE_LEVEL}: {value}"
+                    "{CLASS_CATALOG_FILE} {field} must be 1..{MAX_STAT_VALUE}: {value}"
                 ));
             }
             Ok(value)
@@ -2023,6 +2034,26 @@ mod tests {
                 expected.sort_unstable();
                 assert_eq!(names, expected, "{profile}");
             }
+        }
+
+        #[test]
+        fn weapon_scaling_rule_for_attack_element_zero_must_match_row_zero() {
+            let mut data = load_embedded_game_profile(VANILLA_PROFILE_ID).unwrap();
+            data.rules.zero_attack_element_uses_weapon_scaling = true;
+            let error = validate_cross_table_references(&data).unwrap_err();
+            assert!(
+                error.contains("zeroAttackElementUsesWeaponScaling"),
+                "{error}"
+            );
+            let row_zero = data
+                .attack_element_correct
+                .iter_mut()
+                .find(|(id, _)| *id == 0)
+                .unwrap();
+            row_zero.1.scales = [[true; DAMAGE_TYPE_COUNT]; COMBAT_STAT_COUNT];
+            validate_cross_table_references(&data).unwrap();
+            data.attack_element_correct.retain(|(id, _)| *id != 0);
+            assert!(validate_cross_table_references(&data).is_err());
         }
 
         #[test]

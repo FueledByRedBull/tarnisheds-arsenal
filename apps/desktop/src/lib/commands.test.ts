@@ -75,6 +75,11 @@ describe("palette parsing", () => {
     expect(lock.action).toEqual({ kind: "lock", patch: { lockStr: 12 } });
   });
 
+  it("names a Tarnished Pack class with its label in the base hint", () => {
+    const [set] = findCommands("vig 3", context({ request: { ...defaultRequest, className: "Heavy Knight" } }));
+    expect(set.detail).toBe("Heavy Knight (Tarnished Pack) starts at 14");
+  });
+
   it("only sets non-combat stats and ignores impossible values", () => {
     expect(ids("vig 60")[0]).toBe("set-vig");
     expect(ids("vig 60")).not.toContain("lock-vig");
