@@ -34,7 +34,7 @@ from tools.phase1.snapshot_manifest import (  # noqa: E402
     sha256_file,
     validate_snapshot_manifest,
 )
-from tools.phase4.aow_effect_graph import ValidationIssue, validate_aow_effect_graph  # noqa: E402
+from tools.phase4.aow_effect_validation import ValidationIssue, validate_aow_effect_graph  # noqa: E402
 from tools.phase4.convergence_reference import validate_reference  # noqa: E402
 
 
