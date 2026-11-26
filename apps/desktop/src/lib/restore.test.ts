@@ -176,7 +176,8 @@ describe("local storage written by the released build", () => {
     const target = solvedBuild({ affinity: "Standard" });
     vi.spyOn(api, "solveBuild").mockImplementation(async (_base, _weapon, affinity) => affinity === "Keen" ? solvedBuild() : target);
     const preset = readBuildPreset("c34f333b-fc89-4d54-8d91-2bdfb18b1158")!;
-    expect(preset).toEqual(JSON.parse(stored["tarnisheds-arsenal.savedBuild.v2.c34f333b-fc89-4d54-8d91-2bdfb18b1158"]));
+    // Read back byte for byte, so saving it again writes the same record.
+    expect(JSON.stringify(preset)).toBe(stored["tarnisheds-arsenal.savedBuild.v2.c34f333b-fc89-4d54-8d91-2bdfb18b1158"]);
 
     await useDesktopStore.getState().loadBuildPreset(preset);
 

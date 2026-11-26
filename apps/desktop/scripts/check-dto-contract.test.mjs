@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readdirSync, readFileSync } from "node:fs";
 import test from "node:test";
-import { checkCommandContract, checkDomainContract, checkDtoContract } from "./check-dto-contract.mjs";
+import { checkCommandContract, checkDomainContract, checkDtoContract, checkStoredBuildContract } from "./check-dto-contract.mjs";
 
 const rust = readFileSync(new URL("../src-tauri/src/dto.rs", import.meta.url), "utf8");
 const frontend = readFileSync(new URL("../src/lib/types.ts", import.meta.url), "utf8");
@@ -62,6 +62,24 @@ test("comment handling preserves normal and raw Rust string contents", () => {
 });
 
 const source = path => readFileSync(new URL(path, import.meta.url), "utf8");
+const storedBuild = source("../src/lib/stored-build.ts");
+
+test("the stored-build validator reads every field of every DTO a saved build holds", () => {
+  assert.equal(checkStoredBuildContract(rust, storedBuild).dtos, 9);
+});
+
+for (const [description, rustSource, storedSource, expected] of /** @type {Array<[string, string, string, RegExp]>} */ ([
+  ["a native field it does not read", rust.replace("pub hit_order: u16,", "pub hit_order: u16, pub hit_window: u16,"), storedBuild,
+    /Stored-build field drift: AowHitDto/],
+  ["a field it reads that the native DTO lacks", rust.replace("pub hit_order: u16,", ""), storedBuild, /Stored-build field drift: AowHitDto/],
+  ["a held DTO without a field table", rust, storedBuild.replace("satisfies Fields<ScalingDto>", ""), /must cover exactly/],
+])) {
+  test(`stored-build contract rejects ${description}`, () => {
+    assert.ok(rustSource !== rust || storedSource !== storedBuild, "mutation must apply to the current source");
+    assert.throws(() => checkStoredBuildContract(rustSource, storedSource), expected);
+  });
+}
+
 const commandDirectory = new URL("../src-tauri/src/commands/", import.meta.url);
 const commandContract = () => ({
   commandSources: readdirSync(commandDirectory).map(name => readFileSync(new URL(name, commandDirectory), "utf8")),
