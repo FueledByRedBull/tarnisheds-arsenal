@@ -1,5 +1,5 @@
 import { Pause, Play } from "lucide-react";
-import { memo } from "react";
+import { memo, useMemo } from "react";
 import { api } from "../../lib/api";
 import { analysisStatus } from "../../lib/analysis-status";
 import { AnalysisProgress } from "../shared/AnalysisProgress";
@@ -31,7 +31,10 @@ export function AffinityWatchView() {
   const pushNotice = useDesktopStore((state) => state.pushNotice);
   const base = useBuiltRequest(catalog, request, lockedStatMode);
   const effectiveHorizon = clampHorizon(request, horizon);
-  const signature = stableSignature({ base, selected, horizon: effectiveHorizon });
+  const signature = useMemo(
+    () => stableSignature({ base, selected, horizon: effectiveHorizon }),
+    [base, selected, effectiveHorizon],
+  );
   const affinitySignature = useDesktopStore((state) => state.affinitySignature);
   const analysis = useAnalysisRun(AFFINITY_RUN, signature);
   const status = analysisStatus({

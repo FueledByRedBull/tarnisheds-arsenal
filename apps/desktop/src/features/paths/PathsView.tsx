@@ -1,5 +1,5 @@
 import { Pause, Play } from "lucide-react";
-import { memo, useEffect, useEffectEvent, useState } from "react";
+import { memo, useEffect, useEffectEvent, useMemo, useState } from "react";
 import { api } from "../../lib/api";
 import { analysisStatus } from "../../lib/analysis-status";
 import { AnalysisProgress } from "../shared/AnalysisProgress";
@@ -39,13 +39,10 @@ export function PathsView() {
   const pathTraceRequested = useDesktopStore((state) => state.pathTraceRequested);
   const base = useBuiltRequest(catalog, request, lockedStatMode);
   const effectiveHorizon = clampHorizon(request, horizon);
-  const signature = stableSignature({
-    base,
-    selected,
-    target,
-    horizon: effectiveHorizon,
-    pathMode,
-  });
+  const signature = useMemo(
+    () => stableSignature({ base, selected, target, horizon: effectiveHorizon, pathMode }),
+    [base, selected, target, effectiveHorizon, pathMode],
+  );
   const pathSignature = useDesktopStore((state) => state.pathSignature);
   const analysis = useAnalysisRun(PATH_RUN, signature);
   const status = analysisStatus({

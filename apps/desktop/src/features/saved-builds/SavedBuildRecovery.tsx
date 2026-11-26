@@ -2,6 +2,7 @@ import "../shared/build-tools.css";
 import { useEffect, useRef, useState } from "react";
 import { downloadText } from "../../lib/csv";
 import { errorMessage } from "../../lib/format";
+import { whenIdle } from "../../lib/idle";
 import {
   inspectSavedBuilds, MAX_BUILD_BACKUP_BYTES, previewBuildBackup, recoverSavedBuilds,
   restoreBuildBackup, savedBuildBackupText, type SavedBuildInspection,
@@ -13,12 +14,10 @@ function readInspection(): { inspection: SavedBuildInspection | null; error: str
 }
 
 export function SavedBuildRecovery({ onChanged, revision }: { onChanged: () => void; revision?: unknown }) {
-  const [{ inspection, error }, setScan] = useState(readInspection);
-  const [scannedRevision, setScannedRevision] = useState(revision);
-  if (scannedRevision !== revision) {
-    setScannedRevision(revision);
-    setScan(readInspection());
-  }
+  const [{ inspection, error }, setScan] = useState<ReturnType<typeof readInspection>>({ inspection: null, error: "" });
+  // A scan reads every stored record, so it waits for idle time instead of running inside the
+  // render that opened the library or refreshed it after a save.
+  useEffect(() => whenIdle(() => setScan(readInspection()), 0), [revision]);
   const setInspection = (next: SavedBuildInspection | null) => setScan((current) => ({ ...current, inspection: next }));
   const setError = (next: string) => setScan((current) => ({ ...current, error: next }));
   const [message, setMessage] = useState("");

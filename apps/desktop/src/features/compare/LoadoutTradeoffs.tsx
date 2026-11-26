@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { api } from "../../lib/api";
 import { allCombatStatsLocked, EIGHT_STATS, isCombatStat, sameCombatStats, statLine } from "../../lib/combat-stats";
 import { errorMessage, fixed1 } from "../../lib/format";
@@ -35,7 +35,7 @@ const CRITERIA: readonly Criterion[] = [
 
 export function LoadoutTradeoffs({ base, current, selected }: LoadoutTradeoffsProps) {
   const allCombatLocksActive = allCombatStatsLocked(base);
-  const contextSignature = stableSignature({ base, selected });
+  const contextSignature = useMemo(() => stableSignature({ base, selected }), [base, selected]);
   const contextRef = useRef(contextSignature);
   useLayoutEffect(() => { contextRef.current = contextSignature; });
   const runGeneration = useRef(0);
@@ -83,7 +83,10 @@ export function LoadoutTradeoffs({ base, current, selected }: LoadoutTradeoffsPr
     const generation = ++runGeneration.current;
     // The frontier keeps running while Compare is hidden; only a new context cancels it.
     const catalog = useDesktopStore.getState().catalog;
-    const unsubscribe = useDesktopStore.subscribe((state) => {
+    // Most store changes (progress, notices, hover) leave the frontier's inputs untouched.
+    const unsubscribe = useDesktopStore.subscribe((state, previous) => {
+      if (state.request === previous.request && state.lockedStatMode === previous.lockedStatMode
+        && state.selected === previous.selected && state.catalog === previous.catalog) return;
       if (state.catalog !== catalog || stableSignature({
         base: buildOptimizeRequest(state.catalog, state.request, state.lockedStatMode), selected: state.selected,
       }) !== contextSignature) controller.abort();
