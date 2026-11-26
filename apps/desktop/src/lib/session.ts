@@ -117,6 +117,15 @@ export function usesFixedStats(catalog: CatalogDto | null, className: string): b
   return catalog?.dataManifest.capabilities.classBudget === false || className === CUSTOM_STATS_CLASS;
 }
 
+/** Vanilla classes that ship only with the paid Tarnished Pack. */
+const TARNISHED_PACK_CLASSES = new Set(["Idus Knight", "Heavy Knight"]);
+
+export function classLabel(catalog: CatalogDto | null, className: string): string {
+  return catalog?.dataManifest.profile.id === "vanilla" && TARNISHED_PACK_CLASSES.has(className)
+    ? `${className} (Tarnished Pack)`
+    : className;
+}
+
 export function classOptions(catalog: CatalogDto | null): ClassMetadataDto[] {
   return catalog?.classes.length ? catalog.classes : STARTING_CLASS_METADATA;
 }
@@ -247,12 +256,33 @@ export function applyProfileRules(
   };
 }
 
-export function upgradeCapForRow(row: Pick<SolvedBuildDto, "isSomber">, request: OptimizeRequestDto): number {
-  return row.isSomber ? request.somberMaxUpgrade : request.standardMaxUpgrade;
+/**
+ * The request fields that set the upgrade cap of one reinforcement group. A profile with
+ * a single path (`separateUpgradeCaps` false) has one cap for every weapon, which the core
+ * reads from the standard field, so both fields carry it.
+ */
+export function upgradeCapPatch(
+  separateUpgradeCaps: boolean,
+  isSomber: boolean,
+  cap: number,
+): Partial<Pick<OptimizeRequestDto, "standardMaxUpgrade" | "somberMaxUpgrade">> {
+  if (!separateUpgradeCaps) return { standardMaxUpgrade: cap, somberMaxUpgrade: cap };
+  return isSomber ? { somberMaxUpgrade: cap } : { standardMaxUpgrade: cap };
 }
 
-export function compareUpgradeHorizon(request: OptimizeRequestDto): number {
-  return Math.max(request.standardMaxUpgrade, request.somberMaxUpgrade);
+/** The cap the core applies to one row: the standard field alone on a single path. */
+export function upgradeCapForRow(
+  row: Pick<SolvedBuildDto, "isSomber">,
+  request: OptimizeRequestDto,
+  separateUpgradeCaps: boolean,
+): number {
+  return separateUpgradeCaps && row.isSomber ? request.somberMaxUpgrade : request.standardMaxUpgrade;
+}
+
+export function compareUpgradeHorizon(request: OptimizeRequestDto, separateUpgradeCaps: boolean): number {
+  return separateUpgradeCaps
+    ? Math.max(request.standardMaxUpgrade, request.somberMaxUpgrade)
+    : request.standardMaxUpgrade;
 }
 
 function clampUpgrade(value: number, max: number): number {

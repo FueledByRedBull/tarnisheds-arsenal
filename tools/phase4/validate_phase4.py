@@ -12,7 +12,11 @@ ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from tools.phase1.extract_motion_workbook import MOTION_WORKBOOK_NAME, load_weapon_workbook_data  # noqa: E402
+from tools.phase1.extract_motion_workbook import (  # noqa: E402
+    MOTION_WORKBOOK_NAME,
+    load_weapon_workbook_data,
+    move_poise_for_base,
+)
 from tools.phase1.extract_skill_animations import ROUTE_EFFECT_ROLES  # noqa: E402
 from tools.phase1.phase1_dump import (  # noqa: E402
     CLASS_CATALOG_FILE,
@@ -23,7 +27,7 @@ from tools.phase1.phase1_dump import (  # noqa: E402
     read_csv_strict as read_csv,
     weapon_series_id,
 )
-from tools.phase1.profiles import ProfileDefinition, profile_definition  # noqa: E402
+from tools.phase1.profiles import PROFILE_DIRECTORIES, ProfileDefinition, profile_definition  # noqa: E402
 from tools.phase1.snapshot_manifest import (  # noqa: E402
     SKILL_ANIMATION_SOURCE,
     SnapshotManifest,
@@ -93,7 +97,7 @@ def validate_profile_source_provenance(
             None,
         )
         expected_relative_path = MOTION_WORKBOOK_NAME
-        expected_path = ROOT / "data" / "phase1" / expected_relative_path
+        expected_path = ROOT / PROFILE_DIRECTORIES[profile.id] / expected_relative_path
         if workbook_record is None:
             issues.append(ValidationIssue("error", "workbook manifest provenance is missing"))
         elif (
@@ -899,14 +903,14 @@ def _validate_vanilla_snapshot(
         )
 
     def poise(values: Mapping[str, object]) -> tuple[object, ...]:
-        return (float(str(values["base_poise"])), int(str(values["move_count"])),
-                *(str(values[field]) for field in WORKBOOK_POISE_FIELDS[2:]))
+        return (int(str(values["move_count"])),
+                *(str(values[field]) for field in WORKBOOK_POISE_FIELDS[1:]))
 
     poise_mismatches = [
         row["weapon_id"]
         for row in weapons
         if (source := workbook.get(weapon_series_id(int(row["weapon_id"])))) is None
-        or poise(row) != poise(vars(source))
+        or poise(row) != poise(vars(move_poise_for_base(source, float(str(row["base_poise"])))))
     ]
     if poise_mismatches:
         issues.append(
@@ -1199,10 +1203,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Validate both extracted profile data snapshots.")
     parser.add_argument("--report", type=Path, help="Write a machine-readable validation report.")
     args = parser.parse_args()
-    profile_dirs = {
-        "vanilla": ROOT / "data" / "phase1",
-        "convergence": ROOT / "data" / "profiles" / "convergence",
-    }
+    profile_dirs = {profile_id: ROOT / folder for profile_id, folder in PROFILE_DIRECTORIES.items()}
     issues: list[ValidationIssue] = []
     for profile_id, data_dir in profile_dirs.items():
         if not data_dir.exists():

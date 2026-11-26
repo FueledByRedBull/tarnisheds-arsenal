@@ -159,7 +159,7 @@ fn build_affinity_watch_inner(
                 Some(affinity),
                 solved.aow_name.as_deref(),
             );
-            request::set_exact_upgrade(&mut row_request, solved.upgrade, solved.is_somber);
+            request::set_exact_upgrade(&mut row_request, profile, solved.upgrade, solved.is_somber);
             request::unlock_stats(&mut row_request);
             request::settle_upgrade_caps(&mut row_request, profile)?;
             Ok(row_request)

@@ -1,5 +1,5 @@
 import { objectiveLabel } from "./format";
-import { classMeta, clampHorizon, derivedLevel, hasCombatStatLocks, replaceFilterEntries } from "./session";
+import { classLabel, classMeta, clampHorizon, derivedLevel, hasCombatStatLocks, replaceFilterEntries, upgradeCapPatch } from "./session";
 import { CatalogDto, ObjectiveId, OptimizeRequestDto, WorkspaceTab } from "./types";
 
 // The command palette's vocabulary. Parsing is pure: it returns data describing what to do,
@@ -145,7 +145,7 @@ function parsedCommands(query: string, context: CommandContext): Command[] {
     if (!rules.separateUpgradeCaps) {
       if (value <= rules.standardMaxUpgrade) {
         commands.push(command("upgrade-both", "Upgrades", `Weapon upgrade +${value}`, current(`+${request.standardMaxUpgrade}`),
-          { kind: "patch", patch: { standardMaxUpgrade: value, somberMaxUpgrade: value } }));
+          { kind: "patch", patch: upgradeCapPatch(false, false, value) }));
       }
       return commands;
     }
@@ -201,7 +201,7 @@ function statCommands(
   const base = Math.max(1, classMeta(catalog, request.className).baseStats[stat.key]);
   const entered = Math.max(base, value);
   const set = command(`set-${stat.key}`, "Stats", `Set ${stat.short} to ${entered}`,
-    entered !== value ? `${request.className} starts at ${base}` : current(String(request[stat.key])),
+    entered !== value ? `${classLabel(catalog, request.className)} starts at ${base}` : current(String(request[stat.key])),
     { kind: "patch", patch: { [stat.key]: entered } });
   const combat = stat.key === "strStat" || stat.key === "dex" || stat.key === "intStat" || stat.key === "fai" || stat.key === "arc";
   if (!combat || fixedStats) return [set];
@@ -230,7 +230,7 @@ function entityCommands({ catalog, request }: CommandContext): Command[] {
     named = [
       // Custom stats has no base values to apply; it is chosen in the class editor.
       ...(catalog.dataManifest.capabilities.classBudget ? catalog.classes : [])
-        .filter((entry) => entry.name !== "Custom stats").map((entry) => command(`class-${entry.name}`, "Class", `Class: ${entry.name}`, `Starts at level ${entry.baseLevel}`,
+        .filter((entry) => entry.name !== "Custom stats").map((entry) => command(`class-${entry.name}`, "Class", `Class: ${classLabel(catalog, entry.name)}`, `Starts at level ${entry.baseLevel}`,
         { kind: "class", className: entry.name })),
       ...catalog.weaponNames.map((name) => command(`weapon-${name}`, "Weapon", `Weapon: ${name}`, undefined, { kind: "weapon", weaponName: name })),
       ...catalog.aowNames.map((name) => command(`aow-${name}`, "Skill", `Skill: ${name}`, undefined, { kind: "patch", patch: { aowName: name } })),

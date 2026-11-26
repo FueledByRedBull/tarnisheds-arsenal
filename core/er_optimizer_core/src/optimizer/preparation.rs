@@ -7,13 +7,13 @@ pub(super) fn build_combat_constraints(
     validate_stat_caps(request)?;
     let class_info = data
         .class_by_name(&request.class_name)
-        .ok_or_else(|| format!("unknown starting class: {}", request.class_name))?;
+        .ok_or("starting class is not available for this profile")?;
     let free_points =
         compute_free_points(&class_info, request.character_level, &request.current_stats)?;
     let current = request.current_stats.combat_array();
 
     let mut mins = [0_u8; COMBAT_STAT_COUNT];
-    let mut maxs = [99_u8; COMBAT_STAT_COUNT];
+    let mut maxs = [MAX_STAT_VALUE; COMBAT_STAT_COUNT];
     let mut mandatory_raise: u16 = 0;
     for idx in 0..COMBAT_STAT_COUNT {
         mins[idx] = current[idx].max(request.min_combat_stats[idx]);
@@ -64,16 +64,20 @@ pub(super) fn validate_stat_caps(request: &OptimizeRequest) -> Result<(), String
         ("arc", request.current_stats.arc),
     ];
     for (name, value) in stats {
-        if value > 99 {
-            return Err(format!("{name} must be <= 99"));
+        if value > MAX_STAT_VALUE {
+            return Err(format!("{name} must be <= {MAX_STAT_VALUE}"));
         }
     }
     for idx in 0..COMBAT_STAT_COUNT {
-        if request.min_combat_stats[idx] > 99 {
-            return Err(format!("minimum combat stat {idx} must be <= 99"));
+        if request.min_combat_stats[idx] > MAX_STAT_VALUE {
+            return Err(format!(
+                "minimum combat stat {idx} must be <= {MAX_STAT_VALUE}"
+            ));
         }
-        if request.locked_combat_stats[idx].is_some_and(|value| value > 99) {
-            return Err(format!("locked combat stat {idx} must be <= 99"));
+        if request.locked_combat_stats[idx].is_some_and(|value| value > MAX_STAT_VALUE) {
+            return Err(format!(
+                "locked combat stat {idx} must be <= {MAX_STAT_VALUE}"
+            ));
         }
     }
     Ok(())
@@ -94,7 +98,7 @@ pub(super) fn prepare_weapons<'a>(
 pub(super) const PREPARE_WEAPONS_PER_THREAD: usize = 64;
 
 pub(super) fn prepare_weapon_chunk() -> usize {
-    PREPARE_WEAPONS_PER_THREAD * rayon::current_num_threads().max(1)
+    PREPARE_WEAPONS_PER_THREAD * rayon::current_num_threads()
 }
 
 pub(super) fn prepare_weapons_with_cancel<'a>(
@@ -111,7 +115,8 @@ pub(super) fn prepare_weapons_with_cancel<'a>(
             .filter(|weapon| weapon_matches_request(weapon, request, data)),
         request,
         data,
-    );
+        should_continue,
+    )?;
     let mut out = Vec::new();
     for chunk in data.weapons.chunks(prepare_weapon_chunk()) {
         if !should_continue() {
@@ -272,7 +277,7 @@ pub(super) fn available_upgrades(
         return None;
     }
 
-    let cap = upgrade_cap_for_weapon(weapon, request);
+    let cap = request.upgrade_cap(weapon.is_somber, &data.rules);
 
     if request.exact_upgrade {
         let fixed = cap;
@@ -290,14 +295,6 @@ pub(super) fn available_upgrades(
         })
         .collect();
     (!out.is_empty()).then_some(out)
-}
-
-pub(super) fn upgrade_cap_for_weapon(weapon: &Weapon, request: &OptimizeRequest) -> u8 {
-    if weapon.is_somber {
-        request.somber_max_upgrade
-    } else {
-        request.standard_max_upgrade
-    }
 }
 
 type AshTemplate<'a> = Vec<(
@@ -340,11 +337,34 @@ fn ash_template_key(weapon: &Weapon) -> (bool, &str, &str, &str) {
     )
 }
 
+/// Maps `items` in parallel one chunk at a time, polling `should_continue` before each
+/// chunk so a cancellation lands within one chunk's work. Results keep item order.
+fn par_map_cancellable<T: Send, R: Send>(
+    items: Vec<T>,
+    should_continue: &mut impl FnMut() -> bool,
+    map: impl Fn(T) -> R + Sync + Send,
+) -> Result<Vec<R>, String> {
+    let chunk = prepare_weapon_chunk();
+    let mut out = Vec::with_capacity(items.len());
+    let mut items = items.into_iter();
+    loop {
+        if !should_continue() {
+            return Err("cancelled".to_string());
+        }
+        let batch: Vec<T> = items.by_ref().take(chunk).collect();
+        if batch.is_empty() {
+            return Ok(out);
+        }
+        out.par_extend(batch.into_par_iter().map(&map));
+    }
+}
+
 pub(super) fn ash_templates<'a>(
     weapons: impl Iterator<Item = &'a Weapon>,
     request: &OptimizeRequest,
     data: &'a GameData,
-) -> AshTemplates<'a> {
+    should_continue: &mut impl FnMut() -> bool,
+) -> Result<AshTemplates<'a>, String> {
     let mut representatives = HashMap::new();
     let mut native = HashMap::new();
     for weapon in weapons {
@@ -360,17 +380,18 @@ pub(super) fn ash_templates<'a>(
         }
     }
     // Compatibility per key, then rows and routes per distinct Ash and weapon type name.
-    let compatible: Vec<(_, &Weapon, Vec<&Aow>)> = representatives
-        .into_par_iter()
-        .map(|(key, weapon)| {
+    let compatible: Vec<(_, &Weapon, Vec<&Aow>)> = par_map_cancellable(
+        representatives.into_iter().collect(),
+        should_continue,
+        |(key, weapon)| {
             let aows = data
                 .aows
                 .iter()
                 .filter(|aow| data.aow_compatible_with_weapon(aow, weapon))
                 .collect();
             (key, weapon, aows)
-        })
-        .collect();
+        },
+    )?;
     let mut needed = HashMap::new();
     for (_, weapon, aows) in &compatible {
         for aow in aows {
@@ -379,9 +400,10 @@ pub(super) fn ash_templates<'a>(
                 .or_insert((*aow, *weapon));
         }
     }
-    let selected: HashMap<_, _> = needed
-        .into_par_iter()
-        .map(|((aow_id, type_name), (aow, weapon))| {
+    let selected: HashMap<_, _> = par_map_cancellable(
+        needed.into_iter().collect(),
+        should_continue,
+        |((aow_id, type_name), (aow, weapon))| {
             let rows: Arc<[_]> = select_aow_attack_rows(aow_id, weapon, data).into();
             let selectable = request
                 .aow_name
@@ -393,8 +415,10 @@ pub(super) fn ash_templates<'a>(
             });
             let unmodeled = rows_have_unmodeled_attack_power(&rows, data);
             ((aow_id, type_name), (rows, routes, unmodeled))
-        })
-        .collect();
+        },
+    )?
+    .into_iter()
+    .collect();
     let ashes = compatible
         .into_iter()
         .map(|(key, weapon, aows)| {
@@ -409,7 +433,7 @@ pub(super) fn ash_templates<'a>(
             (key, template)
         })
         .collect();
-    AshTemplates { ashes, native }
+    Ok(AshTemplates { ashes, native })
 }
 
 #[cfg(test)]
@@ -418,7 +442,7 @@ pub(super) fn resolve_aow_choices<'a>(
     request: &OptimizeRequest,
     data: &'a GameData,
 ) -> Result<Option<Vec<AowChoice<'a>>>, String> {
-    let templates = ash_templates(std::iter::once(weapon), request, data);
+    let templates = ash_templates(std::iter::once(weapon), request, data, &mut || true)?;
     resolve_aow_choices_cached(weapon, request, data, &templates)
 }
 
@@ -428,8 +452,9 @@ pub(super) fn resolve_aow_choices_cached<'a>(
     data: &'a GameData,
     templates: &AshTemplates<'a>,
 ) -> Result<Option<Vec<AowChoice<'a>>>, String> {
-    // No objective can score routes with per-hit attack power yet, so those choices are
-    // skipped instead of failing the whole search; template rows carry the check.
+    // Every objective's fixed-stat evaluation scores the chosen Ash's route, and no route
+    // with per-hit attack power can be scored yet, so those choices are skipped for every
+    // objective instead of failing the whole search; template rows carry the check.
     let (native, native_unmodeled) = match native_skill_choice(weapon, data, Some(templates)) {
         Some((choice, unmodeled)) => (Some(choice), unmodeled),
         None => (None, false),
@@ -439,7 +464,7 @@ pub(super) fn resolve_aow_choices_cached<'a>(
         .filter(|_| !native_unmodeled)
         .into_iter()
         .collect();
-    if native.is_none() && weapon.affinity.eq_ignore_ascii_case("Standard") {
+    if native.is_none() && weapon.affinity.eq_ignore_ascii_case(STANDARD_AFFINITY) {
         choices.push(AowChoice {
             no_applied_ash: true,
             aow: None,
@@ -493,30 +518,25 @@ pub(super) fn resolve_aow_choices_cached<'a>(
                         && data.native_skill_compatible_with_weapon(candidate)
                 });
             if !known {
-                return Err(format!("unknown AoW: {name}"));
+                return Err("Ash of War is not available for this profile".to_string());
             }
         }
     }
     let mut seen_skills = HashSet::new();
     choices.retain(|choice| {
-        if matches!(
-            request.objective,
-            OptimizeObjective::AowFirstHit | OptimizeObjective::AowFullSequence
-        ) && choice.attack_rows.is_empty()
-        {
+        if request.objective.scores_skill() && choice.attack_rows.is_empty() {
             return false;
         }
-        if matches!(
-            request.objective,
-            OptimizeObjective::AowFirstHit | OptimizeObjective::AowFullSequence
-        ) && choice.attack_rows.iter().any(|row| {
-            !row.is_lacking_fp
-                && data
-                    .aow_effects(row.aow_id, row.sheet_row)
-                    .iter()
-                    .chain(data.aow_effects(row.aow_id, 0))
-                    .any(|effect| !effect.is_supported)
-        }) {
+        if request.objective.scores_skill()
+            && choice.attack_rows.iter().any(|row| {
+                !row.is_lacking_fp
+                    && data
+                        .aow_effects(row.aow_id, row.sheet_row)
+                        .iter()
+                        .chain(data.aow_effects(row.aow_id, 0))
+                        .any(|effect| !effect.is_supported)
+            })
+        {
             return false;
         }
         filter_dimension_matches(request, FilterDimension::Aow, |id| {
@@ -587,7 +607,7 @@ fn native_skill_choice<'a>(
         .or_else(|| source_rows.first().map(|row| row.aow_name.as_str()))
         .filter(|name| !name.is_empty());
     let choice = AowChoice {
-        no_applied_ash: weapon.affinity.eq_ignore_ascii_case("Standard"),
+        no_applied_ash: weapon.affinity.eq_ignore_ascii_case(STANDARD_AFFINITY),
         aow,
         skill_id: Some(native_skill_id),
         skill_name,
@@ -1055,7 +1075,7 @@ pub(super) fn bleed_source_stat_can_scale(
 }
 
 pub(super) fn status_value_can_scale(value: f32, flag: Option<bool>) -> bool {
-    value > 0.0 && crate::math::uses_status_correction(flag, true)
+    value > 0.0 && crate::math::uses_status_correction(flag)
 }
 
 pub(super) fn minimum_str_for_requirement(
@@ -1094,18 +1114,18 @@ pub(super) fn damage_type_stat_can_scale(
 ) -> bool {
     let id = override_id.unwrap_or(weapon.attack_element_correct_id);
     let damage_idx = damage_type.as_index();
-    if let Some(ext) = data.attack_element_ext(id) {
-        return ext.stat_scales(stat_idx, damage_idx)
-            && ext
-                .overwrite_rate(stat_idx, damage_idx)
-                .unwrap_or(weapon.scaling[stat_idx] * ext.influence_rate(stat_idx, damage_idx))
-                > 0.0;
-    }
-    override_id.is_none()
-        && weapon.scaling[stat_idx] > 0.0
-        && data
-            .attack_element(id)
-            .is_none_or(|aec| aec.stat_scales(stat_idx, damage_type))
+    let record = match (data.attack_element_ext(id), override_id) {
+        (Some(ext), _) => crate::math::correction::Record::Ext(ext),
+        (None, Some(_)) => return false,
+        (None, None) => match data.attack_element(id) {
+            Some(plain) => crate::math::correction::Record::Plain(plain),
+            // Loading rejects a weapon without its record; counting the stat keeps the
+            // active-stat selection a superset.
+            None => return weapon.scaling[stat_idx] > 0.0,
+        },
+    };
+    record.scales(stat_idx, damage_idx)
+        && record.ar_scaling(weapon.scaling[stat_idx], stat_idx, damage_idx) > 0.0
 }
 
 #[cfg(test)]

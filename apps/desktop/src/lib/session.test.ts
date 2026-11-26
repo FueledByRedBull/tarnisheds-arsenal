@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { buildOptimizeRequest, classMeta, derivedLevel, EIGHT_STAT_KEYS, optimalStartingClass, replaceFilterEntries, respecChanges, rowFingerprint, scalingLetter, stableSignature, STARTING_CLASS_METADATA, startingClassLevel } from "./session";
+import { buildOptimizeRequest, classLabel, compareUpgradeHorizon, classMeta, derivedLevel, EIGHT_STAT_KEYS, optimalStartingClass, replaceFilterEntries, respecChanges, rowFingerprint, scalingLetter, stableSignature, STARTING_CLASS_METADATA, startingClassLevel, upgradeCapForRow, upgradeCapPatch } from "./session";
 import { solvedBuild } from "./test-fixtures";
 import { defaultRequest } from "./state";
 import type { CatalogDto } from "./types";
@@ -122,6 +122,27 @@ describe("result identity", () => {
   });
 });
 
+describe("upgrade cap patch", () => {
+  it("sets the cap of one reinforcement group when the profile keeps separate caps", () => {
+    expect(upgradeCapPatch(true, false, 7)).toEqual({ standardMaxUpgrade: 7 });
+    expect(upgradeCapPatch(true, true, 7)).toEqual({ somberMaxUpgrade: 7 });
+  });
+
+  it("states the one cap in both fields when the profile has a single path", () => {
+    expect(upgradeCapPatch(false, false, 7)).toEqual({ standardMaxUpgrade: 7, somberMaxUpgrade: 7 });
+    expect(upgradeCapPatch(false, true, 7)).toEqual({ standardMaxUpgrade: 7, somberMaxUpgrade: 7 });
+  });
+
+  it("reads the cap the core applies, ignoring the somber field on a single path", () => {
+    const stored = { ...defaultRequest, standardMaxUpgrade: 3, somberMaxUpgrade: 15 };
+    expect(upgradeCapForRow({ isSomber: true }, stored, true)).toBe(15);
+    expect(upgradeCapForRow({ isSomber: false }, stored, true)).toBe(3);
+    expect(upgradeCapForRow({ isSomber: true }, stored, false)).toBe(3);
+    expect(compareUpgradeHorizon(stored, true)).toBe(15);
+    expect(compareUpgradeHorizon(stored, false)).toBe(3);
+  });
+});
+
 describe("stat changes", () => {
   const entered = { ...defaultRequest, strStat: 12, dex: 15, intStat: 9, fai: 8, arc: 8 };
 
@@ -132,5 +153,20 @@ describe("stat changes", () => {
 
   it("is empty when the build uses the stats as entered", () => {
     expect(respecChanges(solvedBuild({ stats: { strStat: 12, dex: 15, intStat: 9, fai: 8, arc: 8 } }), entered)).toEqual([]);
+  });
+});
+
+describe("class labels", () => {
+  const catalog = (profileId: string) => ({ dataManifest: { profile: { id: profileId } } }) as unknown as CatalogDto;
+
+  it("marks the Vanilla classes that come with the paid Tarnished Pack", () => {
+    expect(classLabel(catalog("vanilla"), "Idus Knight")).toBe("Idus Knight (Tarnished Pack)");
+    expect(classLabel(catalog("vanilla"), "Heavy Knight")).toBe("Heavy Knight (Tarnished Pack)");
+    expect(classLabel(catalog("vanilla"), "Samurai")).toBe("Samurai");
+  });
+
+  it("leaves another profile's class names as the profile defines them", () => {
+    expect(classLabel(catalog("convergence"), "Heavy Knight")).toBe("Heavy Knight");
+    expect(classLabel(null, "Idus Knight")).toBe("Idus Knight");
   });
 });

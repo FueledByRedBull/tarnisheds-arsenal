@@ -12,6 +12,7 @@ ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+from tools.phase1.profiles import PROFILE_DIRECTORIES  # noqa: E402
 from tools.phase1.snapshot_manifest import SCHEMA_VERSION  # noqa: E402
 from tools.phase4.package_release import EXPECTED_PRODUCT_NAME, EXPECTED_UPGRADE_CODE  # noqa: E402
 
@@ -190,8 +191,8 @@ def main() -> int:
     python_version = (root / ".python-version").read_text(encoding="utf-8").strip()
     node_version = (root / ".node-version").read_text(encoding="utf-8").strip()
     profile_manifests = {
-        "vanilla": root / "data/phase1/manifest.json",
-        "convergence": root / "data/profiles/convergence/manifest.json",
+        profile_id: root / folder / "manifest.json"
+        for profile_id, folder in PROFILE_DIRECTORIES.items()
     }
     for profile_id, manifest_path in profile_manifests.items():
         if not manifest_path.is_file():

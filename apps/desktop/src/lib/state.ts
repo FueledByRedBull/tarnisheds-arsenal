@@ -20,7 +20,7 @@ import {
   SolvedBuildDto,
   WorkspaceTab,
 } from "./types";
-import { applyProfileRules, buildOptimizeRequest, classMeta, CUSTOM_STATS_CLASS, currentStatTotal, EIGHT_STAT_KEYS, hasCombatStatLocks, knownWithoutCatalog, rowFingerprint, stableSignature, usesFixedStats } from "./session";
+import { applyProfileRules, buildOptimizeRequest, classMeta, CUSTOM_STATS_CLASS, currentStatTotal, EIGHT_STAT_KEYS, hasCombatStatLocks, knownWithoutCatalog, rowFingerprint, stableSignature, upgradeCapPatch, usesFixedStats } from "./session";
 
 export interface DesktopState {
   activeWorkspace: WorkspaceTab;
@@ -500,10 +500,7 @@ export const useDesktopStore = create<DesktopState>()((set, get) => ({
         weaponTypeKey: null,
         filters: { version: 1, entries: [] },
         somberFilter: "all",
-        // A profile with one shared upgrade cap (Convergence) sets both caps to the row's level.
-        ...(state.catalog?.dataManifest.rules.separateUpgradeCaps === false
-          ? { standardMaxUpgrade: row.upgrade, somberMaxUpgrade: row.upgrade }
-          : row.isSomber ? { somberMaxUpgrade: row.upgrade } : { standardMaxUpgrade: row.upgrade }),
+        ...upgradeCapPatch(state.catalog?.dataManifest.rules.separateUpgradeCaps ?? true, row.isSomber, row.upgrade),
         exactUpgrade: true,
         lockStr: row.stats.strStat,
         lockDex: row.stats.dex,

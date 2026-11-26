@@ -37,7 +37,7 @@ recover original decimal precision or establish in-game accuracy. The
 arithmetic, tie order, and proof obligations.
 
 The current snapshot model is `aow-routes-effects-v9`; runtime results and caches
-use `aow-routes-effects-v9/exact-v3`. The bundled datasets are `vanilla-1.17.2` and
+use `aow-routes-effects-v9/exact-v3`. The bundled datasets are `vanilla-1.17.2-r2` and
 `convergence-3.0.3.0-r4`, written by extractor `phase1-python-v15-f32-shortest-floats`.
 Every snapshot float is the shortest decimal that parses to the `f32` nearest the
 extracted value, so loaded coefficients are exactly those `f32` values.
@@ -57,15 +57,18 @@ They establish implementation agreement for their fixtures, not gameplay fidelit
 
 ## Vanilla
 
-The bundled snapshot targets **Elden Ring 1.17.2** (regulation 1.17.3). That patch
-changed only the Fletched Piquebone Arrow projectile's attack link, so every
-extracted table is byte-identical to 1.17; motion data still comes from the
+The bundled snapshot targets **Elden Ring 1.17.2** (regulation 1.17.3). That patch's
+Piquebone arrow changes touch only projectile attack links, which no extracted table
+holds, so every extracted table is byte-identical to 1.17; motion data still comes from the
 App Ver. 1.17 workbook. Objectives are **Max AR**,
 **Max Physical AR**, **Bleed, then AR**, **AoW First Hit**, and
 **AoW Sequence**. The two skill objectives model PvE damage.
 
 - Starting class, current stats, level, minimums, exact locks, and weapon
-  requirements constrain the stat budget.
+  requirements constrain the stat budget. Requirements are hard limits: the game
+  lets a weapon be used below them with a scaling penalty, but the optimizer never
+  ranks such a build. Idus Knight and Heavy Knight are offered from game version
+  1.17 and marked "(Tarnished Pack)", since they come with that paid pack.
 - Upgrade searches use either exact caps or every available level from `+0` to
   the caps. Standard and Somber paths have separate caps; a weapon's actual
   reinforcement series can end earlier.
@@ -116,8 +119,17 @@ The following special cases depend on raw attack provenance:
 
 Carian Retaliation's numeric 270 comes from the raw parameters. The
 [official Patch 1.04 notes](https://en.bandainamcoent.eu/elden-ring/news/elden-ring-patch-notes-104)
-support removal of weapon/status scaling, not that numeric value. Katar, Pata,
-and Raptor Talons apply 110% to Lifesteal Fist's grab rows.
+support removal of weapon/status scaling, not that numeric value, and whether the
+270 stays fixed at every upgrade is not confirmed. The Ice Lightning Sword bases are
+raw parameter values; that the game applies them to the player's bullets rests on the
+community motion workbook. Katar, Pata and Raptor Talons carry a 110% critical
+multiplier in the data, and the app applies it to Lifesteal Fist's grab rows; no
+primary source confirms the game does. None of these cases is measured in game.
+
+One weapon exception applies to status: the Vanilla Occult Fingerprint Stone
+Shield (weapon `32131200`) gets no Madness buildup, although its passive parameters
+list 70, as the Standard version's do. This follows the pinned 1.17 reference
+calculator, whose only support for it is a comment in its source.
 
 Chilling Mist and Poisonous Mist retain separate weapon/on-hit effect records,
 but their overlapping status increments remain unmodeled: available sources
@@ -127,7 +139,9 @@ are excluded from skill-damage objectives. No combined +90 status buff is claime
 Unsupported conditional effects present in the extracted effect graph carry
 explicit warnings. Skills with unsupported effects on evaluated attack rows cannot
 compete in skill-damage objectives. Choosing an exhaustive evaluator does not implement a missing effect;
-`PerHitAttackPower` remains unsupported.
+`PerHitAttackPower` remains unsupported. It is the one exception to that rule:
+Ash choices whose rows carry it are skipped for every objective, Max AR included,
+because each objective scores the chosen Ash's route.
 
 The effect graph is not exhaustive: War Cry and Barbaric Roar's attack-power
 self-buffs are not currently modeled or individually flagged. Their altered
@@ -159,8 +173,9 @@ in-game measurement.
 
 **Custom stats** evaluates the entered stats exactly: its level is the
 eight-stat total, up to `8 × 99`, not a Rune Level, and every combat stat is
-locked to its entered value. Builds saved with it keep that budget. Vanilla offers
-only its own classes.
+locked to its entered value. Builds saved with it keep that budget. With a class,
+the level is a Rune Level, capped at 713 in both profiles. Vanilla offers only its
+own classes.
 
 What the regulation shows, and how the profile uses it:
 

@@ -3,17 +3,18 @@ use std::io::Cursor;
 use std::path::Path;
 use std::sync::OnceLock;
 
-use crate::math::{CUSTOM_STATS_CLASS_NAME, STARTING_CLASSES, StartingClass};
+use crate::math::{CUSTOM_STATS_CLASS_NAME, STARTING_CLASSES, StartingClass, effective_str};
 use crate::model::Stats;
 use crate::model::{
     Aow, AowAttackRow, AowEffect, AowEffectRole, AowRouteAssignment, AttackElementCorrect,
     AttackElementCorrectExt, COMBAT_STAT_COUNT, DAMAGE_TYPE_COUNT, DataCapabilities, DataRules,
-    DisplayPoiseDamage, GameData, PhysicalAttackAttribute, ReinforceLevel, StaminaCostMode,
-    StatusBuildup, StatusCorrectionFlags, StatusCurveIds, StatusEffectSource, Weapon,
+    DisplayPoiseDamage, GameData, MAX_STAT_VALUE, PhysicalAttackAttribute, ReinforceLevel,
+    StaminaCostMode, StatusBuildup, StatusCorrectionFlags, StatusCurveIds, StatusEffectSource,
+    Weapon,
 };
 use crate::snapshot::{
-    CLASS_CATALOG_FILE, SnapshotManifest, requires_class_catalog, validate_embedded_snapshot,
-    validate_external_snapshot,
+    CLASS_CATALOG_FILE, CLASS_LEVEL_OFFSET, EMBEDDED_MANIFESTS, EMBEDDED_TABLES, SnapshotManifest,
+    requires_class_catalog, validate_embedded_snapshot, validate_external_snapshot,
 };
 
 pub const VANILLA_PROFILE_ID: &str = "vanilla";
@@ -97,9 +98,12 @@ impl CsvTable {
     }
 }
 
-/// (profile, table, brotli-compressed CSV) for every embedded runtime table; see build.rs.
-const EMBEDDED_TABLES: &[(&str, &str, &[u8])] =
-    include!(concat!(env!("OUT_DIR"), "/embedded_tables.rs"));
+fn embedded_manifest(profile_id: &str) -> Option<&'static [u8]> {
+    EMBEDDED_MANIFESTS
+        .iter()
+        .find(|(profile, _)| *profile == profile_id)
+        .map(|(_, bytes)| *bytes)
+}
 
 fn embedded_tables(profile_id: &str) -> Result<HashMap<&'static str, Vec<u8>>, String> {
     EMBEDDED_TABLES
@@ -121,8 +125,9 @@ fn embedded_csv(profile_id: &str, name: &str) -> Option<&'static str> {
     static TABLES: std::sync::OnceLock<Tables> = std::sync::OnceLock::new();
     TABLES
         .get_or_init(|| {
-            [VANILLA_PROFILE_ID, CONVERGENCE_PROFILE_ID]
-                .into_iter()
+            EMBEDDED_MANIFESTS
+                .iter()
+                .map(|(profile, _)| *profile)
                 .map(|profile| {
                     let tables = embedded_tables(profile)
                         .unwrap()
@@ -136,6 +141,18 @@ fn embedded_csv(profile_id: &str, name: &str) -> Option<&'static str> {
         .get(profile_id)?
         .get(name)
         .copied()
+}
+
+/// A shipped profile's snapshot folder in the repository.
+#[cfg(test)]
+fn profile_data_dir(profile_id: &str) -> std::path::PathBuf {
+    let (_, directory) = crate::snapshot::PROFILE_DIRECTORIES
+        .iter()
+        .find(|(id, _)| *id == profile_id)
+        .expect("shipped profile");
+    Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../..")
+        .join(directory)
 }
 
 #[cfg(test)]
@@ -366,10 +383,39 @@ fn load_validated_game_data<'a>(
     Ok((data, manifest))
 }
 
+/// Highest stat value the scoring math reads this weapon's curves at: the maximum attribute,
+/// or one and a half times it for Strength when two-handing is allowed.
+fn reachable_curve_end(weapon: &Weapon) -> u16 {
+    effective_str(MAX_STAT_VALUE, true, weapon.disable_two_hand_bonus)
+        .max(u16::from(MAX_STAT_VALUE))
+}
+
+/// The smallest key `is_known` rejects, so a snapshot with several dangling rows always
+/// reports the same one.
+fn first_unknown<K: Ord + Copy>(
+    keys: impl Iterator<Item = K>,
+    is_known: impl Fn(K) -> bool,
+) -> Option<K> {
+    keys.filter(|key| !is_known(*key)).min()
+}
+
 /// Rejects ambiguous keys, dangling references and capability/table disagreement at load time
 /// instead of failing per weapon during a search.
 fn validate_cross_table_references(data: &GameData) -> Result<(), String> {
+    // The extractor applies this rule by rewriting row 0, and the math reads only the tables.
+    if data.rules.zero_attack_element_uses_weapon_scaling
+        && !data
+            .attack_element(0)
+            .is_some_and(|row| row.scales.iter().flatten().all(|scales| *scales))
+    {
+        return Err(
+            "zeroAttackElementUsesWeaponScaling requires attack-element row 0 to scale every \
+             stat and damage type"
+                .into(),
+        );
+    }
     let mut weapon_ids = HashSet::with_capacity(data.weapons.len());
+    let mut checked_curve_end = HashMap::<usize, u16>::new();
     for weapon in &data.weapons {
         let id = weapon.weapon_id;
         if !weapon_ids.insert(id) {
@@ -395,6 +441,7 @@ fn validate_cross_table_references(data: &GameData) -> Result<(), String> {
             ));
         }
         let status = weapon.status_curve_ids;
+        let last_stat_value = reachable_curve_end(weapon);
         for curve_id in weapon.damage_curve_ids.into_iter().chain([
             status.poison,
             status.blood,
@@ -406,6 +453,20 @@ fn validate_cross_table_references(data: &GameData) -> Result<(), String> {
                     "weapon {id} references missing curve_id {curve_id}"
                 ));
             }
+            if checked_curve_end
+                .get(&curve_id)
+                .is_some_and(|end| *end >= last_stat_value)
+            {
+                continue;
+            }
+            if let Some(stat_value) = (0..=last_stat_value)
+                .find(|stat_value| data.calc_curve_value(curve_id, *stat_value).is_none())
+            {
+                return Err(format!(
+                    "weapon {id} curve_id {curve_id} has no entry for stat value {stat_value}"
+                ));
+            }
+            checked_curve_end.insert(curve_id, last_stat_value);
         }
     }
     // A missing passive row would otherwise read as zero status buildup.
@@ -444,6 +505,68 @@ fn validate_cross_table_references(data: &GameData) -> Result<(), String> {
             data.capabilities.aow_routes
         ));
     }
+    // A weapon's native skill is referenced by an id that need not be in the Ash table.
+    let ash_ids = aow_ids
+        .iter()
+        .copied()
+        .chain(
+            data.weapons
+                .iter()
+                .filter_map(|weapon| weapon.native_skill_id),
+        )
+        .collect::<HashSet<_>>();
+    let known_ash = |aow_id: u16| ash_ids.contains(&aow_id);
+    let known_weapon = |weapon_id: u32| weapon_ids.contains(&weapon_id);
+    if let Some(aow_id) = first_unknown(data.aow_attack_rows.keys().copied(), known_ash) {
+        return Err(format!(
+            "aow_attack_data.csv references unknown aow_id {aow_id}"
+        ));
+    }
+    if let Some((aow_id, sheet_row)) =
+        first_unknown(data.aow_effects.keys().copied(), |key| known_ash(key.0))
+    {
+        return Err(format!(
+            "aow_effect_data.csv references unknown aow_id {aow_id} (sheet_row {sheet_row})"
+        ));
+    }
+    if let Some((aow_id, sheet_row)) =
+        first_unknown(data.aow_route_assignments.keys().copied(), |key| {
+            known_ash(key.0)
+        })
+    {
+        return Err(format!(
+            "aow_route_assignments.csv references unknown aow_id {aow_id} (sheet_row {sheet_row})"
+        ));
+    }
+    if let Some(weapon_id) =
+        first_unknown(data.native_skill_attack_rows.keys().copied(), known_weapon)
+    {
+        return Err(format!(
+            "native_skill_attack_data.csv references unknown weapon_id {weapon_id}"
+        ));
+    }
+    if let Some((weapon_id, aow_id)) = first_unknown(
+        data.native_skill_attack_rows
+            .iter()
+            .flat_map(|(weapon_id, rows)| rows.iter().map(|row| (*weapon_id, row.aow_id))),
+        |(_, aow_id)| known_ash(aow_id),
+    ) {
+        return Err(format!(
+            "native_skill_attack_data.csv weapon {weapon_id} references unknown aow_id {aow_id}"
+        ));
+    }
+    if let Some(weapon_id) = first_unknown(data.weapon_passives.keys().copied(), known_weapon) {
+        return Err(format!(
+            "weapon_passives.csv references unknown weapon_id {weapon_id}"
+        ));
+    }
+    if let Some(weapon_id) =
+        first_unknown(data.weapon_passive_overlays.keys().copied(), known_weapon)
+    {
+        return Err(format!(
+            "weapon_passive_overlays.csv references unknown weapon_id {weapon_id}"
+        ));
+    }
     Ok(())
 }
 
@@ -454,13 +577,8 @@ pub fn load_embedded_game_profile(profile_id: &str) -> Result<GameData, String> 
 pub fn load_embedded_game_profile_with_manifest(
     profile_id: &str,
 ) -> Result<(GameData, SnapshotManifest), String> {
-    let manifest_bytes: &'static [u8] = match profile_id {
-        VANILLA_PROFILE_ID => include_bytes!("../../../data/phase1/manifest.json"),
-        CONVERGENCE_PROFILE_ID => {
-            include_bytes!("../../../data/profiles/convergence/manifest.json")
-        }
-        other => return Err(format!("unknown embedded game profile: {other}")),
-    };
+    let manifest_bytes = embedded_manifest(profile_id)
+        .ok_or_else(|| format!("unknown embedded game profile: {profile_id}"))?;
     let tables = embedded_tables(profile_id)?;
     let content = |name: &str| tables.get(name).map(Vec::as_slice);
     let manifest = validate_embedded_snapshot(manifest_bytes, content)?;
@@ -472,9 +590,6 @@ pub fn load_embedded_game_profile_with_manifest(
     }
     load_validated_game_data(manifest, content)
 }
-
-/// Rune Level is the eight-attribute total minus this offset for every class.
-const CLASS_LEVEL_OFFSET: u16 = 79;
 
 fn load_starting_classes(table: CsvTable) -> Result<Vec<StartingClass>, String> {
     let [
@@ -505,9 +620,9 @@ fn load_starting_classes(table: CsvTable) -> Result<Vec<StartingClass>, String> 
     for row in &table.rows {
         let stat = |index: usize, field: &str| -> Result<u8, String> {
             let value = parse_u8(&row[index], field)?;
-            if !(1..=99).contains(&value) {
+            if !(1..=MAX_STAT_VALUE).contains(&value) {
                 return Err(format!(
-                    "{CLASS_CATALOG_FILE} {field} must be 1..99: {value}"
+                    "{CLASS_CATALOG_FILE} {field} must be 1..{MAX_STAT_VALUE}: {value}"
                 ));
             }
             Ok(value)
@@ -846,11 +961,9 @@ fn load_reinforce(table: CsvTable) -> Result<Vec<Vec<Option<ReinforceLevel>>>, S
     for (reinforce_type, max_level) in &max_level_by_type {
         reinforce[*reinforce_type] = vec![None; *max_level + 1];
     }
+    // Every entry's type and level fit the vectors sized above from the per-type maxima.
     for (reinforce_type, level, value) in entries {
-        if let Some(levels) = reinforce.get_mut(reinforce_type)
-            && level < levels.len()
-            && levels[level].replace(value).is_some()
-        {
+        if reinforce[reinforce_type][level].replace(value).is_some() {
             return Err(format!(
                 "duplicate reinforce entry reinforce_type={reinforce_type} level={level}"
             ));
@@ -1670,9 +1783,10 @@ fn load_weapon_passive_overlays(
         out.insert(weapon_id, vec![None; max_level + 1]);
     }
     for (weapon_id, level, source) in entries {
-        if let Some(levels) = out.get_mut(&weapon_id)
-            && levels[level].replace(source).is_some()
-        {
+        let levels = out
+            .get_mut(&weapon_id)
+            .expect("every entry's weapon was sized from the per-weapon maxima above");
+        if levels[level].replace(source).is_some() {
             return Err(format!(
                 "duplicate weapon passive overlay entry weapon_id={weapon_id} level={level}"
             ));
@@ -1781,11 +1895,11 @@ mod tests {
             for (embedded, manifest_bytes) in [
                 (
                     embedded_vanilla_csv as fn(&str) -> Option<&'static str>,
-                    include_bytes!("../../../data/phase1/manifest.json").as_slice(),
+                    embedded_manifest(VANILLA_PROFILE_ID).unwrap(),
                 ),
                 (
                     embedded_convergence_csv,
-                    include_bytes!("../../../data/profiles/convergence/manifest.json").as_slice(),
+                    embedded_manifest(CONVERGENCE_PROFILE_ID).unwrap(),
                 ),
             ] {
                 let invalid = without_columns(
@@ -1836,8 +1950,7 @@ mod tests {
                     .into_boxed_slice(),
             );
             let mut manifest: serde_json::Value =
-                serde_json::from_slice(include_bytes!("../../../data/phase1/manifest.json"))
-                    .unwrap();
+                serde_json::from_slice(embedded_manifest(VANILLA_PROFILE_ID).unwrap()).unwrap();
             let record = manifest["runtimeFiles"]
                 .as_array_mut()
                 .unwrap()
@@ -1904,22 +2017,43 @@ mod tests {
 
         #[test]
         fn embedded_tables_are_exactly_the_manifest_runtime_files() {
-            for (profile, extra) in [
-                (VANILLA_PROFILE_ID, &[][..]),
-                (CONVERGENCE_PROFILE_ID, &[CLASS_CATALOG_FILE][..]),
-            ] {
-                let names = EMBEDDED_TABLES
+            for (profile, _) in EMBEDDED_MANIFESTS {
+                let mut names = EMBEDDED_TABLES
                     .iter()
-                    .filter(|(embedded, _, _)| *embedded == profile)
+                    .filter(|(embedded, _, _)| embedded == profile)
                     .map(|(_, table, _)| *table)
                     .collect::<Vec<_>>();
-                let expected = crate::snapshot::RUNTIME_DATA_FILES
+                let manifest: SnapshotManifest =
+                    serde_json::from_slice(embedded_manifest(profile).unwrap()).unwrap();
+                let mut expected = manifest
+                    .runtime_files
                     .iter()
-                    .chain(extra)
-                    .copied()
+                    .map(|file| file.path.as_str())
                     .collect::<Vec<_>>();
+                names.sort_unstable();
+                expected.sort_unstable();
                 assert_eq!(names, expected, "{profile}");
             }
+        }
+
+        #[test]
+        fn weapon_scaling_rule_for_attack_element_zero_must_match_row_zero() {
+            let mut data = load_embedded_game_profile(VANILLA_PROFILE_ID).unwrap();
+            data.rules.zero_attack_element_uses_weapon_scaling = true;
+            let error = validate_cross_table_references(&data).unwrap_err();
+            assert!(
+                error.contains("zeroAttackElementUsesWeaponScaling"),
+                "{error}"
+            );
+            let row_zero = data
+                .attack_element_correct
+                .iter_mut()
+                .find(|(id, _)| *id == 0)
+                .unwrap();
+            row_zero.1.scales = [[true; DAMAGE_TYPE_COUNT]; COMBAT_STAT_COUNT];
+            validate_cross_table_references(&data).unwrap();
+            data.attack_element_correct.retain(|(id, _)| *id != 0);
+            assert!(validate_cross_table_references(&data).is_err());
         }
 
         #[test]
@@ -1988,12 +2122,7 @@ mod tests {
         #[ignore = "explicit cold-process loader measurement; run without competing work"]
         fn cold_process_loader_probe() {
             let profile = std::env::var("ER_LOADER_PROFILE").unwrap_or_else(|_| "vanilla".into());
-            let relative = match profile.as_str() {
-                "vanilla" => "../../data/phase1",
-                "convergence" => "../../data/profiles/convergence",
-                _ => panic!("unknown measurement profile"),
-            };
-            let path = Path::new(env!("CARGO_MANIFEST_DIR")).join(relative);
+            let path = profile_data_dir(&profile);
             let start = std::time::Instant::now();
             let data = load_game_data(path).unwrap();
             let elapsed = start.elapsed().as_secs_f64() * 1000.0;
@@ -2064,10 +2193,11 @@ mod tests {
     }
 
     use super::{
-        CONVERGENCE_PROFILE_ID, CsvTable, VANILLA_PROFILE_ID, load_attack_element_correct,
-        load_attack_element_correct_ext, load_calc_correct, load_embedded_game_profile,
-        load_game_data, load_reinforce, load_weapon_passive_overlays, load_weapon_passives,
-        parse_f32, parse_status_effect_source,
+        CONVERGENCE_PROFILE_ID, CsvTable, GameData, VANILLA_PROFILE_ID, embedded_manifest,
+        load_attack_element_correct, load_attack_element_correct_ext, load_calc_correct,
+        load_embedded_game_profile, load_game_data, load_reinforce, load_weapon_passive_overlays,
+        load_weapon_passives, parse_f32, parse_status_effect_source, profile_data_dir,
+        reachable_curve_end, validate_cross_table_references,
     };
     use crate::model::AowEffectRole;
 
@@ -2129,7 +2259,7 @@ mod tests {
 
     #[test]
     fn external_snapshot_parses_verified_bytes_after_files_are_replaced() {
-        let original = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../data/phase1");
+        let original = profile_data_dir(VANILLA_PROFILE_ID);
         let manifest = crate::snapshot::validate_external_snapshot(&original)
             .unwrap()
             .manifest;
@@ -2198,6 +2328,130 @@ mod tests {
         assert_eq!(dagger.base_poise, 3.0);
         assert!(data.aows.len() > 100);
         assert!(!data.aow_effects.is_empty());
+    }
+
+    #[test]
+    fn shipped_profiles_match_the_profile_facts() {
+        let ids = crate::snapshot::PROFILE_DIRECTORIES.map(|(id, _)| id);
+        assert_eq!(ids, [VANILLA_PROFILE_ID, CONVERGENCE_PROFILE_ID]);
+        for id in ids {
+            let on_disk = fs::read(profile_data_dir(id).join("manifest.json")).unwrap();
+            assert_eq!(embedded_manifest(id).unwrap(), on_disk.as_slice(), "{id}");
+        }
+    }
+
+    /// The smallest key, so a test that copies "some row" copies the same one every run.
+    fn smallest_key<K: Ord + Copy, V>(map: &std::collections::HashMap<K, V>) -> K {
+        *map.keys().min().expect("table has rows")
+    }
+
+    #[test]
+    fn dangling_references_are_rejected_for_every_table() {
+        let base = load_embedded_game_profile(VANILLA_PROFILE_ID).unwrap();
+        validate_cross_table_references(&base).expect("shipped data has no dangling reference");
+        // Native skills are not in the Ash table, yet their effects and rows are valid.
+        assert!(
+            base.aow_effects
+                .keys()
+                .any(|(id, _)| !base.aows.iter().any(|aow| aow.aow_id == *id))
+        );
+        let ash = u16::MAX;
+        assert!(!base.aows.iter().any(|aow| aow.aow_id == ash));
+        let weapon = u32::MAX;
+        assert!(
+            !base
+                .weapons
+                .iter()
+                .any(|candidate| candidate.weapon_id == weapon)
+        );
+
+        type Case = (&'static str, fn(&mut GameData, u16, u32));
+        let cases: [Case; 7] = [
+            (
+                "aow_attack_data.csv references unknown aow_id",
+                |data, ash, _| {
+                    let rows = data.aow_attack_rows[&smallest_key(&data.aow_attack_rows)].clone();
+                    data.aow_attack_rows.insert(ash, rows);
+                },
+            ),
+            (
+                "aow_effect_data.csv references unknown aow_id",
+                |data, ash, _| {
+                    let effects = data.aow_effects[&smallest_key(&data.aow_effects)].clone();
+                    data.aow_effects.insert((ash, 0), effects);
+                },
+            ),
+            (
+                "aow_route_assignments.csv references unknown aow_id",
+                |data, ash, _| {
+                    let routes = data.aow_route_assignments
+                        [&smallest_key(&data.aow_route_assignments)]
+                        .clone();
+                    data.aow_route_assignments.insert((ash, 0), routes);
+                },
+            ),
+            (
+                "native_skill_attack_data.csv references unknown weapon_id",
+                |data, _, weapon| {
+                    let rows = data.native_skill_attack_rows
+                        [&smallest_key(&data.native_skill_attack_rows)]
+                        .clone();
+                    data.native_skill_attack_rows.insert(weapon, rows);
+                },
+            ),
+            ("native_skill_attack_data.csv weapon", |data, ash, _| {
+                let key = smallest_key(&data.native_skill_attack_rows);
+                let rows = data.native_skill_attack_rows.get_mut(&key).unwrap();
+                rows[0].aow_id = ash;
+            }),
+            (
+                "weapon_passives.csv references unknown weapon_id",
+                |data, _, weapon| {
+                    let passive = data.weapon_passives[&smallest_key(&data.weapon_passives)];
+                    data.weapon_passives.insert(weapon, passive);
+                },
+            ),
+            (
+                "weapon_passive_overlays.csv references unknown weapon_id",
+                |data, _, weapon| {
+                    let overlay = data.weapon_passive_overlays
+                        [&smallest_key(&data.weapon_passive_overlays)]
+                        .clone();
+                    data.weapon_passive_overlays.insert(weapon, overlay);
+                },
+            ),
+        ];
+        for (expected, mutate) in cases {
+            let mut data = base.clone();
+            mutate(&mut data, ash, weapon);
+            let error = validate_cross_table_references(&data).unwrap_err();
+            assert!(error.contains(expected), "{expected}: {error}");
+        }
+    }
+
+    #[test]
+    fn curve_entries_the_math_can_reach_must_exist_at_load() {
+        let base = load_embedded_game_profile(VANILLA_PROFILE_ID).unwrap();
+        let weapon = base
+            .weapons
+            .iter()
+            .find(|weapon| !weapon.disable_two_hand_bonus)
+            .unwrap();
+        let curve_id = weapon.damage_curve_ids[0];
+        for stat_value in [0, 99, 148] {
+            let mut data = base.clone();
+            data.calc_correct[curve_id].as_mut().unwrap()[stat_value] = None;
+            let error = validate_cross_table_references(&data).unwrap_err();
+            assert!(
+                error.contains(&format!("curve_id {curve_id} has no entry for stat value")),
+                "{stat_value}: {error}"
+            );
+        }
+        // Only a two-handed Strength reads past 99.
+        let mut single_handed = weapon.clone();
+        single_handed.disable_two_hand_bonus = true;
+        assert_eq!(reachable_curve_end(weapon), 148);
+        assert_eq!(reachable_curve_end(&single_handed), 99);
     }
 
     #[test]

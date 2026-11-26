@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Mapping
+from typing import Mapping, TypedDict, cast
 
 
 VANILLA_AFFINITIES: Mapping[int, str] = {
@@ -44,6 +45,35 @@ CONVERGENCE_AFFINITIES: Mapping[int, str] = {
     19: "Rotten",
     20: "Storm",
     21: "Mystic",
+}
+
+
+class ProfileFolder(TypedDict):
+    id: str
+    directory: str
+
+
+class ProfileFacts(TypedDict):
+    schemaVersion: int
+    modelVersion: str
+    extractorVersion: str
+    runtimeFiles: list[str]
+    classCatalogFile: str
+    classLevelOffset: int
+    builtInClassBudgetProfile: str
+    profiles: list[ProfileFolder]
+
+
+def load_profile_facts() -> ProfileFacts:
+    """The snapshot contract and profile folders that core/er_optimizer_core/build.rs also reads."""
+    path = Path(__file__).resolve().parents[2] / "data" / "profile-facts.json"
+    return cast(ProfileFacts, json.loads(path.read_text(encoding="utf-8")))
+
+
+PROFILE_FACTS = load_profile_facts()
+# Profile id -> snapshot folder relative to the repository root.
+PROFILE_DIRECTORIES: Mapping[str, Path] = {
+    profile["id"]: Path(profile["directory"]) for profile in PROFILE_FACTS["profiles"]
 }
 
 
@@ -161,7 +191,7 @@ PROFILES: Mapping[str, ProfileDefinition] = {
         game_version="1.17.2",
         mod_version=None,
         raw_dir=Path("data/raw/Vanilla"),
-        output_dir=Path("data/phase1"),
+        output_dir=PROFILE_DIRECTORIES["vanilla"],
         affinity_by_slot=VANILLA_AFFINITIES,
         # 3000 is the unupgradeable Meteorite Staff, historically flagged somber.
         somber_reinforce_types=frozenset({2200, 2400, 3000, 3200, 3300, 3400, 8300, 8500}),
@@ -186,6 +216,9 @@ PROFILES: Mapping[str, ProfileDefinition] = {
             status_buildup_scales=True,
         ),
         use_workbook_weapon_metadata=True,
+        # Revision 2 reads weapon base poise from the regulation: the workbook's rows for
+        # Black Steel Greathammer and Hookclaws are the Heavy param's.
+        dataset_revision=2,
         weapon_name_overrides={
             3_560_000: "Leontiel's Greatsword",
             8_530_000: "Hefty Scimitar",
@@ -208,7 +241,7 @@ PROFILES: Mapping[str, ProfileDefinition] = {
         game_version="1.17.1",
         mod_version="3.0.3.0",
         raw_dir=Path("data/raw/Conv"),
-        output_dir=Path("data/profiles/convergence"),
+        output_dir=PROFILE_DIRECTORIES["convergence"],
         affinity_by_slot=CONVERGENCE_AFFINITIES,
         somber_reinforce_types=frozenset(),
         # Somber Smithing Stone [1]; the mod puts Smithing weapons on types 2200 and 2400.

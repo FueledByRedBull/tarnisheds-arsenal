@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 6,
+  "modelVersion": "aow-routes-effects-v9",
+  "extractorVersion": "phase1-python-v15-f32-shortest-floats",
+  "runtimeFiles": [
+    "aow.csv",
+    "aow_attack_data.csv",
+    "aow_effect_data.csv",
+    "aow_route_assignments.csv",
+    "attack_element_correct.csv",
+    "attack_element_correct_ext.csv",
+    "calc_correct.csv",
+    "native_skill_attack_data.csv",
+    "reinforce.csv",
+    "weapon_passive_overlays.csv",
+    "weapon_passives.csv",
+    "weapons.csv"
+  ],
+  "classCatalogFile": "classes.csv",
+  "classLevelOffset": 79,
+  "builtInClassBudgetProfile": "vanilla",
+  "profiles": [
+    { "id": "vanilla", "directory": "data/phase1" },
+    { "id": "convergence", "directory": "data/profiles/convergence" }
+  ]
+}
