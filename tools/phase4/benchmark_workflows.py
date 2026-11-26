@@ -13,12 +13,13 @@ import sys
 from pathlib import Path
 from typing import Any
 
-if __package__:
-    from .benchmark_build_metadata import capture_build_metadata, require_matching_setup
-else:
-    from benchmark_build_metadata import capture_build_metadata, require_matching_setup
-
 ROOT = Path(__file__).resolve().parents[2]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from tools.phase1.profiles import PROFILE_DIRECTORIES  # noqa: E402
+from tools.phase4.benchmark_build_metadata import capture_build_metadata, require_matching_setup  # noqa: E402
+
 MANIFEST = ROOT / "apps" / "desktop" / "src-tauri" / "Cargo.toml"
 PREFIX = "WORKFLOW_BENCH "
 
@@ -89,7 +90,7 @@ def compare_baseline(
 ) -> list[dict[str, Any]]:
     baseline = json.loads(baseline_path.read_text(encoding="utf-8"))
     if metadata is not None:
-        require_matching_setup(baseline.get("metadata", {}), metadata, SETUP_KEYS)
+        require_matching_setup(baseline.get("metadata"), metadata, SETUP_KEYS)
     current, previous = index_cases(cases), index_cases(baseline["cases"])
     requested = current.keys() | previous.keys()
     compared = current.keys() & previous.keys()
@@ -186,7 +187,10 @@ def main() -> int:
     if len(model_versions) != 1:
         raise RuntimeError("workflow cases disagree on runtime model identity")
 
-    manifest = json.loads((ROOT / "data" / "phase1" / "manifest.json").read_text(encoding="utf-8"))
+    # The workflow benchmarks run on the Vanilla profile.
+    manifest = json.loads(
+        (ROOT / PROFILE_DIRECTORIES["vanilla"] / "manifest.json").read_text(encoding="utf-8")
+    )
     report: dict[str, Any] = {
         "metadata": {
             "profile": "release",

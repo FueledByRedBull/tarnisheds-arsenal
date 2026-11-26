@@ -51,7 +51,7 @@ def compare_baseline(
 ) -> list[dict[str, Any]]:
     baseline = json.loads(baseline_path.read_text(encoding="utf-8"))
     if metadata is not None:
-        require_matching_setup(baseline.get("metadata", {}), metadata, SETUP_KEYS)
+        require_matching_setup(baseline.get("metadata"), metadata, SETUP_KEYS)
     current = index_cases(cases)
     previous = index_cases(baseline["cases"])
     requested = current.keys() | previous.keys() if requested_cases is None else set(requested_cases)
