@@ -116,12 +116,10 @@ export interface DesktopState {
   beginSearch: (signature: string) => number;
   setActiveJobId: (activeJobId: string | null) => void;
   setProgress: (progress: SearchProgressDto | null) => void;
-  setPathBusy: (isPathBusy: boolean) => void;
   beginPath: (signature: string) => number;
   setActivePathJobId: (activePathJobId: string | null) => void;
   setPathProgress: (pathProgress: PathProgressDto | null) => void;
   setPaths: (paths: PathPreviewDto[], signature: string | null) => void;
-  setAffinityBusy: (isAffinityBusy: boolean) => void;
   beginAffinity: (signature: string) => number;
   setActiveAffinityJobId: (activeAffinityJobId: string | null) => void;
   setAffinityProgress: (affinityProgress: AffinityWatchProgressDto | null) => void;
@@ -707,7 +705,6 @@ export const useDesktopStore = create<DesktopState>()((set, get) => ({
   pathProgress: null,
   pathSignature: null,
   paths: [],
-  setPathBusy: (isPathBusy) => set({ isPathBusy }),
   beginPath: (activePathSignature) => {
     let generation = 0;
     set((state) => {
@@ -734,7 +731,6 @@ export const useDesktopStore = create<DesktopState>()((set, get) => ({
   affinityProgress: null,
   affinitySignature: null,
   affinityPayload: null,
-  setAffinityBusy: (isAffinityBusy) => set({ isAffinityBusy }),
   beginAffinity: (activeAffinitySignature) => {
     let generation = 0;
     set((state) => {

@@ -1,11 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { resolveAowSelection } from "../../lib/AowSelect";
-import { api } from "../../lib/api";
 import { cachedWeaponProfile } from "../../lib/analysis-cache";
 import { stableSignature } from "../../lib/session";
 import { useDesktopStore } from "../../lib/state";
 import { OptimizeRequestDto } from "../../lib/types";
-import { cancelSearchFromStore, runSearchFromStore } from "../../lib/workflows";
+import { cancelRankingsSearch, runSearchFromStore } from "../../lib/workflows";
 import { withoutHistory } from "../../lib/query-history";
 import { errorMessage } from "../../lib/format";
 
@@ -14,8 +13,6 @@ import { errorMessage } from "../../lib/format";
 export function useSearchRunner() {
   const patchRequest = useDesktopStore((state) => state.patchRequest);
   const setError = useDesktopStore((state) => state.setError);
-  const setSearching = useDesktopStore((state) => state.setSearching);
-  const setActiveJobId = useDesktopStore((state) => state.setActiveJobId);
   const setProgress = useDesktopStore((state) => state.setProgress);
   const isSearching = useDesktopStore((state) => state.isSearching);
   const [searchStartedAt, setSearchStartedAt] = useState<number | null>(null);
@@ -50,12 +47,15 @@ export function useSearchRunner() {
     const controller = new AbortController();
     searchPreparation.current?.abort();
     searchPreparation.current = controller;
+    // Checked on every store notification while the loadout loads, so the submitted query's
+    // signature is computed once and only a replaced request is compared by content.
+    const inputSignature = stableSignature(input);
     const unchangedInputs = () => {
       const current = useDesktopStore.getState();
       return current.activeWorkspace === submitted.activeWorkspace
         && current.lockedStatMode === submitted.lockedStatMode
         && current.loadoutSelectionRevision === submitted.loadoutSelectionRevision
-        && stableSignature(current.request) === stableSignature(input);
+        && (current.request === input || stableSignature(current.request) === inputSignature);
     };
     const unsubscribe = useDesktopStore.subscribe(() => {
       if (!unchangedInputs()) controller.abort();
@@ -100,37 +100,16 @@ export function useSearchRunner() {
     }
   }
 
-  async function cancelSearch() {
+  // The search's queue sends the native cancellation and waits, within its bound, for the worker
+  // to stop; the search then ends as stopped, or reports a failed cancellation.
+  function cancelSearch() {
     if (searchPreparation.current) {
       searchPreparation.current.abort();
       return;
     }
     if (searchCancellationRequested) return;
     setSearchCancellationRequested(true);
-    const { activeJobId: currentJobId, searchGeneration } = useDesktopStore.getState();
-    if (!currentJobId) {
-      cancelSearchFromStore(searchGeneration);
-      return;
-    }
-    const isCurrent = () => {
-      const current = useDesktopStore.getState();
-      return current.searchGeneration === searchGeneration && current.activeJobId === currentJobId;
-    };
-    try {
-      const cancelled = await api.cancelSearch(currentJobId);
-      if (!isCurrent()) return;
-      if (!cancelled) {
-        setSearching(false);
-        setActiveJobId(null);
-        setProgress(null);
-        setSearchStartedAt(null);
-        setSearchCancellationRequested(false);
-      }
-    } catch (error) {
-      if (!isCurrent()) return;
-      setSearchCancellationRequested(false);
-      setError(errorMessage(error));
-    }
+    cancelRankingsSearch();
   }
 
   return {

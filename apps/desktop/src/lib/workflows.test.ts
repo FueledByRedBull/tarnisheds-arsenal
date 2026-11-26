@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "./api";
 import { defaultRequest, useDesktopStore } from "./state";
-import { runSearchFromStore, runSearchRequestForRows } from "./workflows";
+import { cancelRankingsSearch, runSearchFromStore, runSearchRequestForRows } from "./workflows";
 import { solvedBuild } from "./test-fixtures";
 import type { SearchJobStatusDto, SolvedBuildDto } from "./types";
 
@@ -290,6 +290,86 @@ for (const invalidation of ["profile switch", "request edit"] as const) {
     },
   );
 }
+
+it("does not publish a reply from a job that is no longer the active search", async () => {
+  const lateRows = [solvedBuild()];
+  let finish!: (status: SearchJobStatusDto) => void;
+  vi.mocked(api.startSearch).mockResolvedValue({ jobId: "search" });
+  vi.mocked(api.searchStatus).mockImplementation(() => new Promise(resolve => { finish = resolve; }));
+  const search = runSearchFromStore(defaultRequest);
+  await vi.advanceTimersByTimeAsync(0);
+  expect(useDesktopStore.getState().activeJobId).toBe("search");
+
+  useDesktopStore.getState().setActiveJobId(null);
+  finish({ progress: null, finished: { jobId: "search", rows: lateRows, cancelled: false, error: null, setups: 1 } });
+  expect(await search).toBe(false);
+  expect(useDesktopStore.getState().rows).toEqual([]);
+});
+
+describe("cancelling the Rankings search", () => {
+  it("cancels through the queue and keeps rows from a job that finished anyway", async () => {
+    let release = false;
+    vi.mocked(api.startSearch).mockResolvedValue({ jobId: "search" });
+    vi.mocked(api.cancelSearch).mockImplementation(async () => { release = true; return false; });
+    vi.mocked(api.searchStatus).mockImplementation(async (jobId) => ({
+      progress: null,
+      finished: release ? { jobId, rows: [solvedBuild()], cancelled: false, error: null, setups: 1 } : null,
+    }));
+    const search = runSearchFromStore(defaultRequest);
+    await vi.advanceTimersByTimeAsync(0);
+
+    cancelRankingsSearch();
+    await vi.advanceTimersByTimeAsync(200);
+    expect(await search).toBe(false);
+    expect(api.cancelSearch).toHaveBeenCalledExactlyOnceWith("search");
+    expect(useDesktopStore.getState()).toMatchObject({ rows: [], isSearching: false, activeJobId: null, error: null });
+    expect(useDesktopStore.getState().notices.map((notice) => notice.message)).toEqual(["Search stopped. Previous results were retained."]);
+  });
+
+  it("reports a failed cancellation and reconciles the worker before the next search", async () => {
+    let oldFinished = false;
+    vi.mocked(api.startSearch).mockResolvedValueOnce({ jobId: "old" }).mockResolvedValue({ jobId: "new" });
+    vi.mocked(api.cancelSearch).mockRejectedValueOnce(new Error("cancel IPC failed"));
+    vi.mocked(api.searchStatus).mockImplementation(async (jobId) => ({
+      progress: null,
+      finished: jobId === "new" || oldFinished ? { jobId, rows: [], cancelled: false, error: null, setups: 0 } : null,
+    }));
+    const search = runSearchFromStore(defaultRequest);
+    await vi.advanceTimersByTimeAsync(0);
+
+    cancelRankingsSearch();
+    expect(await search).toBe(false);
+    expect(useDesktopStore.getState()).toMatchObject({ isSearching: false, activeJobId: null, error: "cancel IPC failed" });
+
+    const next = runSearchFromStore(defaultRequest);
+    await vi.advanceTimersByTimeAsync(200);
+    expect(api.startSearch).toHaveBeenCalledTimes(1);
+    oldFinished = true;
+    await vi.advanceTimersByTimeAsync(200);
+    expect(await next).toBe(true);
+    expect(api.startSearch).toHaveBeenCalledTimes(2);
+  });
+
+  it("ends a search still waiting in the queue without native cancellation", async () => {
+    vi.mocked(api.startSearch).mockResolvedValue({ jobId: "comparison" });
+    vi.mocked(api.searchStatus).mockResolvedValue({ progress: null, finished: null });
+    const comparison = runSearchRequestForRows(defaultRequest);
+    await vi.advanceTimersByTimeAsync(0);
+    const queued = runSearchFromStore(defaultRequest);
+
+    cancelRankingsSearch();
+    expect(await queued).toBe(false);
+    expect(api.cancelSearch).not.toHaveBeenCalled();
+    expect(useDesktopStore.getState()).toMatchObject({ isSearching: false, activeJobId: null });
+
+    vi.mocked(api.searchStatus).mockResolvedValue({
+      progress: null, finished: { jobId: "comparison", rows: [], cancelled: false, error: null, setups: 0 },
+    });
+    await vi.advanceTimersByTimeAsync(200);
+    await expect(comparison).resolves.toEqual([]);
+    expect(api.startSearch).toHaveBeenCalledTimes(1);
+  });
+});
 
 async function finishSearch(outcome: { rows?: SolvedBuildDto[]; cancelled?: boolean; error?: string }) {
   vi.mocked(api.startSearch).mockResolvedValueOnce({ jobId: "search" });

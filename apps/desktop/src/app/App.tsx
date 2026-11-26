@@ -86,15 +86,10 @@ export function App() {
   }, [setError]);
 
   const loadProfile = useCallback(async (nextProfileId: string, generation = ++profileGeneration.current) => {
-    const before = useDesktopStore.getState();
-    const activeJobs = [
-      before.activeJobId ? api.cancelSearch(before.activeJobId) : null,
-      before.activePathJobId ? api.cancelPathPreview(before.activePathJobId) : null,
-      before.activeAffinityJobId ? api.cancelAffinityWatch(before.activeAffinityJobId) : null,
-    ].filter((job): job is Promise<boolean> => job !== null);
+    // Ending every run slot's generation makes each queue cancel its native job and own the
+    // recovery when that cancellation fails.
     beginProfileSwitch(nextProfileId);
     setAnalysisCacheVersion(`profile-switch:${nextProfileId}`);
-    void Promise.allSettled(activeJobs);
     try {
       const catalog = await api.catalog(nextProfileId);
       if (
