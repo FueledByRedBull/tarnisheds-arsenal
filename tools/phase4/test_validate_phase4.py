@@ -292,20 +292,62 @@ class ValidatePhase4Tests(unittest.TestCase):
                     issues = validation.validate_profile_snapshot(data_dir, "convergence")
                 self.assertTrue(any(message in issue.message for issue in issues), issues)
 
-    def test_missing_aows_are_bounded(self) -> None:
+    def test_skill_animation_coverage_counts_are_exact(self) -> None:
         read_csv = validation.read_csv
         data_dir = validation.ROOT / "data/profiles/convergence"
+        for old, new in (("direct_damage", "missing"), ("missing", "direct_damage"), ("utility_only", "missing")):
+            with self.subTest(old=old, new=new):
+                def read(path: Path) -> list[dict[str, str]]:
+                    rows = read_csv(path)
+                    if path.name == "aow_damage_coverage.csv":
+                        next(row for row in rows if row["status"] == old)["status"] = new
+                    return rows
 
-        def read(path: Path) -> list[dict[str, str]]:
-            rows = read_csv(path)
-            if path.name == "aow_damage_coverage.csv":
-                for row in rows:
-                    row["status"] = "missing"
-            return rows
+                with patch.object(validation, "read_csv", side_effect=read):
+                    issues = validation.validate_profile_snapshot(data_dir, "convergence")
+                self.assertTrue(any("Ash of War coverage is" in issue.message for issue in issues), issues)
 
-        with patch.object(validation, "read_csv", side_effect=read):
-            issues = validation.validate_profile_snapshot(data_dir, "convergence")
-        self.assertTrue(any("have no damage resolved from skill animations" in issue.message for issue in issues))
+    def test_model_reference_states_the_checked_coverage(self) -> None:
+        text = (validation.ROOT / "docs/model-reference.md").read_text(encoding="utf-8")
+        counts = validation.SKILL_ANIMATION_AOW_COVERAGE
+        self.assertIn(f"{counts['direct_damage']} of {sum(counts.values())} Ashes of War", text)
+
+    def test_attack_and_route_tables_require_their_columns(self) -> None:
+        read_csv = validation.read_csv
+        for profile_id, directory in (("vanilla", "data/phase1"), ("convergence", "data/profiles/convergence")):
+            for filename, column in (
+                ("aow_attack_data.csv", "is_lacking_fp"),
+                ("native_skill_attack_data.csv", "physical_attack_attribute"),
+                ("aow_effect_data.csv", "is_supported"),
+                ("aow_route_assignments.csv", "hit_count"),
+                ("aow_route_exclusions.csv", "sheet_row"),
+                ("weapons.csv", "weapon_type_keys"),
+            ):
+                with self.subTest(profile=profile_id, filename=filename):
+                    def read(path: Path) -> list[dict[str, str]]:
+                        rows = read_csv(path)
+                        if path.name == filename:
+                            for row in rows:
+                                del row[column]
+                        return rows
+
+                    with patch.object(validation, "read_csv", side_effect=read):
+                        issues = validation.validate_profile_snapshot(validation.ROOT / directory, profile_id)
+                    self.assertIn(f"{filename} is missing columns: {column}", [i.message for i in issues])
+
+    def test_ash_capable_weapons_need_type_keys_in_every_profile(self) -> None:
+        read_csv = validation.read_csv
+        for profile_id, directory in (("vanilla", "data/phase1"), ("convergence", "data/profiles/convergence")):
+            with self.subTest(profile=profile_id):
+                def read(path: Path) -> list[dict[str, str]]:
+                    rows = read_csv(path)
+                    if path.name == "weapons.csv":
+                        next(row for row in rows if row["can_change_aow"] == "1")["weapon_type_keys"] = ""
+                    return rows
+
+                with patch.object(validation, "read_csv", side_effect=read):
+                    issues = validation.validate_profile_snapshot(validation.ROOT / directory, profile_id)
+                self.assertTrue(any("missing weapon_type_keys" in issue.message for issue in issues), issues)
 
     def test_snapshot_csv_rows_must_match_their_header(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
