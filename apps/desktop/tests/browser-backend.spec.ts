@@ -8,22 +8,41 @@ const repoFile = (path: string) => readFileSync(new URL(`../../../${path}`, impo
 test("the browser preview reports the shipped snapshot identities", async ({ page }) => {
   await page.goto("/");
   const profiles = await page.evaluate(async () => (await import("/src/lib/api.ts")).api.profiles());
+  // The snapshot model and the profile list come from the shared facts file; only the exact
+  // scoring revision is a native constant with no data file of its own.
+  const facts = JSON.parse(repoFile("data/profile-facts.json")) as { modelVersion: string; profiles: { id: string; directory: string }[] };
   const exactModel = /format!\("\{snapshot_model\}\/(exact-v\d+)"\)/.exec(repoFile("core/er_optimizer_core/src/lib.rs"))?.[1];
   expect(exactModel).toBeTruthy();
-  for (const path of ["data/phase1/manifest.json", "data/profiles/convergence/manifest.json"]) {
-    const shipped = JSON.parse(repoFile(path));
+  expect(profiles.map((profile) => profile.profile.id).sort()).toEqual(facts.profiles.map((profile) => profile.id).sort());
+  for (const { directory } of facts.profiles) {
+    const shipped = JSON.parse(repoFile(`${directory}/manifest.json`));
+    expect(shipped.modelVersion, directory).toBe(facts.modelVersion);
     const mock = profiles.find((profile) => profile.profile.id === shipped.profile.id);
     expect(mock, shipped.profile.id).toBeDefined();
     const pick = (source: Record<string, unknown>, keys: object) =>
       Object.fromEntries(Object.keys(keys).map((key) => [key, source[key]]));
     expect(mock).toEqual({
       ...pick(shipped, mock!),
-      modelVersion: `${shipped.modelVersion}/${exactModel}`,
+      modelVersion: `${facts.modelVersion}/${exactModel}`,
       capabilities: pick(shipped.capabilities, mock!.capabilities),
       // The Scadutree table is native model data, not a manifest rule.
       rules: { ...pick(shipped.rules, mock!.rules), scadutreeAttackMultipliers: mock!.rules.scadutreeAttackMultipliers },
     });
   }
+});
+
+test("the browser preview offers the objectives its profile capabilities support", async ({ page }) => {
+  await page.goto("/");
+  const catalogs = await page.evaluate(async () => {
+    const { api } = await import("/src/lib/api.ts");
+    const { supportedObjectives } = await import("/src/lib/objectives.ts");
+    return Promise.all((await api.profiles()).map(async (manifest) => ({
+      offered: (await api.catalog(manifest.profile.id)).objectiveIds,
+      supported: supportedObjectives(manifest.capabilities),
+    })));
+  });
+  expect(catalogs.length).toBeGreaterThan(0);
+  for (const { offered, supported } of catalogs) expect(offered).toEqual(supported);
 });
 
 test("the browser preview runs one job at a time and cancels cooperatively", async ({ page }) => {
