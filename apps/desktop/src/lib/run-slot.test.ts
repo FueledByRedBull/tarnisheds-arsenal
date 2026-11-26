@@ -105,5 +105,27 @@ describe("run slot", () => {
     expect(isCancelled(await result)).toBe(true);
     expect(cancel).toHaveBeenCalledWith("late");
     expect(useDesktopStore.getState().activePathJobId).toBeNull();
+    slot.end(token);
+    expect(useDesktopStore.getState().isPathBusy).toBe(false);
+  });
+
+  it("is not ready while results are out of date, and a run that went out of date still ends its busy state", () => {
+    const slot = pathSlot();
+    expect(slot.ready(useDesktopStore.getState())).toBe(true);
+    const token = slot.begin("inputs");
+    useDesktopStore.setState({ resultsStale: true });
+    expect(slot.ready(useDesktopStore.getState())).toBe(false);
+    expect(slot.owns(useDesktopStore.getState(), token)).toBe(false);
+
+    slot.end(token);
+    expect(useDesktopStore.getState()).toMatchObject({ isPathBusy: false, activePathJobId: null });
+  });
+
+  it("leaves the busy state of a later run alone", () => {
+    const slot = pathSlot();
+    const first = slot.begin("inputs");
+    slot.begin("newer inputs");
+    slot.end(first);
+    expect(useDesktopStore.getState()).toMatchObject({ isPathBusy: true, activePathSignature: "newer inputs" });
   });
 });

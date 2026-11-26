@@ -74,6 +74,7 @@ interface AnalysisRun<P extends { jobId: string }, F extends FinishedJob, S exte
 
 // Selected rows that became stale cannot start or publish an analysis.
 const currentResults = (state: DesktopState) => !state.resultsStale;
+const OUT_OF_DATE_MESSAGE = "The selected build belongs to the previous query. Go to Rankings, then press Run updated search.";
 
 export const PATH_RUN: AnalysisRun<PathProgressDto, PathFinishedDto, PathJobStatusDto> = {
   slot: createRunSlot<PathJobStatusDto>({
@@ -123,35 +124,11 @@ export function useAnalysisRun<P extends { jobId: string }, F extends FinishedJo
   const outcome = reported.signature === signature ? reported.outcome : null;
   const setOutcome = (next: AnalysisOutcome) => setReported({ signature, outcome: next });
 
-  async function start(
+  const start = (
     launch: () => Promise<{ jobId: string }>,
     publish: (finished: NativeJobSuccess<NonNullable<S["finished"]>>) => void,
     notice?: Notice,
-  ) {
-    setOutcome(null);
-    const token = run.slot.begin(signature);
-    if (notice) useDesktopStore.getState().pushNotice(notice);
-    try {
-      const finished = await run.slot.run(token, launch, (status, jobId) => {
-        if (status.progress?.jobId === jobId) run.setProgress(status.progress);
-      });
-      if (!run.slot.accepts(useDesktopStore.getState(), token, finished.jobId)) return;
-      publish(finished);
-      setOutcome(null);
-      run.slot.end(token);
-    } catch (error) {
-      const state = useDesktopStore.getState();
-      if (!run.slot.owns(state, token)) return;
-      if (isCancelled(error)) {
-        state.pushNotice({ scope: run.scope, tone: "warning", message: run.stoppedMessage });
-        setOutcome("cancelled");
-      } else {
-        state.setError(errorMessage(error));
-        setOutcome("failed");
-      }
-      run.slot.end(token);
-    }
-  }
+  ) => runAnalysis(run, signature, launch, publish, setOutcome, notice);
 
   // The slot's queue sends the native cancellation; the run then ends as stopped, or as failed
   // when the cancellation itself fails.
@@ -161,4 +138,46 @@ export function useAnalysisRun<P extends { jobId: string }, F extends FinishedJo
   }
 
   return { outcome, start, stop };
+}
+
+/**
+ * One Paths or Affinity Watch run, start to end. A run on out-of-date results is refused before
+ * it takes the slot, and a run always ends its own busy state, whether it published, stopped,
+ * failed or lost its job; only a later run or an invalidation that took the slot keeps it busy.
+ */
+export async function runAnalysis<P extends { jobId: string }, F extends FinishedJob, S extends JobStatus<P, F>>(
+  run: AnalysisRun<P, F, S>,
+  signature: string,
+  launch: () => Promise<{ jobId: string }>,
+  publish: (finished: NativeJobSuccess<NonNullable<S["finished"]>>) => void,
+  report: (outcome: AnalysisOutcome) => void,
+  notice?: Notice,
+) {
+  report(null);
+  if (!run.slot.ready(useDesktopStore.getState())) {
+    useDesktopStore.getState().pushNotice({ scope: run.scope, tone: "warning", message: OUT_OF_DATE_MESSAGE });
+    return;
+  }
+  const token = run.slot.begin(signature);
+  if (notice) useDesktopStore.getState().pushNotice(notice);
+  try {
+    const finished = await run.slot.run(token, launch, (status, jobId) => {
+      if (status.progress?.jobId === jobId) run.setProgress(status.progress);
+    });
+    if (!run.slot.accepts(useDesktopStore.getState(), token, finished.jobId)) return;
+    publish(finished);
+    report(null);
+  } catch (error) {
+    const state = useDesktopStore.getState();
+    if (!run.slot.owns(state, token)) return;
+    if (isCancelled(error)) {
+      state.pushNotice({ scope: run.scope, tone: "warning", message: run.stoppedMessage });
+      report("cancelled");
+    } else {
+      state.setError(errorMessage(error));
+      report("failed");
+    }
+  } finally {
+    run.slot.end(token);
+  }
 }

@@ -19,6 +19,8 @@ type JobStatus = { finished: FinishedJob | null };
 type NativeJobQueue<S extends JobStatus> = ReturnType<typeof createNativeJobQueue<S>>;
 
 export interface RunSlot<S extends JobStatus> {
+  /** Whether a run may begin now: a run whose results would already be out of date may not. */
+  ready: (state: DesktopState) => boolean;
   /** Starts a run on these inputs, which ends any run before it. */
   begin: (signature: string) => RunToken;
   /** Whether the run still owns the slot. Stop and input, selection or profile changes end it. */
@@ -34,7 +36,10 @@ export interface RunSlot<S extends JobStatus> {
     start: () => Promise<{ jobId: string }>,
     onStatus?: (status: S, jobId: string) => void,
   ) => Promise<NativeJobSuccess<NonNullable<S["finished"]>>>;
-  /** Clears the slot's busy state, job ID and progress, if the run still owns it. */
+  /**
+   * Clears the slot's busy state, job ID and progress, unless a later run or an invalidation
+   * has taken the slot. A run that went out of date still ends its own busy state.
+   */
   end: (token: RunToken) => void;
   /** Stops the current run through its queue, which owns native cancellation and its recovery. */
   cancel: () => void;
@@ -54,15 +59,18 @@ export function createRunSlot<S extends JobStatus>(options: {
   usable?: (state: DesktopState) => boolean;
 }): RunSlot<S> {
   let active: AbortController | null = null;
-  const owns = (state: DesktopState, token: RunToken) => {
+  const ready = (state: DesktopState) => options.usable?.(state) ?? true;
+  // The slot is still this run's: no later run began and nothing invalidated it.
+  const holds = (state: DesktopState, token: RunToken) => {
     const current = options.read(state);
-    return current.busy && current.generation === token.generation && current.signature === token.signature
-      && (options.usable?.(state) ?? true);
+    return current.busy && current.generation === token.generation && current.signature === token.signature;
   };
+  const owns = (state: DesktopState, token: RunToken) => holds(state, token) && ready(state);
   const accepts = (state: DesktopState, token: RunToken, jobId: string) =>
     owns(state, token) && options.read(state).jobId === jobId;
 
   return {
+    ready,
     begin: (signature) => ({ generation: options.begin(signature), signature }),
     owns,
     accepts,
@@ -88,7 +96,7 @@ export function createRunSlot<S extends JobStatus>(options: {
       });
     },
     end(token) {
-      if (owns(useDesktopStore.getState(), token)) options.end();
+      if (holds(useDesktopStore.getState(), token)) options.end();
     },
     cancel: () => active?.abort(),
   };
