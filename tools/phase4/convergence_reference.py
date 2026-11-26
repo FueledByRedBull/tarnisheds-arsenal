@@ -17,7 +17,7 @@ if str(ROOT) not in sys.path:
 
 from tools.phase1.phase1_dump import read_csv_strict  # noqa: E402
 from tools.phase1.profiles import CONVERGENCE_AFFINITIES, profile_definition  # noqa: E402
-from tools.phase4.validate_external_calculator import REFERENCE_COMMIT  # noqa: E402
+from tools.phase4.validate_external_calculator import REFERENCE_COMMIT, REFERENCE_PROFILES  # noqa: E402
 
 
 PROFILE = profile_definition("convergence")
@@ -25,6 +25,8 @@ PROFILE = profile_definition("convergence")
 # (src/buildData.ts at REFERENCE_COMMIT) is run on the mod files and the output is tracked.
 REFERENCE_GENERATOR = f"ThomasJClark/elden-ring-weapon-calculator@{REFERENCE_COMMIT} src/buildData.ts"
 DEFAULT_SOURCE = Path(f"data/reference/tclark/regulation-convergence-v{PROFILE.mod_version}.js")
+# The reference is built from, and records, exactly the data file the external calculator pins.
+SOURCE_SHA256 = REFERENCE_PROFILES["convergence"].regulation_sha256
 # The tracked reference is about 1.3 MB; a response far past that is not the expected file.
 MAX_REFERENCE_BYTES = 16 * 1024 * 1024
 STAT_KEYS = ("str", "dex", "int", "fai", "arc")
@@ -125,7 +127,11 @@ def _fetch_reference(source: str) -> tuple[bytes, dict[str, Any]]:
         if len(payload) > MAX_REFERENCE_BYTES:
             raise ValueError(f"reference response exceeds {MAX_REFERENCE_BYTES} bytes: {source}")
     else:
-        payload = Path(source).read_bytes()
+        # A local source is a repository path, as the reference records it.
+        payload = (ROOT / source).read_bytes()
+    digest = hashlib.sha256(payload).hexdigest()
+    if digest != SOURCE_SHA256:
+        raise ValueError(f"reference source {source} has SHA-256 {digest}; expected {SOURCE_SHA256}")
     return payload, json.loads(payload)
 
 
@@ -231,9 +237,25 @@ def build_reference(snapshot: Path, source: str) -> dict[str, Any]:
 
 def validate_reference(snapshot: Path, reference_path: Path) -> None:
     reference = json.loads(reference_path.read_text(encoding="utf-8"))
+    identity = {
+        "profile": "convergence",
+        "version": PROFILE.mod_version,
+        "sourceSha256": SOURCE_SHA256,
+    }
+    wrong_identity = {
+        key: reference.get(key) for key, expected in identity.items() if reference.get(key) != expected
+    }
+    if wrong_identity:
+        raise ValueError(f"reference does not describe {identity}: {wrong_identity}")
+    expected_ids = sorted(int(row["weaponId"]) for row in reference["weapons"])
+    canonical_ids = "\n".join(str(value) for value in expected_ids).encode()
+    if (
+        reference["matchedWeaponCount"] != len(expected_ids)
+        or reference["matchedWeaponIdsSha256"] != hashlib.sha256(canonical_ids).hexdigest()
+    ):
+        raise ValueError("reference weapon list does not match its recorded count and digest")
     actual_rows = read_csv_strict(snapshot / "weapons.csv")
     actual_ids = sorted(int(row["weapon_id"]) for row in actual_rows)
-    expected_ids = sorted(int(row["weaponId"]) for row in reference["weapons"])
     if actual_ids != expected_ids:
         missing = sorted(set(expected_ids) - set(actual_ids))
         extra = sorted(set(actual_ids) - set(expected_ids))
@@ -285,8 +307,13 @@ def validate_reference(snapshot: Path, reference_path: Path) -> None:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Build or validate the Convergence weapon reference.")
-    parser.add_argument("--snapshot", type=Path, default=PROFILE.output_dir)
-    parser.add_argument("--reference", type=Path, default=PROFILE.weapon_reference_path)
+    parser.add_argument("--snapshot", type=Path, default=ROOT / PROFILE.output_dir)
+    parser.add_argument(
+        "--reference",
+        type=Path,
+        default=ROOT / PROFILE.weapon_reference_path if PROFILE.weapon_reference_path else None,
+        required=PROFILE.weapon_reference_path is None,
+    )
     parser.add_argument("--refresh", action="store_true")
     parser.add_argument(
         "--source",
