@@ -258,6 +258,43 @@ export function checkDomainContract({ coreTypesSource, errorsSource, tsSource })
   return { domains: Object.keys(stringDomains).length };
 }
 
+// Saved builds, shared text, backups and Compare pins hold SolvedBuildDto and every DTO it
+// contains. stored-build.ts reads them through `{ ... } satisfies Fields<XDto>` tables, which
+// must name exactly the native fields, so a new field cannot be dropped from saved builds.
+export function checkStoredBuildContract(rustSource, storedBuildSource) {
+  const rust = rustDeclarations(rustSource);
+  const file = ts.createSourceFile("stored-build.ts", storedBuildSource, ts.ScriptTarget.Latest, true);
+  const tables = new Map();
+  const visit = node => {
+    if (ts.isSatisfiesExpression(node) && ts.isTypeReferenceNode(node.type) && node.type.typeName.getText(file) === "Fields") {
+      const [argument] = node.type.typeArguments ?? [];
+      assert.ok(argument && ts.isTypeReferenceNode(argument) && ts.isObjectLiteralExpression(node.expression),
+        `Fields tables must be object literals for one named DTO: ${node.getText(file).slice(0, 80)}`);
+      const name = argument.typeName.getText(file);
+      const keys = node.expression.properties.map(property => {
+        assert.ok(ts.isPropertyAssignment(property) && ts.isIdentifier(property.name), `Unsupported Fields<${name}> entry`);
+        return property.name.text;
+      });
+      tables.set(name, [...(tables.get(name) ?? []), keys.sort()]);
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(file);
+  const held = new Set();
+  const hold = name => {
+    if (held.has(name)) return;
+    assert.ok(rust.get(name)?.fields, `Missing Rust DTO: ${name}`);
+    held.add(name);
+    for (const shape of rust.get(name).fields.values()) for (const [nested] of shape.matchAll(/\w+Dto/g)) hold(nested);
+  };
+  hold("SolvedBuildDto");
+  assert.deepEqual([...tables.keys()].sort(), [...held].sort(), "Stored-build field tables must cover exactly the DTOs a saved build holds");
+  for (const name of held) {
+    for (const keys of tables.get(name)) assert.deepEqual(keys, [...rust.get(name).fields.keys()].sort(), `Stored-build field drift: ${name}`);
+  }
+  return { dtos: held.size };
+}
+
 /** Field names of one dto.rs struct as they cross IPC. */
 export function dtoFieldNames(rustSource, name) {
   const declaration = rustDeclarations(rustSource).get(name);

@@ -1,5 +1,3 @@
-import { DataManifestDto, ObjectiveId, OptimizeRequestDto, SolvedBuildDto } from "./types";
-
 // One formatter: constructing it per call cost ~5 ms per 50 rendered rows.
 const wholeNumber = new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 });
 
@@ -15,69 +13,6 @@ export function fixed1(value: number | null | undefined): string {
     return "-";
   }
   return value.toFixed(1);
-}
-
-export function objectiveLabel(objective: ObjectiveId): string {
-  switch (objective) {
-    case "max_physical_ar":
-      return "Max Physical AR";
-    case "max_ar_plus_bleed":
-      return "Bleed, then AR";
-    case "aow_first_hit":
-      return "AoW First Hit";
-    case "aow_full_sequence":
-      return "AoW Sequence";
-    default:
-      return "Max AR";
-  }
-}
-
-export function objectiveUnit(objective: ObjectiveId): string {
-  switch (objective) {
-    case "max_ar_plus_bleed":
-      return "bleed build-up";
-    case "aow_first_hit":
-    case "aow_full_sequence":
-      return "damage";
-    default:
-      return "AR";
-  }
-}
-
-/** AoW damage is shown only when the profile models both skill damage and its routes. */
-export function aowModelSupported(manifest: Pick<DataManifestDto, "capabilities"> | null | undefined): boolean {
-  return Boolean(manifest?.capabilities.aowDamage && manifest.capabilities.aowRoutes);
-}
-
-export function hasAowDamage(row: Pick<SolvedBuildDto, "aowRoute">, modelSupported: boolean): boolean {
-  return modelSupported && row.aowRoute !== null;
-}
-
-export function metricForObjective(row: SolvedBuildDto, objective: ObjectiveId, aowModelSupported: boolean): number | null {
-  switch (objective) {
-    case "max_physical_ar":
-      return row.ar.physical;
-    case "aow_first_hit":
-      return hasAowDamage(row, aowModelSupported) ? row.aowFirstHitDamage : null;
-    case "aow_full_sequence":
-      return hasAowDamage(row, aowModelSupported) ? row.aowFullSequenceDamage : null;
-    case "max_ar_plus_bleed":
-      return row.bleedBuildup;
-    default:
-      return row.ar.total;
-  }
-}
-
-export function statLine(row: SolvedBuildDto): string {
-  return `STR ${row.stats.strStat} / DEX ${row.stats.dex} / INT ${row.stats.intStat} / FAI ${row.stats.fai} / ARC ${row.stats.arc}`;
-}
-
-export function statLockLine(request: OptimizeRequestDto): string {
-  return [["STR", request.lockStr], ["DEX", request.lockDex], ["INT", request.lockInt],
-    ["FAI", request.lockFai], ["ARC", request.lockArc]]
-    .filter(([, value]) => value !== null)
-    .map(([label, value]) => `${label} ${value}`)
-    .join(" / ");
 }
 
 export function errorMessage(error: unknown): string {

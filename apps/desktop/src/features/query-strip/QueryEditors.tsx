@@ -1,9 +1,10 @@
 import { RotateCcw, Sparkles } from "lucide-react";
 import { useId } from "react";
 import { AowSelect } from "../../lib/AowSelect";
-import { objectiveLabel, statLockLine } from "../../lib/format";
+import { COMBAT_STATS, hasCombatStatLocks, statLine, statLockLine } from "../../lib/combat-stats";
+import { objectiveHint, objectiveLabel } from "../../lib/objectives";
 import { CheckboxMultiSelect, SearchableSelect, openOption } from "../../lib/SearchableSelect";
-import { classLabel, classOptions, clearTypeAndAffinityFilters, hasCombatStatLocks, replaceFilterEntries, upgradeCapPatch } from "../../lib/session";
+import { classLabel, classOptions, clearTypeAndAffinityFilters, replaceFilterEntries, upgradeCapPatch } from "../../lib/session";
 import { useDesktopStore } from "../../lib/state";
 import { CatalogDto, FilterDimensionDto, ObjectiveId, OptimizeRequestDto, WeaponProfileDto } from "../../lib/types";
 import { DraftNumberInput } from "./DraftNumberInput";
@@ -77,15 +78,6 @@ export function ClassEditor({ catalog, request, fixedStats, applyClass, onOptimi
   );
 }
 
-// One line on what each objective ranks by, so the choice does not depend on knowing the label.
-const OBJECTIVE_HINTS: Record<ObjectiveId, string> = {
-  max_ar: "Highest total attack rating",
-  max_physical_ar: "Highest physical attack rating",
-  max_ar_plus_bleed: "Most bleed buildup; AR breaks ties",
-  aow_first_hit: "Hardest first damaging hit of the skill",
-  aow_full_sequence: "Most damage over one full skill route",
-};
-
 export function ObjectiveEditor({ objectives, objective, patchRequest, close }: {
   objectives: ObjectiveId[];
   objective: ObjectiveId;
@@ -108,7 +100,7 @@ export function ObjectiveEditor({ objectives, objective, patchRequest, close }: 
             }}
           >
             {objectiveLabel(option)}
-            <small id={`objective-hint-${option}`} aria-hidden="true">{OBJECTIVE_HINTS[option]}</small>
+            <small id={`objective-hint-${option}`} aria-hidden="true">{objectiveHint(option)}</small>
           </button>
         ))}
       </div>
@@ -180,7 +172,7 @@ export function LoadoutEditor({ catalog, request, patchRequest, runner, loadoutS
         catalogNames={catalog?.aowNames}
         value={request.aowName}
         onChange={(aowName) => patchRequest({ aowName })}
-        defaultNativeSkill={loadoutSelectionRevision === runner.manualWeaponRevision.current}
+        defaultNativeSkill={loadoutSelectionRevision === runner.manualWeaponPickRevision}
         onWeaponResolved={runner.clearManualWeapon}
       />
       {separateUpgradeCaps ? (
@@ -387,15 +379,9 @@ export function LimitsEditor({ request, patchRequest, fixedStats, lockedStatMode
           : "Optional. Leave open to let the search choose every stat."}
       </p>
       <div className="editor-floors">
-        {([
-          ["Min STR", "minStr"],
-          ["Min DEX", "minDex"],
-          ["Min INT", "minInt"],
-          ["Min FAI", "minFai"],
-          ["Min ARC", "minArc"],
-        ] as const).map(([label, key]) => (
+        {COMBAT_STATS.map(({ label, minimum: key }) => (
           <label key={key}>
-            {label}
+            Min {label}
             <DraftNumberInput
               min={0}
               max={99}
@@ -419,7 +405,7 @@ export function LimitsEditor({ request, patchRequest, fixedStats, lockedStatMode
         <span>Stat locks</span>
         <strong id={locksReadoutId}>
           {fixedStats
-            ? `STR ${request.strStat} DEX ${request.dex} INT ${request.intStat} FAI ${request.fai} ARC ${request.arc}`
+            ? statLine(request, " ")
             : exactLocksActive ? statLockLine(request) : "None: every stat is free"}
         </strong>
         {exactLocksActive ? <small>Changing class or loadout keeps these locks and may make the query incompatible.</small> : null}

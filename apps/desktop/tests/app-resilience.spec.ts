@@ -72,6 +72,62 @@ test("recovers a damaged index without overwriting the original and restores a b
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem("tarnisheds-arsenal.savedBuildIndex.v1")!).builds.length)).toBe(2);
 });
 
+test("backup and recovery says it is checking until its idle-time scan of the current library runs", async ({ page }) => {
+  // Idle callbacks wait until the test runs them, so the scan's pending state can be read.
+  await page.addInitScript(() => {
+    const held = new Map<number, () => void>();
+    let next = 0;
+    window.requestIdleCallback = (callback) => {
+      next += 1;
+      held.set(next, () => callback({ didTimeout: false, timeRemaining: () => 0 }));
+      return next;
+    };
+    window.cancelIdleCallback = (id) => { held.delete(id); };
+    Object.assign(window, { runIdle: () => {
+      const pending = [...held.values()];
+      held.clear();
+      for (const run of pending) run();
+    } });
+  });
+  const runIdle = () => page.evaluate(() => (window as unknown as { runIdle: () => void }).runIdle());
+  await page.goto("/");
+  await expect(page.getByText("Snapshot loaded", { exact: true })).toBeVisible();
+  await openSection(page, "Saved Builds");
+  await page.getByRole("button", { name: "Save new", exact: true }).click();
+  await expect(page.getByText("Saved Build Preset.", { exact: true })).toBeVisible();
+  await page.getByText("Backup and recovery", { exact: true }).click();
+
+  const checking = page.getByRole("status").filter({ hasText: "Checking saved builds..." });
+  const exportAll = page.getByRole("button", { name: "Export all builds", exact: true });
+  await expect(checking).toBeVisible();
+  await expect(exportAll).toBeDisabled();
+  await expect(exportAll).toHaveAccessibleDescription("Available when the check of saved builds finishes.");
+  await runIdle();
+  await expect(page.getByText(/^1 readable builds/)).toBeVisible();
+  await expect(checking).toHaveCount(0);
+  await expect(exportAll).toBeEnabled();
+  await expect(exportAll).not.toHaveAccessibleDescription(/finishes/);
+
+  const downloadEvent = page.waitForEvent("download");
+  await exportAll.click();
+  const stream = await (await downloadEvent).createReadStream();
+  const chunks: Buffer[] = [];
+  for await (const chunk of stream) chunks.push(Buffer.from(chunk));
+
+  // A save changes the library, so the earlier counts are withdrawn until it is scanned again.
+  await page.getByRole("button", { name: "Save new", exact: true }).click();
+  await expect(checking).toBeVisible();
+  await expect(page.getByText(/^1 readable builds/)).toHaveCount(0);
+  await page.getByLabel("Restore build backup", { exact: false }).setInputFiles({
+    name: "builds.json", mimeType: "application/json", buffer: Buffer.concat(chunks) });
+  const restore = page.getByRole("button", { name: "Restore 1 builds as copies", exact: true });
+  await expect(restore).toBeDisabled();
+  await expect(restore).toHaveAccessibleDescription("Available when the check of saved builds finishes.");
+  await runIdle();
+  await expect(page.getByText(/^2 readable builds/)).toBeVisible();
+  await expect(restore).toBeEnabled();
+});
+
 test("denied storage and invalid backups keep existing builds usable", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByText("Snapshot loaded", { exact: true })).toBeVisible();

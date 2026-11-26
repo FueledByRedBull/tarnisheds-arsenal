@@ -1,17 +1,22 @@
 import { ArrowDown, ArrowDownUp, ArrowUp, ChevronLeft, ChevronRight, CircleHelp, Download, LockKeyhole, Pin, RefreshCcw } from "lucide-react";
-import { memo, ReactNode, useCallback, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { memo, ReactNode, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { downloadText, rankingsCsvFilename, rankingsToCsv } from "../../lib/csv";
-import { aowModelSupported, compactNumber, errorMessage, fixed1, hasAowDamage, metricForObjective, objectiveLabel } from "../../lib/format";
-import { buildOptimizeRequest, hasCombatStatLocks, rowFingerprint, upgradeCapPatch, usesFixedStats } from "../../lib/session";
+import { activeMinimumCount, hasCombatStatLocks } from "../../lib/combat-stats";
+import { compactNumber, errorMessage, fixed1 } from "../../lib/format";
+import { aowModelSupported, hasAowDamage, metricForObjective, objectiveLabel } from "../../lib/objectives";
+import { buildOptimizeRequest, rowFingerprint, upgradeCapPatch, usesFixedStats } from "../../lib/session";
 import { EASE_OUT, reducedMotion, settleRanking } from "../../lib/motion";
 import { RankedEntry, RankMovement, RankSortKey, rankMovements, sortRanked } from "../../lib/ranking-view";
-import { useDesktopStore } from "../../lib/state";
+import { useDesktopStore, useLoadedCatalog } from "../../lib/state";
 import { ObjectiveId, OptimizeRequestDto, SearchProgressDto, SolvedBuildDto } from "../../lib/types";
-import { runSearchFromStore, runSearchRequestForRows } from "../../lib/workflows";
+import { lockRowAndSearch, runSearchFromStore, runSearchRequestForRows } from "../../lib/workflows";
 import packageInfo from "../../../package.json";
 import { COMBAT_STAT_LABELS, ScalingTokens, StatTokens } from "../shared/BuildMetricTokens";
 import { Popover } from "../shared/Popover";
 import { SkeletonRows } from "../shared/SkeletonRows";
+
+// The first-run example: a standard-path weapon, so its upgrade fits either cap rule.
+const STARTER_EXAMPLE = { weaponName: "Uchigatana", affinity: "Standard", upgrade: 3 } as const;
 
 // What each column means, said once in the column guide and read as each header's description.
 const COLUMN_GUIDE = [
@@ -37,10 +42,9 @@ export function RankingsBoard() {
   const deferredSelected = useDeferredValue(liveSelected);
   const selected = rows === liveRows ? liveSelected : deferredSelected;
   const selectRow = useDesktopStore((state) => state.selectRow);
-  const applyRowLocks = useDesktopStore((state) => state.useRowAsLocks);
   const compareBench = useDesktopStore((state) => state.compareBench);
   const toggleCompareBench = useDesktopStore((state) => state.toggleCompareBench);
-  const catalog = useDesktopStore((state) => state.catalog);
+  const catalog = useLoadedCatalog();
   const request = useDesktopStore((state) => state.request);
   const patchRequest = useDesktopStore((state) => state.patchRequest);
   const lockedStatMode = useDesktopStore((state) => state.lockedStatMode);
@@ -78,10 +82,7 @@ export function RankingsBoard() {
   // A column that would read "Unavailable" on every row says so once, in the header, instead.
   const skillColumn = rows.length === 0 || rows.some((row) => hasAowDamage(row, aowSupported));
   const gridClass = `${objective !== "max_ar" ? "with-score" : ""} ${skillColumn ? "" : "no-skill"}`;
-  const profileRules = catalog?.dataManifest.rules;
-  const separateUpgradeCaps = profileRules?.separateUpgradeCaps ?? true;
-  const scadutreeAvailable = profileRules?.scadutreeScaling ?? true;
-  const extendedScalingGrades = profileRules?.extendedScalingGrades ?? false;
+  const { separateUpgradeCaps, scadutreeScaling: scadutreeAvailable, extendedScalingGrades } = catalog.dataManifest.rules;
 
   // Any input or profile change cancels an export; exportCsv cancels it on leaving Rankings.
   useEffect(() => () => exportController.current?.abort(), [catalog, request, lockedStatMode, searchGeneration]);
@@ -113,10 +114,6 @@ export function RankingsBoard() {
     };
   }, [rows.length]);
 
-  const lockAndRerun = useCallback(async (row: SolvedBuildDto) => {
-    applyRowLocks(row);
-    await runSearchFromStore();
-  }, [applyRowLocks]);
   const selectedKey = rowFingerprint(selected);
   const pinnedKeys = useMemo(() => new Set(compareBench.map(rowFingerprint)), [compareBench]);
   // One tab stop for the whole grid: the selected row, or the first row before any selection.
@@ -249,7 +246,7 @@ export function RankingsBoard() {
         ...buildOptimizeRequest(catalog, request, lockedStatMode),
         topK: requestedRows,
       };
-      const signature = JSON.stringify([catalog?.dataManifest, exportRequest]);
+      const signature = JSON.stringify([catalog.dataManifest, exportRequest]);
       let exportRows: SolvedBuildDto[];
       if (!resultsStale && requestedRows <= liveRows.length) {
         exportRows = liveRows.slice(0, requestedRows);
@@ -261,7 +258,6 @@ export function RankingsBoard() {
         exportCache.current = { signature, rows: exportRows };
       }
       if (!isCurrent()) return;
-      if (!catalog) throw new Error("Catalog metadata is unavailable; the export was not created.");
       downloadText(rankingsCsvFilename(request.profileId), rankingsToCsv(exportRows, {
         profileId: request.profileId,
         appVersion: packageInfo.version,
@@ -301,23 +297,27 @@ export function RankingsBoard() {
   }
 
   async function runStarterExample() {
+    const { weaponName, affinity, upgrade } = STARTER_EXAMPLE;
     patchRequest({
       ...request,
       weaponTypeKey: null,
-      weaponName: "Uchigatana",
-      affinity: "Standard",
+      weaponName,
+      affinity,
       aowName: null,
       somberFilter: "all",
       filters: { version: 1, entries: [] },
-      ...upgradeCapPatch(separateUpgradeCaps, false, 3),
+      ...upgradeCapPatch(separateUpgradeCaps, false, upgrade),
       exactUpgrade: true,
       objective: "max_ar",
     });
     const completed = await runSearchFromStore();
     if (completed && useDesktopStore.getState().rows.length === 0) {
-      pushNotice({ scope: "rankings", tone: "warning", message: "No legal Uchigatana +3 build fits your retained character constraints. Review your stat locks, floors, and available level budget, then search again." });
+      pushNotice({ scope: "rankings", tone: "warning", message: `No legal ${weaponName} +${upgrade} build fits your retained character constraints. Review your stat locks, floors, and available level budget, then search again.` });
     }
   }
+  // Offered only where the profile's data has the example's weapon and affinity.
+  const starterExample = catalog.weaponNames.includes(STARTER_EXAMPLE.weaponName) && catalog.affinityNames.includes(STARTER_EXAMPLE.affinity)
+    ? () => void runStarterExample() : null;
 
   function scrollResults(direction: -1 | 1) {
     resultBoard.current?.scrollBy({
@@ -463,8 +463,8 @@ export function RankingsBoard() {
               ) : (
                 searched
                   ? <NoMatchRows constraints={activeConstraints(request, lockedStatMode, usesFixedStats(catalog, request.className))}
-                    onExample={() => void runStarterExample()} busy={isExporting} classBudget={!usesFixedStats(catalog, request.className)} />
-                  : <EmptyRows onExample={() => void runStarterExample()} busy={isExporting} classBudget={!usesFixedStats(catalog, request.className)} />
+                    onExample={starterExample} busy={isExporting} classBudget={!usesFixedStats(catalog, request.className)} />
+                  : <EmptyRows onExample={starterExample} busy={isExporting} classBudget={!usesFixedStats(catalog, request.className)} />
               )}
             </div>
           </div>
@@ -490,7 +490,7 @@ export function RankingsBoard() {
               extendedScalingGrades={extendedScalingGrades}
               separateUpgradeCaps={separateUpgradeCaps}
               onSelect={selectRow}
-              onLock={lockAndRerun}
+              onLock={lockRowAndSearch}
               pinned={pinnedKeys.has(key)}
               onPin={toggleCompareBench}
             />
@@ -618,7 +618,7 @@ const ResultRow = memo(function ResultRow({
   /** One shared upgrade path (Convergence) gives Somber no meaning. */
   separateUpgradeCaps: boolean;
   onSelect: (row: SolvedBuildDto) => void;
-  onLock: (row: SolvedBuildDto) => Promise<void>;
+  onLock: (row: SolvedBuildDto) => Promise<unknown>;
   lockDisabled: boolean;
   pinned: boolean;
   onPin: (row: SolvedBuildDto) => void;
@@ -760,12 +760,12 @@ function activeConstraints(request: OptimizeRequestDto, lockedStatMode: boolean,
     request.somberFilter !== "all" ? "the reinforcement filter" : null,
     request.exactUpgrade ? "the exact upgrade level" : null,
     fixedStats ? "the entered combat stats" : lockedStatMode && hasCombatStatLocks(request) ? "the stat locks" : null,
-    [request.minStr, request.minDex, request.minInt, request.minFai, request.minArc].some((value) => value > 0) ? "the minimum stats" : null,
+    activeMinimumCount(request) > 0 ? "the minimum stats" : null,
   ].filter((entry): entry is string => entry !== null);
 }
 
 // A finished search with no rows: the constraint to relax is the answer, not the first-run prompt.
-function NoMatchRows({ constraints, onExample, busy, classBudget }: { constraints: string[]; onExample: () => void; busy: boolean; classBudget: boolean }) {
+function NoMatchRows({ constraints, onExample, busy, classBudget }: { constraints: string[]; onExample: (() => void) | null; busy: boolean; classBudget: boolean }) {
   return (
     <div className="empty-state" role="status">
       <strong>No legal setup fits this query</strong>
@@ -775,13 +775,13 @@ function NoMatchRows({ constraints, onExample, busy, classBudget }: { constraint
           ? `Relax ${constraints.length === 1 ? constraints[0] : `${constraints.slice(0, -1).join(", ")} or ${constraints.at(-1)}`}, or raise the level, then search again.`
           : "Raise the level so a weapon's requirements fit, then search again."}
       </span>
-      {classBudget ? <StarterButton onExample={onExample} busy={busy} /> : null}
+      {classBudget && onExample ? <StarterButton onExample={onExample} busy={busy} /> : null}
     </div>
   );
 }
 
 // First run: say what to do next, once. Search itself stays in the strip above.
-function EmptyRows({ onExample, busy, classBudget }: { onExample: () => void; busy: boolean; classBudget: boolean }) {
+function EmptyRows({ onExample, busy, classBudget }: { onExample: (() => void) | null; busy: boolean; classBudget: boolean }) {
   return (
     <div className="empty-state">
       <strong>Find the best weapon for this character</strong>
@@ -789,7 +789,7 @@ function EmptyRows({ onExample, busy, classBudget }: { onExample: () => void; bu
         {classBudget ? "Set your class and stats above, then press Search (Ctrl+Enter)." : "Enter your combat stats above, then press Search (Ctrl+Enter)."}
         {" "}Every legal weapon, affinity and skill is ranked unless you narrow the loadout.
       </span>
-      {classBudget ? <StarterButton onExample={onExample} busy={busy} /> : null}
+      {classBudget && onExample ? <StarterButton onExample={onExample} busy={busy} /> : null}
     </div>
   );
 }
@@ -803,7 +803,7 @@ function StarterButton({ onExample, busy }: { onExample: () => void; busy: boole
       disabled={busy}
       title="Keeps your stats, minimums, locks and world settings"
     >
-      Try an Uchigatana +3 example
+      Try an {STARTER_EXAMPLE.weaponName} +{STARTER_EXAMPLE.upgrade} example
     </button>
   );
 }

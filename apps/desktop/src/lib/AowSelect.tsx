@@ -6,17 +6,20 @@ import { SearchableSelect, openOption } from "./SearchableSelect";
 import { WeaponProfileDto } from "./types";
 import { withoutHistory } from "./query-history";
 
+/** The option value that stands for "use the selected build's skill" (allowMatchSelected). */
+export const MATCH_SELECTED_AOW = "__match_selected__";
+
 export function resolveAowSelection(
   profile: Pick<WeaponProfileDto, "canChangeAow" | "nativeSkillName" | "compatibleAows">,
   value: string | null,
   weaponChanged: boolean,
 ): string | null {
   if (!profile.canChangeAow) return value === null && !weaponChanged ? null : profile.nativeSkillName;
-  if (weaponChanged && (value === null || value === "__match_selected__")) {
+  if (weaponChanged && (value === null || value === MATCH_SELECTED_AOW)) {
     return profile.nativeSkillName && profile.compatibleAows.includes(profile.nativeSkillName)
       ? profile.nativeSkillName : null;
   }
-  return value && value !== "__match_selected__" && !profile.compatibleAows.includes(value) ? null : value;
+  return value && value !== MATCH_SELECTED_AOW && !profile.compatibleAows.includes(value) ? null : value;
 }
 
 export function AowSelect(props: {
@@ -67,7 +70,7 @@ export function AowSelect(props: {
       label={fixed ? `${props.label} (fixed)` : props.label}
       value={fixed ? nativeSkill : props.value}
       options={fixed ? [{ value: nativeSkill, label: nativeSkill ?? "Native skill" }] : [
-        ...(props.allowMatchSelected ? [{ value: "__match_selected__", label: "<Match Selected>" }] : []),
+        ...(props.allowMatchSelected ? [{ value: MATCH_SELECTED_AOW, label: "<Match Selected>" }] : []),
         openOption("Automatic (best legal skill)"),
         ...(ready ? names : []).map((name) => ({ value: name, label: name })),
       ]}

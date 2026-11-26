@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { defaultRequest, persistProfileQueries, useDesktopStore } from "./state";
+import { activeProfileRules, defaultRequest, persistProfileQueries, useDesktopStore } from "./state";
 import { applyProfileRules, buildOptimizeRequest, stableSignature } from "./session";
 import { parsePresetText } from "./presets";
 import { api } from "./api";
@@ -641,7 +641,7 @@ describe("desktop result lifecycle", () => {
     useDesktopStore.getState().beginProfileSwitch("convergence");
     const away = useDesktopStore.getState();
     expect(away.request).toMatchObject({ profileId: "convergence", weaponName: null, lockDex: null });
-    expect(away.notices[0].message).toBe("Your vanilla query is kept for when you switch back.");
+    expect(away.notices[0].message).toBe("Your query for vanilla is kept for when you switch back.");
 
     useDesktopStore.setState({ catalog: catalog("convergence") });
     useDesktopStore.getState().beginProfileSwitch("vanilla");
@@ -649,7 +649,7 @@ describe("desktop result lifecycle", () => {
     expect(back.request).toMatchObject({ profileId: "vanilla", weaponName: "Uchigatana", lockDex: 40 });
     expect(back.lockedStatMode).toBe(true);
     expect(back.rows).toEqual([]);
-    expect(back.notices[0].message).toBe("Restored your vanilla query. Search to rank it again.");
+    expect(back.notices[0].message).toBe("Restored your query for vanilla. Search to rank it again.");
   });
 
   it("restores a profile's query after the profile it was left for failed to load", () => {
@@ -717,18 +717,51 @@ describe("desktop result lifecycle", () => {
       : { standardMaxUpgrade: defaultRequest.standardMaxUpgrade, somberMaxUpgrade: 7 });
   });
 
-  it("starts a same-named class from the new profile's stats after a profile switch", () => {
+  it("starts a first visit from the new profile's default class with its stats, not the class being left", () => {
     const vanilla = catalog("vanilla");
     const convergence = catalog("convergence");
-    convergence.classes = [{ name: "Prisoner", baseLevel: 1, baseTotal: 80,
-      baseStats: { vig: 10, mnd: 10, end: 10, strStat: 10, dex: 10, intStat: 10, fai: 10, arc: 10 } }];
+    convergence.classes = [
+      { name: "Prisoner", baseLevel: 1, baseTotal: 80,
+        baseStats: { vig: 10, mnd: 10, end: 10, strStat: 10, dex: 10, intStat: 10, fai: 10, arc: 10 } },
+      { name: "Samurai", baseLevel: 7, baseTotal: 86,
+        baseStats: { vig: 13, mnd: 9, end: 14, strStat: 11, dex: 16, intStat: 8, fai: 8, arc: 7 } },
+    ];
     useDesktopStore.getState().setProfiles([vanilla.dataManifest, convergence.dataManifest]);
     useDesktopStore.setState({ catalog: vanilla, profileQueries: {}, request: { ...defaultRequest } });
     useDesktopStore.getState().applyClass("Prisoner");
+    expect(useDesktopStore.getState().request.className).toBe("Prisoner");
     useDesktopStore.getState().beginProfileSwitch("convergence");
     useDesktopStore.getState().setCatalog(convergence);
-    expect(useDesktopStore.getState().request).toMatchObject({ className: "Prisoner", characterLevel: 1,
-      ...convergence.classes[0].baseStats });
+    expect(useDesktopStore.getState().request).toMatchObject({ className: "Samurai", characterLevel: 7,
+      ...convergence.classes[1].baseStats });
+  });
+
+  it("starts a first visit to a profile from its defaults and keeps only the handling settings", () => {
+    const vanilla = catalog("vanilla");
+    const convergence = catalog("convergence");
+    convergence.classes = [{ name: "Retainer", baseLevel: 9, baseTotal: 88,
+      baseStats: { vig: 15, mnd: 10, end: 11, strStat: 14, dex: 13, intStat: 9, fai: 9, arc: 7 } }];
+    useDesktopStore.getState().setProfiles([vanilla.dataManifest, convergence.dataManifest]);
+    useDesktopStore.setState({ catalog: vanilla, profileQueries: {}, notices: [], request: { ...defaultRequest,
+      className: "Prisoner", characterLevel: 30, dex: 40, minDex: 20, weaponName: "Uchigatana", objective: "max_ar_plus_bleed",
+      twoHanding: true, exactUpgrade: true, resultGrouping: "loadout", topK: 80 } });
+
+    useDesktopStore.getState().beginProfileSwitch("convergence");
+    useDesktopStore.getState().setCatalog(convergence);
+
+    const state = useDesktopStore.getState();
+    expect(state.request).toMatchObject({ twoHanding: true, exactUpgrade: true, resultGrouping: "loadout", topK: 80 });
+    expect(state.request).toMatchObject({ profileId: "convergence", className: "Retainer", characterLevel: 9,
+      ...convergence.classes[0].baseStats, minDex: 0, weaponName: null, objective: "max_ar", standardMaxUpgrade: 15 });
+    expect(state.notices.some((notice) => notice.message.includes("adjusted"))).toBe(false);
+  });
+
+  it("says when a restored query's class is unavailable and it starts from another", () => {
+    useDesktopStore.setState({ request: { ...defaultRequest, className: "Missing class", dex: 40 }, startingQuery: null, notices: [] });
+    useDesktopStore.getState().setCatalog(catalog("vanilla"));
+    expect(useDesktopStore.getState().request).toMatchObject({ className: "Samurai", dex: 15 });
+    expect(useDesktopStore.getState().notices.map((notice) => notice.message)).toContain(
+      "Your saved query was adjusted to the current game data: starting class 'Missing class' is unavailable, so the query starts from Samurai.");
   });
 
   it("uses exact entered stats and retains +15 caps for a profile without class budgets", async () => {
@@ -869,6 +902,19 @@ describe("saved result activation boundary", () => {
       activePathJobId: null, isPathBusy: false, pathGeneration: generation + 1 });
   });
 
+  it("fits a loaded build's inputs to the current data and says what changed", async () => {
+    const preset = activationPreset();
+    preset.request = { ...preset.request, weaponName: "Vanished Blade", affinity: "Keen", objective: "aow_full_sequence",
+      filters: { version: 1, entries: [{ dimension: "affinity", id: "affinity:vanished", mode: "include" }] } };
+    await useDesktopStore.getState().loadBuildPreset(preset);
+    const state = useDesktopStore.getState();
+    expect(state.request).toMatchObject({ weaponName: null, affinity: null, objective: "max_ar", filters: { version: 1, entries: [] } });
+    expect(state.notices.map((notice) => notice.message)).toContain("The saved inputs were adjusted to the current game data: "
+      + "weapon 'Vanished Blade' no longer exists; 1 filter no longer exists; "
+      + "AoW Sequence is not available in this profile, so results rank by Max AR. The saved record is unchanged.");
+    expect(preset.request.weaponName).toBe("Vanished Blade");
+  });
+
   it("canonicalizes a unique case-insensitive class without inventing a replacement", async () => {
     await useDesktopStore.getState().loadBuildPreset(activationPreset("samurai"));
     expect(useDesktopStore.getState().request.className).toBe("Samurai");
@@ -935,6 +981,24 @@ describe("saved result activation boundary", () => {
       expect(useDesktopStore.getState().request.dex).toBe(55);
       expect(useDesktopStore.getState().selected).toBeNull();
       expect(useDesktopStore.getState().notices.some(notice => notice.message.startsWith("Verifying saved"))).toBe(false);
+    } finally { solve.mockRestore(); }
+  });
+
+  it("keeps verifying a loaded build when the player switches tabs and back", async () => {
+    const preset = activationPreset();
+    preset.selectedBuild = row;
+    let finish!: (value: SolvedBuildDto) => void;
+    const solve = vi.spyOn(api, "solveBuild").mockImplementation(() => new Promise(resolve => { finish = resolve; }));
+    try {
+      useDesktopStore.setState({ activeWorkspace: "rankings" });
+      const loading = useDesktopStore.getState().loadBuildPreset(preset);
+      useDesktopStore.getState().setWorkspace("compare");
+      useDesktopStore.getState().setWorkspace("rankings");
+      finish(row);
+      expect(await loading).not.toBeNull();
+      expect(useDesktopStore.getState()).toMatchObject({ selected: row, rows: [row] });
+      expect(useDesktopStore.getState().notices.map(notice => notice.message)).toEqual([
+        "Loaded Activation; saved results verified on current data."]);
     } finally { solve.mockRestore(); }
   });
 
@@ -1024,6 +1088,22 @@ function catalog(profileId: string): CatalogDto {
   };
 }
 
+describe("active profile rules", () => {
+  const convergence = catalog("convergence").dataManifest;
+  const vanilla = catalog("vanilla").dataManifest;
+  const request = { ...defaultRequest, profileId: "convergence" };
+
+  it("read the selected profile's manifest while its catalog loads", () => {
+    expect(activeProfileRules({ catalog: null, profiles: [vanilla, convergence], request })).toBe(convergence.rules);
+  });
+
+  it("prefer the loaded catalog and are unknown before any profile loads", () => {
+    const loaded = catalog("vanilla");
+    expect(activeProfileRules({ catalog: loaded, profiles: [vanilla, convergence], request })).toBe(loaded.dataManifest.rules);
+    expect(activeProfileRules({ catalog: null, profiles: [], request })).toBeUndefined();
+  });
+});
+
 describe("saved profile queries", () => {
   function memoryStorage() {
     const values = new Map<string, string>();
@@ -1055,7 +1135,7 @@ describe("saved profile queries", () => {
       const other = useDesktopStore.getState();
       expect(other.request.profileId).toBe("convergence");
       expect(values.has("tarnisheds-arsenal.query.v1.convergence")).toBe(false);
-      expect(other.notices.map((notice) => notice.message)).toContain("Your saved convergence query could not be read and was discarded.");
+      expect(other.notices.map((notice) => notice.message)).toContain("Your saved query for convergence could not be read and was discarded.");
     } finally {
       vi.unstubAllGlobals();
     }
@@ -1074,6 +1154,40 @@ describe("saved profile queries", () => {
     } finally {
       vi.unstubAllGlobals();
     }
+  });
+
+  it("says which profile rules changed a saved query when its profile loads", () => {
+    const values = memoryStorage();
+    try {
+      const convergence = catalog("convergence");
+      values.set("tarnisheds-arsenal.query.v1.convergence", JSON.stringify({ version: 1, lockedStatMode: false, request: {
+        ...defaultRequest, profileId: "convergence", standardMaxUpgrade: 25, somberMaxUpgrade: 25,
+        somberFilter: "somber_only", dlcScaling: true, scadutreeLevel: 20 } }));
+      useDesktopStore.setState({ catalog: null, catalogStatus: "loading", profiles: [convergence.dataManifest],
+        request: defaultRequest, profileQueries: {}, notices: [] });
+      useDesktopStore.getState().beginProfileSwitch("convergence");
+      useDesktopStore.getState().setCatalog(convergence);
+
+      const state = useDesktopStore.getState();
+      expect(state.request).toMatchObject({ standardMaxUpgrade: 15, somberMaxUpgrade: 15, somberFilter: "all", dlcScaling: false, scadutreeLevel: 0 });
+      expect(state.notices.map((notice) => notice.message)).toContain("Your saved query was adjusted to the current game data: "
+        + "upgrade cap lowered to +15; the Somber filter was cleared, since this profile has one upgrade path; "
+        + "Scadutree blessing was turned off, since this profile has none.");
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("says which profile rules changed the query being edited when its profile's load is retried", () => {
+    const convergence = catalog("convergence");
+    useDesktopStore.setState({ catalog: null, catalogStatus: "error", profiles: [convergence.dataManifest], profileQueries: {}, notices: [],
+      request: { ...defaultRequest, profileId: "convergence", standardMaxUpgrade: 25, somberMaxUpgrade: 25 } });
+    useDesktopStore.getState().beginProfileSwitch("convergence");
+    useDesktopStore.getState().setCatalog(convergence);
+
+    expect(useDesktopStore.getState().request).toMatchObject({ standardMaxUpgrade: 15, somberMaxUpgrade: 15 });
+    expect(useDesktopStore.getState().notices.map((notice) => notice.message)).toContain(
+      "Your saved query was adjusted to the current game data: upgrade cap lowered to +15.");
   });
 
   it("round-trips a Custom stats query through storage", () => {

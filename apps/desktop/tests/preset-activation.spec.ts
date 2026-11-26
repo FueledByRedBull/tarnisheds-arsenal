@@ -58,6 +58,7 @@ test("canonicalizes an unambiguous imported class in a mounted workspace", async
   await openEditor(page, "Class");
   await expect(page.getByRole("combobox", { name: "Class", exact: true })).toHaveValue("Samurai");
   await expect(page.getByText(/saved results verified on current data/)).toBeVisible();
+  await expect(page.getByText(/starting class 'samurai' is now named Samurai/)).toBeVisible();
 });
 
 for (const mutation of ["total", "route", "identity", "upgrade"] as const) {

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { buildOptimizeRequest, classLabel, compareUpgradeHorizon, classMeta, derivedLevel, EIGHT_STAT_KEYS, optimalStartingClass, replaceFilterEntries, respecChanges, rowFingerprint, scalingLetter, stableSignature, STARTING_CLASS_METADATA, startingClassLevel, upgradeCapForRow, upgradeCapPatch } from "./session";
+import { EIGHT_STAT_KEYS } from "./combat-stats";
+import { buildOptimizeRequest, classLabel, compareUpgradeHorizon, classMeta, derivedLevel, optimalStartingClass, replaceFilterEntries, respecChanges, rowFingerprint, scalingLetter, stableSignature, STARTING_CLASS_METADATA, startingClassLevel, upgradeCapForRow, upgradeCapPatch } from "./session";
 import { solvedBuild } from "./test-fixtures";
 import { defaultRequest } from "./state";
 import type { CatalogDto } from "./types";

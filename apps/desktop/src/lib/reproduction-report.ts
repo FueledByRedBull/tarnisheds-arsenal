@@ -1,8 +1,9 @@
 import packageInfo from "../../package.json";
-import { buildOptimizeRequest, rowFingerprint, STAT_KEYS } from "./session";
+import { combatStatsOf } from "./combat-stats";
+import { buildOptimizeRequest, rowFingerprint } from "./session";
 import { knownRequestFields } from "./presets";
 import type { DesktopState } from "./state";
-import { aowModelSupported, hasAowDamage } from "./format";
+import { aowModelSupported, hasAowDamage } from "./objectives";
 
 // Reports use an allowlist, never a dump of storage, manifests, or application state.
 export function reproductionReport(state: DesktopState) {
@@ -29,7 +30,7 @@ export function reproductionReport(state: DesktopState) {
         fingerprint: rowFingerprint(row), weaponId: row.weaponId, weaponName: row.weaponName,
         affinity: row.affinity, upgrade: row.upgrade, isSomber: row.isSomber,
         aowId: row.aowId, aowName: row.aowName,
-        stats: Object.fromEntries(STAT_KEYS.map(key => [key, row.stats[key]])),
+        stats: combatStatsOf(row.stats),
         ar: Object.fromEntries(["physical", "magic", "fire", "lightning", "holy", "total"].map(key => [key, row.ar[key as keyof typeof row.ar]])),
         bleedBuildup: row.bleedBuildup,
         aowFirstHitDamage: aowAvailable ? row.aowFirstHitDamage : null,

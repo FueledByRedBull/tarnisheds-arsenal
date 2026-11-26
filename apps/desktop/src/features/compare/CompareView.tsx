@@ -1,15 +1,17 @@
 import { SlidersHorizontal, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { AowSelect } from "../../lib/AowSelect";
+import { AowSelect, MATCH_SELECTED_AOW } from "../../lib/AowSelect";
 import { cachedComparisonSearch, cachedSolveBuild, cachedUpgradeSeries, cachedWeaponProfile } from "../../lib/analysis-cache";
-import { aowModelSupported, compactNumber, errorMessage, fixed1, hasAowDamage, metricForObjective, objectiveLabel, statLine } from "../../lib/format";
+import { noStatLocks, statLine } from "../../lib/combat-stats";
+import { compactNumber, errorMessage, fixed1 } from "../../lib/format";
+import { aowModelSupported, hasAowDamage, metricForObjective, objectiveLabel } from "../../lib/objectives";
 import { CheckboxMultiSelect, SearchableSelect, openOption } from "../../lib/SearchableSelect";
 import { clearTypeAndAffinityFilters, compareUpgradeHorizon, replaceFilterEntries, rowFingerprint, stableSignature, upgradeCapForRow, upgradeCapPatch, usesFixedStats } from "../../lib/session";
 import { selectedFilterIds } from "../query-strip/QueryEditors";
 import { LatestRequest } from "../../lib/request-generation";
 import { useBuiltRequest } from "../../lib/hooks";
 import { reducedMotion } from "../../lib/motion";
-import { useDesktopStore } from "../../lib/state";
+import { useDesktopStore, useLoadedCatalog } from "../../lib/state";
 import { CompareControls, SolvedBuildDto, UpgradePointDto } from "../../lib/types";
 import { Popover } from "../shared/Popover";
 import { WorkspaceHeading } from "../shared/WorkspaceHeading";
@@ -39,7 +41,7 @@ type CompareMetric = {
 const PRIMARY_METRICS = new Set(["objective", "ar", "bleed", "aowFull"]);
 
 export function CompareView() {
-  const catalog = useDesktopStore((state) => state.catalog);
+  const catalog = useLoadedCatalog();
   const selected = useDesktopStore((state) => state.selected);
   const rows = useDesktopStore((state) => state.rows);
   const resultsStale = useDesktopStore((state) => state.resultsStale);
@@ -79,7 +81,7 @@ export function CompareView() {
   const aowAffinity = selectedAffinityLabels.length === 1 ? selectedAffinityLabels[0] : null;
   // With one shared upgrade path (Convergence) there is no Smithing/Somber split to choose from,
   // so the stored toggles are ignored there; they are kept as they are.
-  const separateUpgradeCaps = catalog?.dataManifest.rules.separateUpgradeCaps ?? true;
+  const separateUpgradeCaps = catalog.dataManifest.rules.separateUpgradeCaps;
   const includeSmithing = !separateUpgradeCaps || compareControls.includeSmithing;
   const includeSomber = !separateUpgradeCaps || compareControls.includeSomber;
   const customCompare = Boolean(
@@ -107,7 +109,7 @@ export function CompareView() {
   const emptyTargetLabel = pinnedMatchesSelected
     ? "The pinned target is already the selected baseline. Pin a different build or choose comparison filters."
     : "No other current ranked result. Run a broader Rankings search or choose comparison filters.";
-  const extendedScalingGrades = catalog?.dataManifest.rules.extendedScalingGrades ?? false;
+  const extendedScalingGrades = catalog.dataManifest.rules.extendedScalingGrades;
   // Every non-default control is one removable chip, so customCompare is true exactly when chips exist.
   const chips: CompareChip[] = [
     ...(compareControls.weaponName
@@ -203,11 +205,7 @@ export function CompareView() {
               ? "all"
               : includeSomber ? "somber_only" : "standard_only",
             filters: compareControls.filters,
-            lockStr: null,
-            lockDex: null,
-            lockInt: null,
-            lockFai: null,
-            lockArc: null,
+            ...noStatLocks(),
             resultGrouping: compareControls.weaponName ? "loadout" : "weapon",
             topK: 6,
           }, controller.signal)
@@ -235,7 +233,7 @@ export function CompareView() {
             ? await cachedWeaponProfile(baseRequest.profileId, row.weaponName, row.affinity, controller.signal)
             : null;
           const fixedAtZero = profile?.maxUpgrade === 0;
-          const solveRequest = { ...baseRequest, lockStr: null, lockDex: null, lockInt: null, lockFai: null, lockArc: null,
+          const solveRequest = { ...baseRequest, ...noStatLocks(),
             ...(fixedAtZero ? upgradeCapPatch(separateUpgradeCaps, profile.isSomber, 0) : {}) };
           return {
             label: fixedAtZero ? `${label} (+0 only)` : label,
@@ -265,7 +263,7 @@ export function CompareView() {
           chartFailed = true;
           const message = errorMessage(error);
           setSeries(current => current.map((entry, i) => i === index ? { ...entry, chartStatus: "error", chartError: message } : entry));
-          setError(`${lane.label} upgrade series at level ${baseRequest.characterLevel} (${statLine(row)}): ${message}`);
+          setError(`${lane.label} upgrade series at level ${baseRequest.characterLevel} (${statLine(row.stats)}): ${message}`);
         }
       }));
       // A failed chart retries the next time the tab is shown.
@@ -380,10 +378,10 @@ export function CompareView() {
               affinity={aowAffinity}
               catalogNames={catalog?.aowNames}
               allowMatchSelected
-              value={compareControls.matchSelectedAow ? "__match_selected__" : compareControls.aowName}
+              value={compareControls.matchSelectedAow ? MATCH_SELECTED_AOW : compareControls.aowName}
               onChange={(value) =>
                 patchCompareControls(
-                  value === "__match_selected__"
+                  value === MATCH_SELECTED_AOW
                     ? { matchSelectedAow: true, aowName: null }
                     : { matchSelectedAow: false, aowName: value },
                 )
@@ -581,7 +579,7 @@ function Lane({
           {hasAowDamage(row, aowSupported) && row.aowRoute ? (
             <small>{row.aowRoute.routeLabel} / {fixed1(row.aowRoute.totalStaminaCost)} stamina / {row.aowRoute.actions.length} actions</small>
           ) : null}
-          <small>{statLine(row)}</small>
+          <small>{statLine(row.stats)}</small>
         </>
       ) : (
         <em>{emptyLabel}</em>
