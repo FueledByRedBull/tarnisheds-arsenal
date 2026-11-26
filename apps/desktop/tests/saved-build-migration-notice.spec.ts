@@ -25,6 +25,6 @@ test("Migrate data names the saved weapon it cleared, not filters", async ({ pag
 
   await openSection(page, "Saved Builds");
   await page.getByRole("button", { name: "Migrate data", exact: true }).click();
-  await expect(page.getByText(/Migrated .* and verified/)).toContainText("Cleared missing names: weapon 'Vanished Blade' no longer exists.");
+  await expect(page.getByText(/Migrated .* and verified/)).toContainText("Adjusted to the current game data: weapon 'Vanished Blade' no longer exists.");
   await expect(page.getByText(/Cleared filters/)).toHaveCount(0);
 });

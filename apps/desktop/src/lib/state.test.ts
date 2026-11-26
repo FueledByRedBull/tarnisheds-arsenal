@@ -731,6 +731,34 @@ describe("desktop result lifecycle", () => {
       ...convergence.classes[0].baseStats });
   });
 
+  it("starts a first visit to a profile from its defaults and keeps only the handling settings", () => {
+    const vanilla = catalog("vanilla");
+    const convergence = catalog("convergence");
+    convergence.classes = [{ name: "Retainer", baseLevel: 9, baseTotal: 88,
+      baseStats: { vig: 15, mnd: 10, end: 11, strStat: 14, dex: 13, intStat: 9, fai: 9, arc: 7 } }];
+    useDesktopStore.getState().setProfiles([vanilla.dataManifest, convergence.dataManifest]);
+    useDesktopStore.setState({ catalog: vanilla, profileQueries: {}, notices: [], request: { ...defaultRequest,
+      className: "Prisoner", characterLevel: 30, dex: 40, minDex: 20, weaponName: "Uchigatana", objective: "max_ar_plus_bleed",
+      twoHanding: true, exactUpgrade: true, resultGrouping: "loadout", topK: 80 } });
+
+    useDesktopStore.getState().beginProfileSwitch("convergence");
+    useDesktopStore.getState().setCatalog(convergence);
+
+    const state = useDesktopStore.getState();
+    expect(state.request).toMatchObject({ twoHanding: true, exactUpgrade: true, resultGrouping: "loadout", topK: 80 });
+    expect(state.request).toMatchObject({ profileId: "convergence", className: "Retainer", characterLevel: 9,
+      ...convergence.classes[0].baseStats, minDex: 0, weaponName: null, objective: "max_ar", standardMaxUpgrade: 15 });
+    expect(state.notices.some((notice) => notice.message.includes("adjusted"))).toBe(false);
+  });
+
+  it("says when a restored query's class is unavailable and it starts from another", () => {
+    useDesktopStore.setState({ request: { ...defaultRequest, className: "Missing class", dex: 40 }, startingQuery: null, notices: [] });
+    useDesktopStore.getState().setCatalog(catalog("vanilla"));
+    expect(useDesktopStore.getState().request).toMatchObject({ className: "Samurai", dex: 15 });
+    expect(useDesktopStore.getState().notices.map((notice) => notice.message)).toContain(
+      "Your saved query was adjusted to the current game data: starting class 'Missing class' is unavailable, so the query starts from Samurai.");
+  });
+
   it("uses exact entered stats and retains +15 caps for a profile without class budgets", async () => {
     const profile = catalog("convergence");
     profile.dataManifest.capabilities.classBudget = false;
@@ -867,6 +895,19 @@ describe("saved result activation boundary", () => {
     expect(useDesktopStore.getState()).toMatchObject({ compareBench: [which === "target" ? other : row],
       compareTarget: null, restoredCompareTarget: null, paths: [], pathSignature: null,
       activePathJobId: null, isPathBusy: false, pathGeneration: generation + 1 });
+  });
+
+  it("fits a loaded build's inputs to the current data and says what changed", async () => {
+    const preset = activationPreset();
+    preset.request = { ...preset.request, weaponName: "Vanished Blade", affinity: "Keen", objective: "aow_full_sequence",
+      filters: { version: 1, entries: [{ dimension: "affinity", id: "affinity:vanished", mode: "include" }] } };
+    await useDesktopStore.getState().loadBuildPreset(preset);
+    const state = useDesktopStore.getState();
+    expect(state.request).toMatchObject({ weaponName: null, affinity: null, objective: "max_ar", filters: { version: 1, entries: [] } });
+    expect(state.notices.map((notice) => notice.message)).toContain("The saved inputs were adjusted to the current game data: "
+      + "weapon 'Vanished Blade' no longer exists; 1 filter no longer exists; "
+      + "AoW Sequence is not available in this profile, so results rank by Max AR. The saved record is unchanged.");
+    expect(preset.request.weaponName).toBe("Vanished Blade");
   });
 
   it("canonicalizes a unique case-insensitive class without inventing a replacement", async () => {

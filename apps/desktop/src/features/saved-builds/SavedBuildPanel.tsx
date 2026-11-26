@@ -1,7 +1,8 @@
 import { Check, ChevronDown, Clipboard, Download, Pencil, Save, Trash2, Upload } from "lucide-react";
 import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { errorMessage } from "../../lib/format";
-import { catalogVersion, migratePresetRequest } from "../../lib/preset-activation";
+import { catalogVersion } from "../../lib/preset-activation";
+import { repairSummary, restoreSavedRequest } from "../../lib/restore";
 import {
   deleteBuildPreset,
   downloadPresetJson,
@@ -134,7 +135,9 @@ export const SavedBuildPanel = memo(function SavedBuildPanel({ selected }: { sel
       if (!catalog) throw new Error("Current catalog metadata is unavailable; retry after game data finishes loading.");
       // All storage reads are inside this lifecycle, never in a store subscriber.
       const original = JSON.stringify(readBuildPreset(preset.id));
-      const migration = migratePresetRequest(preset.request, catalog);
+      // Restored here as well, for the repairs to name; the load then finds nothing more to change.
+      const migration = restoreSavedRequest(preset.request, catalog);
+      if (migration.ok === false) throw new Error(migration.message);
       const verified = await hydrate({ ...preset, request: migration.request, dataVersion }, controller.signal);
       if (!verified || controller.signal.aborted) return null;
       if (JSON.stringify(readBuildPreset(preset.id)) !== original) {
@@ -144,8 +147,8 @@ export const SavedBuildPanel = memo(function SavedBuildPanel({ selected }: { sel
       setSelectedId(migrated.id);
       setName(migrated.name);
       refresh();
-      pushNotice({ scope: "global", tone: migration.issues.length ? "warning" : "success",
-        message: `Migrated ${migrated.name} and verified its saved configurations on current data.${migration.issues.length ? ` Cleared missing names: ${migration.issues.join("; ")}.` : ""}` });
+      pushNotice({ scope: "global", tone: migration.repairs.length ? "warning" : "success",
+        message: `Migrated ${migrated.name} and verified its saved configurations on current data.${migration.repairs.length ? ` Adjusted to the current game data: ${repairSummary(migration.repairs)}.` : ""}` });
       return migrated;
     } catch (error) {
       if (!controller.signal.aborted) setError(errorMessage(error));

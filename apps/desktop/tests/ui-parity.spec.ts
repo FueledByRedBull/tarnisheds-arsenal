@@ -647,7 +647,8 @@ test("saved family filters can be cleared without editing the saved build", asyn
     const key = Object.keys(localStorage).find((key) => key.startsWith("tarnisheds-arsenal.savedBuild.v2."));
     if (!key) throw new Error("saved preset was not created");
     const preset = JSON.parse(localStorage.getItem(key) ?? "null");
-    preset.request.filters.entries = [{ dimension: "weapon_family", id: "weapon:1001000", mode: "exclude" }];
+    // A family the preview data has; loading drops one it does not.
+    preset.request.filters.entries = [{ dimension: "weapon_family", id: "weapon:0", mode: "exclude" }];
     localStorage.setItem(key, JSON.stringify(preset));
   });
   await page.reload();
@@ -661,7 +662,7 @@ test("saved family filters can be cleared without editing the saved build", asyn
   expect(await page.evaluate(() => {
     const key = Object.keys(localStorage).find((key) => key.startsWith("tarnisheds-arsenal.savedBuild.v2."));
     return JSON.parse(localStorage.getItem(key!)!).request.filters.entries;
-  })).toEqual([{ dimension: "weapon_family", id: "weapon:1001000", mode: "exclude" }]);
+  })).toEqual([{ dimension: "weapon_family", id: "weapon:0", mode: "exclude" }]);
 });
 
 test("stale saved builds offer explicit input-only loading or recompute migration", async ({ page }) => {

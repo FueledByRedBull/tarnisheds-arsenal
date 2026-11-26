@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { MAX_COMPARE_PINS, readCompareBench, writeCompareBench } from "./compare-bench";
-import { activationRequest, catalogVersion, currentClassName, reconcileRestoredQuery, verifyPresetResults } from "./preset-activation";
-import { assertRequest, knownRequestFields } from "./presets";
+import { catalogVersion, verifyPresetResults } from "./preset-activation";
+import { carriedHandling, parseStoredRequest, repairSummary, restoreSavedRequest, restoreSessionQuery, startingRequest } from "./restore";
 import { isRecord } from "./stored-build";
 import {
   AffinityWatchPayloadDto,
@@ -20,8 +20,11 @@ import {
   SolvedBuildDto,
   WorkspaceTab,
 } from "./types";
-import { EIGHT_STAT_KEYS, hasCombatStatLocks, noStatLocks, statLocksAt } from "./combat-stats";
-import { applyProfileRules, buildOptimizeRequest, classMeta, CUSTOM_STATS_CLASS, currentStatTotal, knownWithoutCatalog, rowFingerprint, stableSignature, upgradeCapPatch, usesFixedStats } from "./session";
+import { hasCombatStatLocks, statLocksAt } from "./combat-stats";
+import {
+  applyProfileRules, buildOptimizeRequest, classMeta, CUSTOM_STATS_CLASS, currentStatTotal, DEFAULT_CLASS_NAME, knownWithoutCatalog, rowFingerprint,
+  stableSignature, upgradeCapPatch, usesFixedStats,
+} from "./session";
 
 export interface DesktopState {
   activeWorkspace: WorkspaceTab;
@@ -32,6 +35,8 @@ export interface DesktopState {
   request: OptimizeRequestDto;
   /** The query each profile last had, restored when the player switches back to it. */
   profileQueries: Record<string, ProfileQuery>;
+  /** A profile's first query while its catalog loads; the catalog then gives it the profile's default class. */
+  startingQuery: OptimizeRequestDto | null;
   loadoutSelectionRevision: number;
   rows: SolvedBuildDto[];
   /** Objective the current rows were ranked by; null when they did not come from a search. */
@@ -126,7 +131,7 @@ export interface DesktopState {
 
 export const defaultRequest: OptimizeRequestDto = {
   profileId: "vanilla",
-  className: "Samurai",
+  className: DEFAULT_CLASS_NAME,
   characterLevel: 9,
   vig: 12,
   mnd: 11,
@@ -194,12 +199,12 @@ function readStoredQuery(profileId: string): { query: ProfileQuery | null; disca
   try {
     const value: unknown = JSON.parse(raw);
     if (!isRecord(value) || value.version !== 1 || typeof value.lockedStatMode !== "boolean") throw new Error();
-    assertRequest(value.request);
+    const parsed = parseStoredRequest(value.request, profileId);
+    if (!parsed.ok) throw new Error();
     // Vanilla's classes are known before its catalog loads; a mod's own class is checked
     // against its catalog when that loads.
-    if (profileId === "vanilla" && !knownWithoutCatalog(value.request.className)) throw new Error();
-    if (value.request.profileId !== profileId) throw new Error();
-    return { query: { request: knownRequestFields(value.request), lockedStatMode: value.lockedStatMode }, discarded: false };
+    if (profileId === "vanilla" && !knownWithoutCatalog(parsed.request.className)) throw new Error();
+    return { query: { request: parsed.request, lockedStatMode: value.lockedStatMode }, discarded: false };
   } catch {
     try { localStorage.removeItem(queryStorageKey(profileId)); } catch { /* The next save replaces it. */ }
     return { query: null, discarded: true };
@@ -301,8 +306,8 @@ export const useDesktopStore = create<DesktopState>()((set, get) => ({
   beginProfileSwitch: (profileId) =>
     set((state) => {
       const rules = state.profiles.find((entry) => entry.profile.id === profileId)?.rules;
-      // Profiles never share data, so a query is never carried across; each profile keeps its
-      // own and gets it back on return. Results are not kept: they rerun on demand.
+      // Profiles never share data: each profile keeps its own query and gets it back on return,
+      // and only handling settings reach a first visit. Results are not kept: they rerun on demand.
       const switching = state.catalog !== null && state.request.profileId !== profileId;
       const profileQueries = switching
         ? { ...state.profileQueries, [state.request.profileId]: { request: state.request, lockedStatMode: state.lockedStatMode } }
@@ -315,6 +320,11 @@ export const useDesktopStore = create<DesktopState>()((set, get) => ({
       const stored = keepEdited || profileQueries[profileId] ? { query: null, discarded: false } : readStoredQuery(profileId);
       const remembered = keepEdited ? undefined : profileQueries[profileId] ?? stored.query ?? undefined;
       const profileName = (id: string) => state.profiles.find((entry) => entry.profile.id === id)?.profile.displayName ?? id;
+      // A profile with no query of its own starts from the default query, keeping only the
+      // handling settings of the query being left.
+      const request = remembered ? applyProfileRules(remembered.request, rules)
+        : keepEdited ? applyProfileRules(state.request, rules)
+          : applyProfileRules({ ...defaultRequest, profileId, ...carriedHandling(state.request) }, rules, true);
       return ({
       ...invalidateAllJobs(state),
       activeWorkspace: "rankings",
@@ -324,18 +334,8 @@ export const useDesktopStore = create<DesktopState>()((set, get) => ({
       profileQueries,
       lockedStatMode: remembered?.lockedStatMode ?? (sameProfile && state.lockedStatMode),
       loadoutSelectionRevision: state.loadoutSelectionRevision + 1,
-      request: remembered ? applyProfileRules(remembered.request, rules)
-        : sameProfile ? applyProfileRules(state.request, rules) : applyProfileRules({
-        ...state.request,
-        profileId,
-        ...noStatLocks(),
-        weaponName: null,
-        affinity: null,
-        aowName: null,
-        weaponTypeKey: null,
-        filters: { version: 1, entries: [] },
-        objective: "max_ar",
-      }, rules, true),
+      request,
+      startingQuery: remembered || keepEdited ? null : request,
       rows: [],
       rowsObjective: null,
       rowsSetups: null,
@@ -370,37 +370,21 @@ export const useDesktopStore = create<DesktopState>()((set, get) => ({
     const restoredComparisons = readCompareBench(catalog);
     const recomputing: Notice = { scope: "global", tone: "info", message: "Recomputing your pinned comparison builds on current game data..." };
     set((state) => {
-      const savedClass = currentClassName(catalog.dataManifest.profile.id, state.request.className);
-      const classInfo = catalog.classes.find((entry) => entry.name === savedClass)
-        ?? catalog.classes.find((entry) => entry.name === "Samurai")
-        ?? catalog.classes[0]
-        ?? classMeta(null, "Samurai");
-      // Profiles can share a class name with different base stats (Prisoner). Stats carried from
-      // another profile's class that sit below this class's minimums restart from this class.
-      const belowClass = EIGHT_STAT_KEYS.some((key) => state.request[key] < classInfo.baseStats[key]);
-      const resetClass = classInfo.name !== savedClass || belowClass;
-      // A query restored from storage may name things this data no longer has.
-      const { request, issues } = reconcileRestoredQuery(state.request, catalog);
-      const reconciled: Notice[] = issues.length ? [{ scope: "global", tone: "info",
-        message: `Your saved query was adjusted to the current game data: ${issues.join("; ")}.` }] : [];
+      const current = { ...state.request, profileId: catalog.dataManifest.profile.id };
+      // A query restored from storage or memory may name things this data no longer has; a
+      // profile's first query only needs the profile's default class.
+      const { request, repairs } = state.request === state.startingQuery
+        ? { request: startingRequest(current, catalog), repairs: [] }
+        : restoreSessionQuery(current, catalog);
+      const reconciled: Notice[] = repairs.length ? [{ scope: "global", tone: "info",
+        message: `Your saved query was adjusted to the current game data: ${repairSummary(repairs)}.` }] : [];
       return {
         catalog,
         catalogStatus: "ready",
         catalogError: null,
         loadoutSelectionRevision: state.loadoutSelectionRevision + 1,
-        request: applyProfileRules({
-          ...request,
-          className: classInfo.name,
-          // Without a class budget the level comes from the entered stats; keep the stored level
-          // valid instead of copying Custom stats' base level 0.
-          ...(resetClass && catalog.dataManifest.capabilities.classBudget
-            ? { characterLevel: classInfo.baseLevel, ...classInfo.baseStats }
-            : {}),
-          profileId: catalog.dataManifest.profile.id,
-          objective: catalog.objectiveIds.includes(state.request.objective)
-            ? state.request.objective
-            : catalog.objectiveIds[0] ?? "max_ar",
-        }, catalog.dataManifest.rules),
+        request,
+        startingQuery: null,
         compareBench: restoredComparisons.rows,
         notices: [...state.notices, ...reconciled, ...restoredComparisons.notices,
           ...(restoredComparisons.staleRows.length ? [recomputing] : [])],
@@ -416,6 +400,7 @@ export const useDesktopStore = create<DesktopState>()((set, get) => ({
   setError: (error) => set({ error }),
   request: defaultRequest,
   profileQueries: {},
+  startingQuery: null,
   loadoutSelectionRevision: 0,
   lockedStatMode: false,
   pathHorizon: 40,
@@ -525,8 +510,12 @@ export const useDesktopStore = create<DesktopState>()((set, get) => ({
     const catalog = state.catalog;
     if (!catalog) throw new Error("Current catalog metadata is unavailable. Wait for game data before loading a saved build.");
     if (preset.profileId !== state.request.profileId) throw new Error(`Switch to ${preset.profileId} before loading this build.`);
-    const request = activationRequest(knownRequestFields(preset.request), catalog);
+    const restored = restoreSavedRequest(preset.request, catalog);
+    if (restored.ok === false) throw new Error(restored.message);
+    const { request, repairs } = restored;
     if (signal?.aborted) return null;
+    const repaired: Notice[] = repairs.length ? [{ scope: "global", tone: "warning",
+      message: `The saved inputs were adjusted to the current game data: ${repairSummary(repairs)}. The saved record is unchanged.` }] : [];
     // Rows saved on other game data are recalculated like current ones; old numbers are never shown.
     const stale = preset.dataVersion !== catalogVersion(catalog);
     const candidate = { ...preset, request };
@@ -540,12 +529,12 @@ export const useDesktopStore = create<DesktopState>()((set, get) => ({
     set({
       ...invalidateAllJobs(state),
       loadoutSelectionRevision: state.loadoutSelectionRevision + 1,
-      request: applyProfileRules(request, catalog.dataManifest.rules),
+      request,
       lockedStatMode: hasCombatStatLocks(request), rows: [], rowsObjective: null, rowsSetups: null, rowsSignature: null, rankBaseline: null, resultsStale: false,
       selected: null, compareTarget: null, restoredCompareTarget: null,
       compareControls: { ...defaultCompareControls }, compareBench: keepPins ? state.compareBench : [], selectedFingerprint: null,
       error: null,
-      notices: [verificationNotice],
+      notices: [verificationNotice, ...repaired],
     });
     const context = get();
     const isCurrent = () => {
@@ -572,12 +561,12 @@ export const useDesktopStore = create<DesktopState>()((set, get) => ({
         ...(keepPins ? {} : { compareBench: verified.compareBench }), selectedFingerprint: rowFingerprint(verified.selectedBuild),
         notices: [{ scope: "global", tone: "success",
           message: stale ? `Loaded ${preset.name}; results recomputed on current game data (saved on ${preset.dataVersion}).${replacedPins}`
-            : `Loaded ${preset.name}; saved results verified on current data.${replacedPins}` }, ...persistenceNotices] });
+            : `Loaded ${preset.name}; saved results verified on current data.${replacedPins}` }, ...repaired, ...persistenceNotices] });
       return verified;
     } catch (error) {
       if (isCurrent()) {
         controller.abort();
-        set({ notices: [{ scope: "global", tone: "warning", message: "Saved results could not be verified. Inputs are loaded; the original saved record is unchanged." }] });
+        set({ notices: [{ scope: "global", tone: "warning", message: "Saved results could not be verified. Inputs are loaded; the original saved record is unchanged." }, ...repaired] });
         throw error;
       }
       return null;

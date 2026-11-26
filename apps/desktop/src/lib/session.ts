@@ -109,6 +109,9 @@ export const STARTING_CLASS_METADATA: ClassMetadataDto[] = [
 
 export const CUSTOM_STATS_CLASS = "Custom stats";
 
+/** The class a new query starts from, where the profile has it. */
+export const DEFAULT_CLASS_NAME = "Samurai";
+
 /** Custom stats, and any profile without class budgets, evaluates the entered stats exactly. */
 export function usesFixedStats(catalog: CatalogDto | null, className: string): boolean {
   return catalog?.dataManifest.capabilities.classBudget === false || className === CUSTOM_STATS_CLASS;
