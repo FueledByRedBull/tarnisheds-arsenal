@@ -97,6 +97,8 @@ impl<T: Clone + Send + 'static> JobRegistry<T> {
                 publish(status, outcome, publish_id, cancel.load(Ordering::Relaxed));
             },
         );
+        // The slot is only ever replaced whole, so a poisoned lock still holds a valid
+        // value; failing here would orphan a job that has already started.
         *self
             .supervisor
             .lock()
