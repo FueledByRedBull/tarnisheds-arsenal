@@ -2,10 +2,11 @@
 
 [Home](../../README.md) · [Documentation](../../README.md#documentation) · [Release guide](../releasing.md)
 
-## v0.23.0
+## v0.24.0
 
-Correct Convergence Somber weapons, faster searches and startup, and clearer controls.
-Read the [v0.23.0 notes](v0.23.0.md) for the changes and download choices.
+Corrected Vanilla poise for two weapons, saved builds that say what changed, and searches
+that stopped or out-of-date results can't overwrite.
+Read the [v0.24.0 notes](v0.24.0.md) for the changes and download choices.
 
 For the current Windows and Linux downloads, visit the
 [latest published release](https://github.com/FueledByRedBull/tarnisheds-arsenal/releases/latest).
@@ -14,6 +15,7 @@ For the current Windows and Linux downloads, visit the
 
 | Version | Notes | GitHub release |
 | --- | --- | --- |
+| v0.24.0 | [v0.24.0.md](v0.24.0.md) | [Tarnished's Arsenal v0.24.0](https://github.com/FueledByRedBull/tarnisheds-arsenal/releases/tag/v0.24.0) |
 | v0.23.0 | [v0.23.0.md](v0.23.0.md) | [Tarnished's Arsenal v0.23.0](https://github.com/FueledByRedBull/tarnisheds-arsenal/releases/tag/v0.23.0) |
 | v0.22.0 | [v0.22.0.md](v0.22.0.md) | [Tarnished's Arsenal v0.22.0](https://github.com/FueledByRedBull/tarnisheds-arsenal/releases/tag/v0.22.0) |
 | v0.21.0 | [v0.21.0.md](v0.21.0.md) | [Tarnished's Arsenal v0.21.0](https://github.com/FueledByRedBull/tarnisheds-arsenal/releases/tag/v0.21.0) |
