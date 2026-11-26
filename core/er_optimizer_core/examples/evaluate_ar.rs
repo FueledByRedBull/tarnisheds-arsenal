@@ -284,10 +284,12 @@ fn run_fixed_production(
     request: &OptimizeRequest,
     data: &GameData,
 ) -> Result<Option<OptimizeResult>, String> {
-    let evaluator = prepare_loadout_evaluator_with_cancel(request, data, || true)?;
+    let evaluator = prepare_loadout_evaluator_with_cancel(request, data, || true)
+        .map_err(|error| error.to_string())?;
     evaluator
         .evaluate_with_cancel(request, || true)
         .map(|rows| rows.into_iter().next())
+        .map_err(|error| error.to_string())
 }
 
 fn source_has_unsupported_effect(data: &GameData, case: &FixedCase<'_>) -> bool {
@@ -698,7 +700,8 @@ fn evaluate_with_skill(
         objective: OptimizeObjective::MaxAr,
         top_k: 1,
     };
-    let row = optimize(&request, data)?
+    let row = optimize(&request, data)
+        .map_err(|error| error.to_string())?
         .into_iter()
         .next()
         .ok_or_else(|| "local optimizer returned no rows".to_string())?;

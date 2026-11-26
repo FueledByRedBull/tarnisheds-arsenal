@@ -1,4 +1,5 @@
 pub mod data;
+mod error;
 pub mod math;
 pub mod model;
 pub mod optimizer;
@@ -13,6 +14,7 @@ pub use data::{
     CONVERGENCE_PROFILE_ID, VANILLA_PROFILE_ID, load_embedded_game_profile,
     load_embedded_game_profile_with_manifest, load_game_data, load_game_data_with_manifest,
 };
+pub use error::SearchError;
 pub use math::{
     CUSTOM_STATS_CLASS_NAME, StartingClass, calculate_ar, class_by_name, compute_free_points,
     custom_stats_class, effective_str, meets_requirements,

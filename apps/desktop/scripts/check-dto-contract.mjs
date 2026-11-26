@@ -14,6 +14,9 @@ function rustType(type) {
   if (/^(?:[ui](?:8|16|32|64|128|size)|f(?:32|64))$/.test(type)) return "number";
   if (type === "String") return "string";
   if (type === "bool") return "boolean";
+  // serde's `rc` feature serializes a shared value as the value itself.
+  const shared = /^Arc<(.+)>$/.exec(type);
+  if (shared) return rustType(shared[1]);
   const generic = /^(Option|Vec)<(.+)>$/.exec(type);
   if (generic) {
     const inner = rustType(generic[2]);
@@ -45,7 +48,8 @@ function rustDeclarations(source) {
       continue;
     }
     const fields = new Map();
-    const remainder = body.replace(/((?:#\[[^\]]+\]\s*)*)pub (\w+):\s*([^,]+),/g,
+    // Serde serializes private fields too; only constructors may set those.
+    const remainder = body.replace(/((?:#\[[^\]]+\]\s*)*)(?:pub )?(\w+):\s*([^,]+),/g,
       (_, fieldAttributes, field, type) => {
         assert.equal(fieldAttributes.replace(/#\[serde\(default(?: = "\w+")?\)\]\s*/g, "").trim(), "",
           `Unsupported serde field attributes: ${name}.${field}`);

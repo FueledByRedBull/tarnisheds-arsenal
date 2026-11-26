@@ -12,6 +12,7 @@ use num_rational::BigRational;
 use num_traits::Zero;
 
 use super::{RelevantStatSearch, SearchProgress};
+use crate::error::SearchError;
 use crate::math::exact::{ExactRouteParts, ExactStatTable};
 use crate::math::exact_value::ExactRational;
 use crate::model::COMBAT_STAT_COUNT;
@@ -305,7 +306,7 @@ pub(super) fn best_allocation<T: KeyInt, P: SearchProgress>(
     completions: &[Option<Combat>],
     effective_str: impl Fn(u8) -> u16,
     progress: &mut P,
-) -> Result<Option<Combat>, String> {
+) -> Result<Option<Combat>, SearchError> {
     let mut best: Option<([T; KEY], Combat)> = None;
     let mut error = None;
     let mut current = enumerated.mins;

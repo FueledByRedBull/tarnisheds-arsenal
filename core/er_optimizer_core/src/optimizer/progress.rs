@@ -12,11 +12,11 @@ pub(super) trait SearchProgress {
         checked_delta: u64,
         eligible_delta: u64,
         best_score: Option<f32>,
-    ) -> Result<(), String>;
+    ) -> Result<(), SearchError>;
     #[cfg(test)]
     fn is_cancelled(&self) -> bool;
-    fn poll(&mut self) -> Result<(), String>;
-    fn finish(&mut self) -> Result<(), String> {
+    fn poll(&mut self) -> Result<(), SearchError>;
+    fn finish(&mut self) -> Result<(), SearchError> {
         Ok(())
     }
 }
@@ -78,23 +78,23 @@ where
         }
     }
 
-    fn check_cancel(&mut self) -> Result<(), String> {
+    fn check_cancel(&mut self) -> Result<(), SearchError> {
         if self.cancelled || !(self.should_continue)() {
             self.cancelled = true;
-            return Err("cancelled".to_string());
+            return Err(SearchError::Cancelled);
         }
         Ok(())
     }
 
-    pub(super) fn emit_initial(&mut self) -> Result<(), String> {
+    pub(super) fn emit_initial(&mut self) -> Result<(), SearchError> {
         self.emit()
     }
 
-    pub(super) fn emit_final(&mut self) -> Result<(), String> {
+    pub(super) fn emit_final(&mut self) -> Result<(), SearchError> {
         self.emit()
     }
 
-    pub(super) fn emit_if_due(&mut self, ignore_count_threshold: bool) -> Result<(), String> {
+    pub(super) fn emit_if_due(&mut self, ignore_count_threshold: bool) -> Result<(), SearchError> {
         if self.progress_every == 0 {
             return Ok(());
         }
@@ -109,7 +109,7 @@ where
         self.emit()
     }
 
-    pub(super) fn emit(&mut self) -> Result<(), String> {
+    pub(super) fn emit(&mut self) -> Result<(), SearchError> {
         let snapshot = ProgressSnapshot {
             checked: self.checked,
             total: self.total,
@@ -136,7 +136,7 @@ where
         checked_delta: u64,
         eligible_delta: u64,
         best_score: Option<f32>,
-    ) -> Result<(), String> {
+    ) -> Result<(), SearchError> {
         self.checked = self.checked.saturating_add(checked_delta);
         self.eligible = self.eligible.saturating_add(eligible_delta);
         raise_best_score(&mut self.best_score, best_score);
@@ -149,7 +149,7 @@ where
         self.cancelled
     }
 
-    fn poll(&mut self) -> Result<(), String> {
+    fn poll(&mut self) -> Result<(), SearchError> {
         self.check_cancel()?;
         if self.progress_every == 0 {
             return Ok(());
@@ -204,10 +204,10 @@ where
         }
     }
 
-    pub(super) fn check_cancel(&self) -> Result<(), String> {
+    pub(super) fn check_cancel(&self) -> Result<(), SearchError> {
         if self.cancelled.load(Ordering::Relaxed) || !(self.should_continue)() {
             self.cancelled.store(true, Ordering::Relaxed);
-            return Err("cancelled".to_string());
+            return Err(SearchError::Cancelled);
         }
         Ok(())
     }
@@ -218,7 +218,7 @@ where
         eligible_delta: u64,
         best_score: Option<f32>,
         force: bool,
-    ) -> Result<(), String> {
+    ) -> Result<(), SearchError> {
         if checked_delta > 0 {
             self.checked.fetch_add(checked_delta, Ordering::Relaxed);
         }
@@ -235,11 +235,11 @@ where
         self.emit_if_due(force, false)
     }
 
-    pub(super) fn emit_initial(&self) -> Result<(), String> {
+    pub(super) fn emit_initial(&self) -> Result<(), SearchError> {
         self.emit_if_due(true, false)
     }
 
-    pub(super) fn emit_final(&self) -> Result<(), String> {
+    pub(super) fn emit_final(&self) -> Result<(), SearchError> {
         self.emit_if_due(true, false)
     }
 
@@ -247,7 +247,7 @@ where
         &self,
         force: bool,
         ignore_count_threshold: bool,
-    ) -> Result<(), String> {
+    ) -> Result<(), SearchError> {
         if !force {
             self.check_cancel()?;
             if self.progress_every == 0 {
@@ -338,7 +338,7 @@ where
         }
     }
 
-    pub(super) fn flush(&mut self, force: bool) -> Result<(), String> {
+    pub(super) fn flush(&mut self, force: bool) -> Result<(), SearchError> {
         if self.checked == 0 && self.eligible == 0 && self.best_score.is_none() && !force {
             return Ok(());
         }
@@ -362,7 +362,7 @@ where
         checked_delta: u64,
         eligible_delta: u64,
         best_score: Option<f32>,
-    ) -> Result<(), String> {
+    ) -> Result<(), SearchError> {
         self.checked = self.checked.saturating_add(checked_delta);
         self.eligible = self.eligible.saturating_add(eligible_delta);
         raise_best_score(&mut self.best_score, best_score);
@@ -378,7 +378,7 @@ where
         self.shared.is_cancelled()
     }
 
-    fn poll(&mut self) -> Result<(), String> {
+    fn poll(&mut self) -> Result<(), SearchError> {
         self.shared.check_cancel()?;
         if self.shared.progress_every == 0 {
             return Ok(());
@@ -392,7 +392,7 @@ where
         self.shared.emit_if_due(false, true)
     }
 
-    fn finish(&mut self) -> Result<(), String> {
+    fn finish(&mut self) -> Result<(), SearchError> {
         self.flush(false)
     }
 }
