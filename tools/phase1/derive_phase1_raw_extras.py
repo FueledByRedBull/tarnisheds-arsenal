@@ -135,7 +135,7 @@ def build_weapon_passives(
                 continue
             correction_value = _optional_bool(effect, "isUseStatusAilmentAtkPowerCorrect")
             for status_key, field_name in STATUS_FIELDS.items():
-                amount = to_float(effect, field_name, 0.0)
+                amount = to_float(effect, field_name, None)
                 if amount <= 0.0:
                     continue
                 if status_key == "scarlet_rot":
@@ -211,11 +211,13 @@ def build_weapon_passive_overlays(
                 effect_id = base_effect_id + level
                 effect = sp_effect_rows.get(effect_id)
                 if effect is None:
-                    continue
+                    raise ValueError(
+                        f"weapon {weapon_id} {weapon_field} at +{level} names missing SpEffect {effect_id}"
+                    )
                 effect_ids.append(effect_id)
                 correction_value = _optional_bool(effect, "isUseStatusAilmentAtkPowerCorrect")
                 for status_key, field_name in STATUS_FIELDS.items():
-                    amount = to_float(effect, field_name, 0.0)
+                    amount = to_float(effect, field_name, None)
                     if amount <= 0.0:
                         continue
                     totals[status_key] += amount

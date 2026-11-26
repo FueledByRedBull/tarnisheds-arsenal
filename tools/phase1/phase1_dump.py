@@ -25,7 +25,13 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from tools.phase1.param_binary import checked_xml_size  # noqa: E402
-from tools.phase1.profiles import PROFILE_FACTS, discover_witchybnd, profile_definition  # noqa: E402
+from tools.phase1.profiles import (  # noqa: E402
+    PROFILE_DIRECTORIES,
+    PROFILE_FACTS,
+    ProfileDefinition,
+    discover_witchybnd,
+    profile_definition,
+)
 
 MAX_DISPLAYED_STAT = 99
 MAX_EFFECTIVE_STRENGTH = MAX_DISPLAYED_STAT * 3 // 2
@@ -55,15 +61,6 @@ CLASS_LEVEL_OFFSET = PROFILE_FACTS["classLevelOffset"]
 WITCHYBND_TIMEOUT_SECONDS = 600
 # Share of non-empty name-table entries that may be unparseable before the file is rejected.
 MAX_MALFORMED_NAME_PERCENT = 1
-# Paramdex definitions WitchyBND uses to serialize the params above.
-PARAM_DEFINITIONS = (
-    "EquipParamWeapon",
-    "ReinforceParamWeapon",
-    "CalcCorrectGraph",
-    "AttackElementCorrectParam",
-    "EquipParamGem",
-    "SpEffect",
-)
 STATUS_ATTACK_POWER_FIELDS = {
     "bleed": "bloodAttackPower",
     "frost": "freezeAttackPower",
@@ -445,6 +442,32 @@ def record_name(mapping: dict[int, str], key: int, value: str, source: Path) -> 
     mapping[key] = value
 
 
+def repository_path(path: Path) -> Path:
+    """Resolve a profile-defined path, which is relative to the repository, not the working directory."""
+    return (ROOT / path).resolve()
+
+
+def check_regulation_sha256(regulation_path: Path, profile: ProfileDefinition) -> None:
+    from tools.phase1.snapshot_manifest import sha256_file
+
+    if not regulation_path.is_file():
+        raise FileNotFoundError(f"regulation.bin not found: {regulation_path}")
+    regulation_sha256 = sha256_file(regulation_path)
+    if regulation_sha256 != profile.regulation_sha256:
+        raise ValueError(
+            f"{regulation_path} has SHA-256 {regulation_sha256}; "
+            f"{profile.dataset_version} expects {profile.regulation_sha256}"
+        )
+
+
+def fmg_source_kind(prefix: str, path: Path) -> str:
+    """Name an FMG table's manifest source by its file name: `<table>.fmg.xml` or `<table>_dlc01.fmg.xml`."""
+    match = re.fullmatch(r"[^.]+?(_dlc\d+)?\.fmg\.xml", path.name.casefold())
+    if match is None or match.group(1) not in {None, "_dlc01"}:
+        raise ValueError(f"{path.name} is neither a base nor a DLC1 FMG table (<name>.fmg.xml, <name>_dlc01.fmg.xml)")
+    return f"{prefix}{'Dlc01' if match.group(1) else 'Base'}"
+
+
 def paramdex_path(witchybnd_path: Path, *parts: str) -> Path:
     return witchybnd_path.parent.joinpath("Assets", "Paramdex", "ER", *parts)
 
@@ -503,8 +526,9 @@ def load_fmg_name_map(xml_path: Path) -> dict[int, str]:
             continue
         if value in {"%null%", "[ERROR]"}:
             continue
-        # Mod FMGs can name one id twice (Convergence 3.0.0.1 does); the later entry wins.
-        mapping[entry_id] = value
+        # Mod FMGs can list one id twice (Convergence 3.0.3.0 does, with the same text);
+        # a repeat that names the id differently fails extraction.
+        record_name(mapping, entry_id, value, xml_path)
     check_malformed_name_lines(malformed, total, xml_path)
     if not mapping:
         raise ValueError(f"FMG name source contains no usable entries: {xml_path}")
@@ -1095,7 +1119,7 @@ def build_speffect_map(sp_rows: list[dict[str, str]]) -> dict[int, tuple[float, 
     for row in sp_rows:
         effect_id = to_int(row, "id", None)
         bleed, frost, poison, scarlet_rot = (
-            to_float(row, STATUS_ATTACK_POWER_FIELDS[status], 0.0)
+            to_float(row, STATUS_ATTACK_POWER_FIELDS[status], None)
             for status in ("bleed", "frost", "poison", "scarlet_rot")
         )
         effect_map[effect_id] = (bleed, frost, poison, scarlet_rot)
@@ -1155,10 +1179,9 @@ def build_aow_rows(
         poison = 0.0
         scarlet_rot = 0.0
         for effect_id in effect_ids:
-            effect_bleed, effect_frost, effect_poison, effect_scarlet_rot = effect_map.get(
-                effect_id,
-                (0.0, 0.0, 0.0, 0.0),
-            )
+            if effect_id not in effect_map:
+                raise ValueError(f"Ash of War {sword_art_id} names missing SpEffect {effect_id}")
+            effect_bleed, effect_frost, effect_poison, effect_scarlet_rot = effect_map[effect_id]
             bleed += effect_bleed
             frost += effect_frost
             poison += effect_poison
@@ -1181,7 +1204,7 @@ def build_aow_rows(
                 "valid_affinities": "|".join(
                     affinity
                     for slot, affinity in affinity_by_slot.items()
-                    if to_int(canonical, f"configurableWepAttr{slot:02d}", 0) != 0
+                    if to_int(canonical, f"configurableWepAttr{slot:02d}", None) != 0
                 ),
             }
         )
@@ -1213,7 +1236,11 @@ def load_regulation_context(
     curve_rows = list(iter_param_rows(xml_paths[CALC_CORRECT_PARAM], apply_defaults=True))
     attack_rows = list(iter_param_rows(xml_paths[ATTACK_ELEMENT_PARAM], apply_defaults=True))
     aow_rows = list(iter_param_rows(xml_paths[AOW_PARAM], apply_defaults=True))
-    sp_rows = list(iter_param_rows(xml_paths[SPEFFECT_PARAM]))
+    # Only status amounts take their declared defaults: an omitted
+    # isUseStatusAilmentAtkPowerCorrect stays unset and is written blank.
+    sp_rows = list(iter_param_rows(
+        xml_paths[SPEFFECT_PARAM], default_fields=tuple(STATUS_ATTACK_POWER_FIELDS.values())
+    ))
     weapon_name_map = (
         load_merged_fmg_name_map(weapon_name_xmls, "weapon")
         if weapon_name_xmls
@@ -1261,33 +1288,45 @@ def load_regulation_context(
 def main() -> int:
     args = parse_args()
     profile = profile_definition(args.profile)
-    regulation_path = (args.regulation or profile.regulation_path).resolve()
+    # Command-line paths are relative to the working directory; profile paths to the repository.
+    regulation_path = args.regulation.resolve() if args.regulation else repository_path(profile.regulation_path)
     witchybnd_path = (args.witchybnd or discover_witchybnd(ROOT)).resolve()
-    destination_dir = (args.output or profile.output_dir).resolve()
-    workdir = (args.workdir or Path("data") / f"_work_phase1_{profile.id}").resolve()
-    configured_name_xmls = tuple(args.weapon_name_xmls or profile.weapon_name_xmls)
-    weapon_name_xmls = tuple(path.resolve() for path in configured_name_xmls)
-    configured_arts_xmls = tuple(args.arts_name_xmls or profile.arts_name_xmls)
-    arts_name_xmls = tuple(path.resolve() for path in configured_arts_xmls)
+    destination_dir = args.output.resolve() if args.output else repository_path(profile.output_dir)
+    workdir = args.workdir.resolve() if args.workdir else ROOT / "data" / f"_work_phase1_{profile.id}"
+    weapon_name_xmls = (
+        tuple(path.resolve() for path in args.weapon_name_xmls)
+        if args.weapon_name_xmls
+        else tuple(repository_path(path) for path in profile.weapon_name_xmls)
+    )
+    arts_name_xmls = (
+        tuple(path.resolve() for path in args.arts_name_xmls)
+        if args.arts_name_xmls
+        else tuple(repository_path(path) for path in profile.arts_name_xmls)
+    )
     class_name_xml: Path | None = None
     if profile.class_catalog_from_regulation:
         if profile.class_name_xml is None:
             raise ValueError(f"{profile.id} reads classes from its regulation but names no class menu text")
-        class_name_xml = profile.class_name_xml.resolve()
-    configured_version_file = args.profile_version_file or profile.version_file
-    version_file = configured_version_file.resolve() if configured_version_file is not None else None
-    from tools.phase1.snapshot_manifest import check_snapshot_destination, sha256_file
+        class_name_xml = repository_path(profile.class_name_xml)
+    version_file = (
+        args.profile_version_file.resolve()
+        if args.profile_version_file
+        else repository_path(profile.version_file) if profile.version_file is not None else None
+    )
+    from tools.phase1.snapshot_manifest import check_snapshot_destination
 
     check_snapshot_destination(destination_dir, profile.id)
     if args.availability_candidate:
         if profile.weapon_reference_path is None:
             raise ValueError(f"{profile.id} has no availability reference to build a candidate for")
-        if destination_dir == (ROOT / profile.output_dir).resolve():
+        if destination_dir == repository_path(profile.output_dir):
             raise ValueError("an availability candidate must not replace the runtime snapshot")
         profile = replace(profile, weapon_reference_path=None)
+    reference_path = (
+        repository_path(profile.weapon_reference_path) if profile.weapon_reference_path is not None else None
+    )
     weapon_affinity_by_id: dict[int, str] | None = None
-    if profile.weapon_reference_path is not None:
-        reference_path = profile.weapon_reference_path.resolve()
+    if reference_path is not None:
         if not reference_path.is_file():
             raise FileNotFoundError(
                 f"weapon availability reference not found: {reference_path}; "
@@ -1301,14 +1340,7 @@ def main() -> int:
             for entry in reference["weapons"]
         }
 
-    if not regulation_path.exists():
-        raise FileNotFoundError(f"regulation.bin not found: {regulation_path}")
-    regulation_sha256 = sha256_file(regulation_path)
-    if regulation_sha256 != profile.regulation_sha256:
-        raise ValueError(
-            f"{regulation_path} has SHA-256 {regulation_sha256}; "
-            f"{profile.dataset_version} expects {profile.regulation_sha256}"
-        )
+    check_regulation_sha256(regulation_path, profile)
     if not witchybnd_path.exists():
         raise FileNotFoundError(
             f"WitchyBND.exe not found: {witchybnd_path} (pass --witchybnd <path>)"
@@ -1319,12 +1351,29 @@ def main() -> int:
     for arts_name_xml in arts_name_xmls:
         if not arts_name_xml.is_file():
             raise FileNotFoundError(f"skill name FMG XML not found: {arts_name_xml}")
+    fmg_source_paths: dict[str, Path] = {}
+    for prefix, paths in (("weaponNames", weapon_name_xmls), ("artsNames", arts_name_xmls)):
+        for path in paths:
+            kind = fmg_source_kind(prefix, path)
+            if kind in fmg_source_paths:
+                raise ValueError(f"duplicate {kind} FMG source: {path}")
+            fmg_source_paths[kind] = path
     aow_capable = profile.capabilities.aow_damage or profile.capabilities.aow_routes
-    skill_sources = profile.skill_animation_sources if aow_capable else None
+    configured_skill_sources = profile.skill_animation_sources if aow_capable else None
+    skill_sources = (
+        replace(
+            configured_skill_sources,
+            anibnd=repository_path(configured_skill_sources.anibnd),
+            request_script=repository_path(configured_skill_sources.request_script),
+            category_script=repository_path(configured_skill_sources.category_script),
+        )
+        if configured_skill_sources is not None
+        else None
+    )
     if skill_sources is not None:
         for skill_source in (skill_sources.anibnd, skill_sources.request_script, skill_sources.category_script):
             if not skill_source.is_file():
-                raise FileNotFoundError(f"skill animation source not found: {skill_source.resolve()}")
+                raise FileNotFoundError(f"skill animation source not found: {skill_source}")
     if class_name_xml is not None and not class_name_xml.is_file():
         raise FileNotFoundError(f"class menu text FMG XML not found: {class_name_xml}")
     if version_file is not None:
@@ -1340,7 +1389,8 @@ def main() -> int:
 
     workbook_path = destination_dir / MOTION_WORKBOOK_NAME
     if not workbook_path.exists():
-        workbook_path = ROOT / "data" / "phase1" / MOTION_WORKBOOK_NAME
+        # The tracked workbook lives in the Vanilla snapshot.
+        workbook_path = ROOT / PROFILE_DIRECTORIES["vanilla"] / MOTION_WORKBOOK_NAME
 
     destination_dir.parent.mkdir(parents=True, exist_ok=True)
     staging_owner = tempfile.TemporaryDirectory(
@@ -1565,6 +1615,7 @@ def main() -> int:
     from tools.phase1.derive_phase1_raw_extras import export_regulation_extras
     from tools.phase1.extract_motion_workbook import run_workbook_exports
     from tools.phase1.snapshot_manifest import (
+        PARAM_DEFINITIONS,
         SKILL_ANIMATION_SOURCE,
         promote_snapshot,
         validate_snapshot_manifest,
@@ -1599,21 +1650,13 @@ def main() -> int:
         )
     else:
         initialize_unsupported_aow_runtime_files(output_dir)
-    source_paths: dict[str, Path] = {}
-    for prefix, paths in (("weaponNames", weapon_name_xmls), ("artsNames", arts_name_xmls)):
-        for path in paths:
-            lowered = path.name.casefold()
-            suffix = "Dlc01" if "_dlc01" in lowered else "Base"
-            kind = f"{prefix}{suffix}"
-            if kind in source_paths:
-                raise ValueError(f"duplicate {kind} FMG source: {path}")
-            source_paths[kind] = path
+    source_paths: dict[str, Path] = dict(fmg_source_paths)
     if version_file is not None:
         source_paths["modVersion"] = version_file
     if class_name_xml is not None:
         source_paths["classNames"] = class_name_xml
-    if profile.weapon_reference_path is not None:
-        source_paths["weaponAvailability"] = profile.weapon_reference_path
+    if reference_path is not None:
+        source_paths["weaponAvailability"] = reference_path
     if skill_sources is not None:
         source_paths[SKILL_ANIMATION_SOURCE] = skill_sources.anibnd
         source_paths["skillRequestScript"] = skill_sources.request_script

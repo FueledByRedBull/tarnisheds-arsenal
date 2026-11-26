@@ -135,13 +135,26 @@ def capture_build_metadata(
 
 
 def require_matching_setup(
-    baseline: dict[str, Any], current: dict[str, Any], keys: tuple[str, ...]
+    baseline: object, current: dict[str, Any], keys: tuple[str, ...]
 ) -> None:
-    """Refuse to compare timings recorded on a different profile, dataset, model or thread count."""
+    """Refuse to compare timings recorded on a different profile, dataset, model or thread count.
+
+    A setting either side did not record cannot be shown to match, so it is refused too.
+    """
+    if not isinstance(baseline, dict):
+        raise ValueError("baseline has no setup metadata; timings are not comparable")
+    unrecorded = [
+        f"{key} ({side})"
+        for key in keys
+        for side, record in (("baseline", baseline), ("current", current))
+        if key not in record
+    ]
+    if unrecorded:
+        raise ValueError("setup was not recorded, so timings are not comparable: " + ", ".join(unrecorded))
     differing = [
         f"{key}: baseline {baseline[key]!r}, current {current[key]!r}"
         for key in keys
-        if key in baseline and key in current and baseline[key] != current[key]
+        if baseline[key] != current[key]
     ]
     if differing:
         raise ValueError("baseline was recorded with a different setup; " + "; ".join(differing))
