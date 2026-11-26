@@ -841,6 +841,8 @@ def build_weapon_rows(
     weapon_affinity_by_id: Mapping[int, str] | None = None,
     include_every_variant: bool = False,
 ) -> list[dict[str, object]]:
+    from tools.phase1.extract_motion_workbook import move_poise_for_base
+
     rows_out: list[dict[str, object]] = []
     standard_name_by_series = build_standard_name_map(weapon_rows, name_map, weapon_name_overrides)
 
@@ -922,9 +924,13 @@ def build_weapon_rows(
         else:
             stamina_consumption_rate = to_float(row, "staminaConsumptionRate", None)
             physical_attribute_primary, physical_attribute_secondary = physical_attack_attributes(row)
+        base_poise = to_float(row, "saWeaponDamage", None)
+        poise_source = (
+            None if workbook_weapon is None else move_poise_for_base(workbook_weapon, base_poise)
+        )
         poise = (
-            {field: getattr(workbook_weapon, field) for field in WORKBOOK_POISE_FIELDS}
-            if workbook_weapon is not None
+            {field: getattr(poise_source, field) for field in WORKBOOK_POISE_FIELDS}
+            if poise_source is not None
             # Without a workbook the skill animation export fills in the moves.
             else dict.fromkeys(WORKBOOK_POISE_FIELDS, "") | {"move_count": 0}
         )
@@ -940,7 +946,7 @@ def build_weapon_rows(
                 "weight": to_float(row, "weight", None),
                 "critical_damage_percent": 100 + to_int(row, "throwAtkRate", None),
                 "stamina_consumption_rate": stamina_consumption_rate,
-                "base_poise": to_float(row, "saWeaponDamage", None),
+                "base_poise": base_poise,
                 **poise,
                 "physical_attribute_primary": physical_attribute_primary,
                 "physical_attribute_secondary": physical_attribute_secondary,

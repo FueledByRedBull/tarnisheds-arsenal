@@ -1,4 +1,5 @@
 import csv
+from dataclasses import replace
 from pathlib import Path
 import shutil
 import tempfile
@@ -21,6 +22,7 @@ from tools.phase1.extract_motion_workbook import (
     load_weapon_workbook_data,
     load_bullet_attack_ids,
     load_attack_params,
+    move_poise_for_base,
     throw_attack_ids,
     verify_attack_rows_against_regulation,
     parse_flag,
@@ -279,10 +281,26 @@ class MotionWorkbookTests(unittest.TestCase):
     def test_weapon_ids_are_exact_standard_ids_with_named_corrections(self) -> None:
         weapons = load_weapon_workbook_data(DATA_DIR / MOTION_WORKBOOK_NAME)
         self.assertTrue(all(weapon_id % 10_000 == 0 for weapon_id in weapons))
-        for weapon_id, name in ((12_520_000, 'Black Steel Greathammer'), (22_000_000, 'Hookclaws')):
+        for weapon_id, name, heavy_poise in ((12_520_000, 'Black Steel Greathammer', 7.0),
+                                             (22_000_000, 'Hookclaws', 4.0)):
             with self.subTest(name=name):
                 self.assertEqual(weapons[weapon_id].name, name)
+                self.assertEqual(weapons[weapon_id].base_poise, heavy_poise)
                 self.assertNotIn(weapon_id + 100, weapons)
+
+    def test_move_poise_rescales_exactly_or_fails(self) -> None:
+        weapons = load_weapon_workbook_data(DATA_DIR / MOTION_WORKBOOK_NAME)
+        hookclaws = weapons[22_000_000]
+        self.assertIs(move_poise_for_base(hookclaws, hookclaws.base_poise), hookclaws)
+        rescaled = move_poise_for_base(hookclaws, 3.0)
+        self.assertEqual(rescaled.one_hand_light_poise, '3.0')
+        self.assertEqual(rescaled.two_hand_charged_heavy_poise, '9.9 + 9.9')
+        self.assertEqual(rescaled.move_count, hookclaws.move_count)
+        projectile = replace(hookclaws, one_hand_heavy_poise='(4 Projectile)')
+        with self.assertRaisesRegex(ValueError, 'cannot rescale poise value'):
+            move_poise_for_base(projectile, 3.0)
+        with self.assertRaisesRegex(ValueError, 'no short decimal form'):
+            move_poise_for_base(hookclaws, 1.0 / 3.0)
 
     def test_117_weapon_moves_and_placeholder_prefix(self) -> None:
         weapons = load_weapon_workbook_data(DATA_DIR / MOTION_WORKBOOK_NAME)

@@ -12,7 +12,11 @@ ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from tools.phase1.extract_motion_workbook import MOTION_WORKBOOK_NAME, load_weapon_workbook_data  # noqa: E402
+from tools.phase1.extract_motion_workbook import (  # noqa: E402
+    MOTION_WORKBOOK_NAME,
+    load_weapon_workbook_data,
+    move_poise_for_base,
+)
 from tools.phase1.extract_skill_animations import ROUTE_EFFECT_ROLES  # noqa: E402
 from tools.phase1.phase1_dump import (  # noqa: E402
     CLASS_CATALOG_FILE,
@@ -906,7 +910,7 @@ def _validate_vanilla_snapshot(
         row["weapon_id"]
         for row in weapons
         if (source := workbook.get(weapon_series_id(int(row["weapon_id"])))) is None
-        or poise(row) != poise(vars(source))
+        or poise(row) != poise(vars(move_poise_for_base(source, float(str(row["base_poise"])))))
     ]
     if poise_mismatches:
         issues.append(

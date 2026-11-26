@@ -31,7 +31,7 @@
     "extendedScalingGrades": false,
     "statusBuildupScales": true
   },
-  "generatedAt": "2026-11-06",
+  "generatedAt": "2026-11-26",
   "extractorVersion": "phase1-python-v15-f32-shortest-floats",
   "provenance": "profile-bound regulation, names, motion data, and numeric PARAM effect graph",
   "runtimeFiles": [
@@ -92,8 +92,8 @@
     },
     {
       "path": "weapons.csv",
-      "size": 781200,
-      "sha256": "7f005f13444a7d2b01003ac70730bf9fff06790303c0e4b01f2f3ed8fed60d8a"
+      "size": 781201,
+      "sha256": "8f7049b3e2183ad11975a39b6018aed5f1d6b23740de58413be7ccb19ae57d17"
     }
   ],
   "diagnosticFiles": [
