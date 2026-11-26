@@ -106,6 +106,7 @@ def publish(repo: str, tag: str, commit: str, assets: Path) -> None:
     files = [assets / f"{prefix}{suffix}" for suffix in (
         "_portable.exe", "_x64_en-US.msi", ".zip", "_SHA256SUMS.txt", "_build-report.json",
     )]
+    portable, installer, archive, checksum_file, report_file = files
     linux_packages = [assets / f"{prefix}{suffix}" for suffix in (
         "_amd64.deb", "_x86_64.rpm", "_amd64.AppImage",
     )]
@@ -115,21 +116,19 @@ def publish(repo: str, tag: str, commit: str, assets: Path) -> None:
     for path in [*published, notes]:
         if not path.is_file() or not path.stat().st_size:
             raise RuntimeError(f"Missing or empty release input: {path.name}")
-    report = json.loads(files[-1].read_text(encoding="utf-8-sig"))
+    report = json.loads(report_file.read_text(encoding="utf-8-sig"))
     if report["commit"] != commit or report["version"] != tag[1:] or report["sourceDirty"] is not False:
         raise RuntimeError("Package provenance does not match this source")
-    for path, row in zip(files[:2], report["artifacts"], strict=True):
+    for path, row in zip((portable, installer), report["artifacts"], strict=True):
         if row != {"name": path.name, "bytes": path.stat().st_size, "sha256": sha256(path)}:
             raise RuntimeError(f"Package provenance hash mismatch: {path.name}")
-    checksums = "".join(f"{sha256(path)}  {path.name}\n" for path in files[:3])
-    if files[-2].read_text(encoding="utf-8-sig") != checksums:
+    checksums = "".join(f"{sha256(path)}  {path.name}\n" for path in (portable, installer, archive))
+    if checksum_file.read_text(encoding="utf-8-sig") != checksums:
         raise RuntimeError("Package checksum file does not match its binaries and archive")
     linux_expected = "".join(f"{sha256(path)}  {path.name}\n" for path in linux_packages)
     if linux_checksums.read_text(encoding="utf-8-sig") != linux_expected:
         raise RuntimeError("Linux checksum file does not match its packages")
-    verify_portable_archive(
-        files[2], f"{prefix}/{files[0].name}", report["artifacts"][0]["sha256"]
-    )
+    verify_portable_archive(archive, f"{prefix}/{portable.name}", report["artifacts"][0]["sha256"])
     if tag_commit(repo, tag) != commit:
         raise RuntimeError(f"Tag {tag} does not point to the packaged commit {commit}")
 

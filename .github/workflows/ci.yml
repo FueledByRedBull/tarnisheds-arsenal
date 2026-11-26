@@ -423,7 +423,10 @@ jobs:
         run: npm ci --prefer-offline --no-audit --fund=false --ignore-scripts
 
       - name: Compare with the pinned reference calculator
-        run: python tools/phase4/validate_external_calculator.py --count 100 --seed 20260918
+        run: |
+          set -e
+          python tools/phase4/validate_external_calculator.py --count 100 --seed 20260918
+          python tools/phase4/validate_external_calculator.py --profile convergence --count 100 --seed 20260918
 
       - name: Upload Rust build timings
         if: ${{ always() && hashFiles('core/er_optimizer_core/target/cargo-timings/*.html') != '' }}
@@ -514,6 +517,7 @@ jobs:
           appimage=(src-tauri/target/release/bundle/appimage/*.AppImage)
           xvfb-run -a node scripts/smoke-linux.mjs "$PWD/${appimage[0]}"
 
+      # The image is pinned by its multi-platform index digest; update the tag and digest together.
       - name: RPM smoke test on Fedora
         run: >-
           docker run --rm
@@ -522,7 +526,7 @@ jobs:
           --volume "$HOME/.cargo/bin/tauri-driver:/usr/local/bin/tauri-driver:ro"
           --env WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1
           --workdir /work/apps/desktop
-          fedora:43
+          fedora:43@sha256:f01112b9a1f1d0504ad962d9adfa401425033f8ab067e0a821904ebdde5b8ca5
           bash scripts/smoke-linux-rpm.sh
 
       - name: Upload Linux smoke failure evidence
