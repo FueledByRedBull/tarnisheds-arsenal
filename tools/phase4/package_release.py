@@ -26,6 +26,13 @@ EXPECTED_UPGRADE_CODE = "{EC17FDAC-E313-5440-BD56-B985F2F0DA58}"
 BUNDLE_TYPE_UNKNOWN = b"__TAURI_BUNDLE_TYPE_VAR_UNK"
 BUNDLE_TYPE_MSI = b"__TAURI_BUNDLE_TYPE_VAR_MSI"
 SigningCredentials = tuple[str, str, str]
+# Used when WINDOWS_SIGNING_TIMESTAMP_URL is unset. RFC 3161 responses are signed, so plain HTTP is usual.
+DEFAULT_TIMESTAMP_URL = "http://timestamp.digicert.com"
+# Both ship in the ZIP and the MSI; the release workflow requires them.
+RELEASE_NOTICES = ("LICENSE", "NOTICE")
+# Windows Installer return codes.
+ERROR_MORE_DATA = 234
+ERROR_NO_MORE_ITEMS = 259
 # Imported PFX certificates are listed as "<HasPrivateKey> <Thumbprint>" rows.
 IMPORT_CERTIFICATE_SCRIPT = (
     "$password = ConvertTo-SecureString $env:SIGNING_PFX_PASSWORD -AsPlainText -Force\n"
@@ -65,11 +72,9 @@ def newest(path_glob: str, root: Path) -> Path:
 
 
 def create_portable_archive(zip_path: Path, release_dir: Path, portable_name: str) -> None:
-    required_names = [portable_name, "README.md", "build-report.json"]
-    archive_names = required_names + [
-        name for name in ("LICENSE", "NOTICE", "data-validation.json") if (release_dir / name).is_file()
-    ]
-    missing_names = [name for name in required_names if not (release_dir / name).is_file()]
+    # The data-validation report stays beside the package: it is not an end-user file.
+    archive_names = [portable_name, "README.md", "build-report.json", *RELEASE_NOTICES]
+    missing_names = [name for name in archive_names if not (release_dir / name).is_file()]
     if missing_names:
         raise FileNotFoundError(
             "portable archive is missing required files: " + ", ".join(missing_names)
@@ -267,7 +272,7 @@ def msi_property(path: Path, property_name: str) -> str:
         record = handle_type()
         try:
             result = msi.MsiViewFetch(view, ctypes.byref(record))
-            if result == 259:
+            if result == ERROR_NO_MORE_ITEMS:
                 raise RuntimeError(f"MSI {path} has no {property_name} property")
             if result:
                 raise RuntimeError(f"cannot fetch MSI {path} (Windows Installer error {result})")
@@ -277,7 +282,7 @@ def msi_property(path: Path, property_name: str) -> str:
                 buffer = ctypes.create_unicode_buffer(capacity)
                 length = ctypes.c_uint(capacity - 1)
                 result = msi.MsiRecordGetStringW(record, 1, buffer, ctypes.byref(length))
-                if result == 234:
+                if result == ERROR_MORE_DATA:
                     capacity = length.value + 1
                     continue
                 if result:
@@ -401,11 +406,10 @@ def take_signing_credentials() -> SigningCredentials | None:
     """Remove signing secrets from the environment before any build subprocess starts."""
     encoded_certificate = os.environ.pop("WINDOWS_SIGNING_CERTIFICATE_BASE64", "").strip()
     password = os.environ.pop("WINDOWS_SIGNING_CERTIFICATE_PASSWORD", "")
-    timestamp_url = (
-        os.environ.pop("WINDOWS_SIGNING_TIMESTAMP_URL", "").strip() or "http://timestamp.digicert.com"
-    )
+    timestamp_url = os.environ.pop("WINDOWS_SIGNING_TIMESTAMP_URL", "").strip() or DEFAULT_TIMESTAMP_URL
     if not encoded_certificate and not password:
         return None
+    # A half-configured setup fails rather than quietly producing unsigned artifacts.
     if not encoded_certificate or not password:
         raise RuntimeError("Windows signing requires both certificate and password credentials")
     return encoded_certificate, password, timestamp_url
@@ -676,6 +680,9 @@ def main() -> int:
     validation_report = root / "build_release" / "data-validation.json"
     validation_completed = False
     source_commit = require_clean_source(root)
+    missing_notices = [name for name in RELEASE_NOTICES if not (root / name).is_file()]
+    if missing_notices:
+        raise FileNotFoundError("release requires " + " and ".join(missing_notices) + " at the repository root")
     artifact_version = f"{version}-preview-{source_commit}" if args.preview else version
     release_dir = root / "dist" / f"TarnishedsArsenal_{artifact_version}"
     zip_path = root / "dist" / f"TarnishedsArsenal_{artifact_version}.zip"
@@ -881,9 +888,8 @@ def main() -> int:
     msi_out = release_dir / f"TarnishedsArsenal_{artifact_version}_x64_en-US.msi"
     shutil.copy2(exe, exe_out)
     shutil.copy2(msi, msi_out)
-    for notice in ("LICENSE", "NOTICE"):
-        if (root / notice).exists():
-            shutil.copy2(root / notice, release_dir / notice)
+    for notice in RELEASE_NOTICES:
+        shutil.copy2(root / notice, release_dir / notice)
 
     write_text(
         release_dir / "README.md",
@@ -897,7 +903,6 @@ def main() -> int:
                 f"- `{exe_out.name}` portable executable",
                 "- `SHA256SUMS.txt` integrity hashes",
                 "- `build-report.json` build provenance",
-                *( ["- `data-validation.json` generated-data validation report"] if validation_completed else [] ),
                 "- `LICENSE`",
                 "- `NOTICE` third-party notices",
                 "",

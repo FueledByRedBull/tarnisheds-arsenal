@@ -34,7 +34,8 @@ def workflow_required_gates() -> list[str]:
     return re.findall(r'"([a-z0-9-]+)"', script.split("$requiredGates = @(", 1)[1].split("foreach ($gate", 1)[0])
 
 
-def package_main(root: Path, stack: contextlib.ExitStack, *argv: str):
+def package_main(root: Path, stack: contextlib.ExitStack, *argv: str,
+                 notices: tuple[str, ...] = ("LICENSE", "NOTICE")):
     """Run package_release.main() on a minimal tree with every external step patched."""
     tauri = root / "apps/desktop/src-tauri"
     tauri.mkdir(parents=True)
@@ -46,8 +47,8 @@ def package_main(root: Path, stack: contextlib.ExitStack, *argv: str):
     exe, msi = root / "app.exe", root / "app.msi"
     exe.write_bytes(b"exe")
     msi.write_bytes(b"msi")
-    (root / "LICENSE").write_text("Test license", encoding="utf-8")
-    (root / "NOTICE").write_text("Test notices", encoding="utf-8")
+    for notice in notices:
+        (root / notice).write_text(f"Test {notice}", encoding="utf-8")
 
     def fake_run(command: list[str], **_kwargs: object) -> None:
         if "--report" in command:
@@ -84,6 +85,8 @@ class PackageReleaseTests(unittest.TestCase):
                 tauri.mkdir(parents=True)
                 (tauri / "tauri.conf.json").write_text(
                     '{"version":"0.14.1","productName":"Test"}', encoding="utf-8")
+                for notice in package_release.RELEASE_NOTICES:
+                    (root / notice).write_text(notice, encoding="utf-8")
                 stack.enter_context(patch.object(package_release, "__file__", str(root / "tools/phase4/package_release.py")))
                 stack.enter_context(patch("sys.argv", ["package_release.py", "--preview"]))
                 stack.enter_context(patch.object(package_release, "require_clean_source", return_value="b" * 40))
@@ -127,6 +130,11 @@ class PackageReleaseTests(unittest.TestCase):
             result, *_ = package_main(root, stack, "--preview")
             self.assertEqual(result, 0)
             report = package_release.json.loads(next((root / "dist").glob("*/build-report.json")).read_text(encoding="utf-8"))
+            self.assertTrue(next((root / "dist").glob("*/data-validation.json")).is_file())
+            with zipfile.ZipFile(next((root / "dist").glob("*.zip"))) as archive:
+                self.assertFalse(any(name.endswith("data-validation.json") for name in archive.namelist()))
+                readme = next(name for name in archive.namelist() if name.endswith("/README.md"))
+                self.assertNotIn("data-validation", archive.read(readme).decode("utf-8"))
         self.assertFalse(report["validationSkipped"])
         self.assertIn("data-snapshot-validation", workflow_required_gates())
         self.assertEqual(set(workflow_required_gates()) - set(report["completedGates"]), set())
@@ -251,12 +259,12 @@ class PackageReleaseTests(unittest.TestCase):
                         portable_name,
                         "README.md",
                         "build-report.json",
-                        "data-validation.json",
                         "LICENSE",
                         "NOTICE",
                         "SHA256SUMS.txt",
                     )
                 }
+                # The data-validation report beside the package is not an end-user file.
                 self.assertEqual(set(names), expected_names)
                 self.assertFalse(any(name.lower().endswith(".msi") for name in names))
                 checksum_name = f"{release_dir.name}/SHA256SUMS.txt"
@@ -267,6 +275,33 @@ class PackageReleaseTests(unittest.TestCase):
                 )
                 self.assertNotIn(".msi", checksum_text.lower())
             self.assertEqual((release_dir / "SHA256SUMS.txt").read_text(encoding="utf-8"), full_checksums)
+
+    def test_portable_archive_requires_license_and_notice(self) -> None:
+        for missing in package_release.RELEASE_NOTICES:
+            with self.subTest(missing=missing), tempfile.TemporaryDirectory() as directory:
+                release_dir = Path(directory) / "TarnishedsArsenal_0.12.0"
+                release_dir.mkdir()
+                portable_name = "TarnishedsArsenal_0.12.0_portable.exe"
+                for name in (portable_name, "README.md", "build-report.json", *package_release.RELEASE_NOTICES):
+                    if name != missing:
+                        (release_dir / name).write_text("content\n", encoding="utf-8")
+                archive_path = Path(directory) / "release.zip"
+                with self.assertRaisesRegex(FileNotFoundError, f"missing required files: {missing}$"):
+                    package_release.create_portable_archive(archive_path, release_dir, portable_name)
+                self.assertFalse(archive_path.exists())
+
+    def test_missing_license_or_notice_stops_packaging_before_any_step(self) -> None:
+        for missing in package_release.RELEASE_NOTICES:
+            with (self.subTest(missing=missing), tempfile.TemporaryDirectory() as directory,
+                  contextlib.ExitStack() as stack):
+                root = Path(directory)
+                present = tuple(name for name in package_release.RELEASE_NOTICES if name != missing)
+                with self.assertRaisesRegex(FileNotFoundError, f"release requires {missing} at the repository root"):
+                    package_main(root, stack, "--preview", notices=present)
+                run = package_release.run
+                self.assertIsInstance(run, Mock)
+                self.assertFalse(cast(Mock, run).called)
+                self.assertFalse((root / "dist").exists())
 
     @patch.object(package_release, "msi_property")
     def test_msi_identity_includes_product_version(self, msi_property) -> None:
@@ -437,7 +472,10 @@ class PackageReleaseTests(unittest.TestCase):
                 "WINDOWS_SIGNING_TIMESTAMP_URL")
         with patch.dict(os.environ, {keys[0]: "Y2VydA==", keys[1]: "secret"}):
             self.assertEqual(package_release.take_signing_credentials(),
-                             ("Y2VydA==", "secret", "http://timestamp.digicert.com"))
+                             ("Y2VydA==", "secret", package_release.DEFAULT_TIMESTAMP_URL))
+        self.assertEqual(package_release.DEFAULT_TIMESTAMP_URL, "http://timestamp.digicert.com")
+        with patch.dict(os.environ, {keys[0]: "Y2VydA==", keys[1]: "secret", keys[2]: " https://ts.invalid "}):
+            self.assertEqual(package_release.take_signing_credentials(), ("Y2VydA==", "secret", "https://ts.invalid"))
             self.assertFalse(any(key in os.environ for key in keys))
         with patch.dict(os.environ, {keys[0]: "", keys[1]: ""}):
             self.assertIsNone(package_release.take_signing_credentials())

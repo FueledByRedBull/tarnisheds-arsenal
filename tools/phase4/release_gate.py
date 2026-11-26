@@ -14,7 +14,9 @@ import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-CI_WAIT_SECONDS = 40 * 60
+# Covers the slowest CI job (45-minute timeout) plus queue time; verify-ci's job timeout
+# must stay above this wait.
+CI_WAIT_SECONDS = 60 * 60
 CI_POLL_SECONDS = 15
 
 

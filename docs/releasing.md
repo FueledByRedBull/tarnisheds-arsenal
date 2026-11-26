@@ -34,6 +34,8 @@ before publication, so no follow-up documentation commit is needed.
    original versions. The release body is copied from the notes file: use
    absolute GitHub URLs for its cross-document links so they work there too, and
    word its Downloads section so it still reads correctly after publication.
+   `validate_release_metadata.py` rejects any other link in a `v<version>.md`
+   file except a same-page `#heading` link.
 3. Validate all metadata and run the targeted source checks:
 
    ```powershell
@@ -67,9 +69,10 @@ Run the Release workflow from the default branch with `publish` enabled:
 gh workflow run release-package.yml --ref main -f publish=true
 ```
 
-It waits for successful CI on the exact source commit and builds and verifies
-the package. The publish job then creates and pushes the annotated `v<version>`
-tag at that commit, creates a draft release, uploads the assets and publishes the
+It waits up to 60 minutes for successful CI on the exact source commit, then
+builds and verifies the package. If CI takes longer, the run fails before
+packaging; re-run its failed jobs once CI has passed. The publish job then
+creates and pushes the annotated `v<version>` tag at that commit, creates a draft release, uploads the assets and publishes the
 draft. A failed package creates neither a tag nor a release. If publication fails
 after the tag push, [retry](#retry-publication); to abandon the release instead,
 delete the draft release and the remote tag by hand. The nine release assets are:
@@ -116,7 +119,8 @@ Choose one publication path for a release.
 Build-only runs can use any branch and an already released application version.
 On the default branch, they wait for a successful `ci.yml` push run on that exact
 commit and reuse its source validation. Other branches run full source validation
-in the packaging job. Artifacts are named `<version>-preview-<full commit SHA>`.
+in the packaging job. Windows and Linux artifacts and their files are named
+`<version>-preview-<full commit SHA>`.
 Previews neither create nor require a release tag. For the same local check, use
 `python tools/phase4/package_release.py --preview` from clean committed source;
 add `--skip-validation` only when successful exact-commit CI has already validated
@@ -143,9 +147,9 @@ the exact source commit. Default-branch previews reuse the same verification;
 other previews validate source in the packaging job, as described
 [above](#build-a-preview).
 Normal source tests, lint, type checks, formatting, Clippy, data snapshot
-validation and a seeded comparison with the pinned reference calculator belong to
-that CI run. Independent Windows jobs run the test and release profiles for both
-Rust crates; a Linux job repeats the core, Python and snapshot checks on a second
+validation and seeded Vanilla and Convergence comparisons with the pinned
+reference calculator belong to that CI run. Independent Windows jobs run the
+test and release profiles for both Rust crates; a Linux job repeats the core, Python and snapshot checks on a second
 OS. Every default-branch push runs the full suite. Each Rust job installs the
 toolchain pinned in `rust-toolchain.toml` with the runner's `rustup`. The Linux job
 sets `RUSTUP_TOOLCHAIN` to the same version, which skips the Clippy and rustfmt
@@ -192,15 +196,18 @@ snapshots. Neither needs an adjacent data directory, `regulation.bin`, FMG XML, 
 source workbook. Debug builds load the same embedded snapshots, so the packaged smoke
 on a `--debug` build exercises the shipped data path. The build report identifies both profile manifest IDs and the
 exact source commit. CI keeps the data-validation report as a workflow artifact;
-it is not duplicated as an end-user release asset. Published packages also carry
+it is not an end-user release asset. A locally validated package keeps it beside
+the package output, outside the ZIP. Published packages also carry
 GitHub build provenance attestations for the executable, MSI and ZIP; check a
 download with
 `gh attestation verify <file> --repo FueledByRedBull/tarnisheds-arsenal`.
 
 Releases are currently unsigned and say so. Authenticode signing is conditional:
-configure the `WINDOWS_SIGNING_CERTIFICATE_BASE64` and
-`WINDOWS_SIGNING_CERTIFICATE_PASSWORD` secrets, plus the optional
-`WINDOWS_SIGNING_TIMESTAMP_URL` variable. `package_release.py` removes both
+configure both the `WINDOWS_SIGNING_CERTIFICATE_BASE64` and
+`WINDOWS_SIGNING_CERTIFICATE_PASSWORD` secrets. Setting only one fails the
+package build instead of producing unsigned artifacts. The optional
+`WINDOWS_SIGNING_TIMESTAMP_URL` variable names the RFC 3161 timestamp server;
+it defaults to `http://timestamp.digicert.com`. `package_release.py` removes both
 secrets from its environment before any build step, imports the certificate into
 the current user's store through `pwsh.exe` (the password reaches only that child
 process's environment), signs by thumbprint and removes the certificate
@@ -216,7 +223,7 @@ It verifies the signatures and extracts the MSI administrative payload. Unsigned
 payloads must match the portable executable except for Tauri's exact `UNK`/`MSI`
 bundle marker; signed payloads must match the signed installer variant captured
 by the hook. The portable marker is preserved. It records `codeSigned` and the `windows-code-signing`
-provenance gate. Without both secrets, the artifacts remain explicitly unsigned
+provenance gate. With neither secret, the artifacts remain explicitly unsigned
 and do not claim that gate.
 
 The Dependency audit workflow runs `cargo audit` over both Cargo lockfiles and

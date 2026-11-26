@@ -4,6 +4,7 @@ import contextlib
 import io
 import json
 import os
+import re
 import subprocess
 import tempfile
 import unittest
@@ -32,6 +33,17 @@ class ReleaseGateTests(unittest.TestCase):
         quiet = contextlib.redirect_stdout(io.StringIO())
         self.stdout = quiet.__enter__()
         self.addCleanup(quiet.__exit__, None, None, None)
+
+    def test_ci_wait_outlasts_ci_jobs_and_fits_inside_the_verify_job(self) -> None:
+        workflows = Path(__file__).resolve().parents[2] / ".github" / "workflows"
+        ci = (workflows / "ci.yml").read_text(encoding="utf-8")
+        longest_ci_job = max(int(minutes) for minutes in re.findall(r"timeout-minutes: (\d+)", ci))
+        release = (workflows / "release-package.yml").read_text(encoding="utf-8")
+        verify_job = release.split("\n  verify-ci:\n", 1)[1].split("\n  package:\n", 1)[0]
+        verify_timeout = re.search(r"timeout-minutes: (\d+)", verify_job)
+        assert verify_timeout is not None
+        self.assertGreater(release_gate.CI_WAIT_SECONDS, longest_ci_job * 60)
+        self.assertGreater(int(verify_timeout[1]) * 60, release_gate.CI_WAIT_SECONDS)
 
     def test_failed_commands_report_their_stderr_and_still_raise(self) -> None:
         failure = subprocess.CalledProcessError(128, ["git", "tag"], stderr="fatal: bad tag\n")
