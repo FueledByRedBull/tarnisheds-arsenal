@@ -1,7 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { api } from "./api";
-import { readBuildPreset } from "./presets";
+import { catalogVersion } from "./preset-activation";
+import { readBuildPreset, saveBuildPreset } from "./presets";
 import { carriedHandling, restoreSavedRequest, restoreSessionQuery, startingRequest } from "./restore";
 import { STARTING_CLASS_METADATA } from "./session";
 import { defaultRequest, useDesktopStore } from "./state";
@@ -206,5 +207,25 @@ describe("local storage written by the released build", () => {
       "Loaded Fixture; saved results verified on current data. Its pinned builds replaced the 1 you had pinned."]);
     expect(values.get("tarnisheds-arsenal.savedBuild.v2.c34f333b-fc89-4d54-8d91-2bdfb18b1158"))
       .toBe(stored["tarnisheds-arsenal.savedBuild.v2.c34f333b-fc89-4d54-8d91-2bdfb18b1158"]);
+  });
+
+  it("writes the saved build back byte for byte when it is loaded and saved again unchanged", async () => {
+    openStorage();
+    vi.spyOn(api, "solveBuild").mockImplementation(async (_base, _weapon, affinity) => solvedBuild({ affinity: affinity ?? "Standard" }));
+    const id = "c34f333b-fc89-4d54-8d91-2bdfb18b1158";
+    await useDesktopStore.getState().loadBuildPreset(readBuildPreset(id)!);
+
+    // Saved from the loaded state at the moment the released build saved it. (Update selected
+    // also writes the level the stats need, which this record's level is below.)
+    vi.useFakeTimers({ now: new Date("2026-11-26T06:28:07.125Z"), toFake: ["Date"] });
+    try {
+      const { catalog: loaded, request, selected, compareTarget, compareBench } = useDesktopStore.getState();
+      saveBuildPreset({ id, name: "Fixture", request, selectedBuild: selected, compareTarget, compareBench, dataVersion: catalogVersion(loaded!) });
+    } finally {
+      vi.useRealTimers();
+    }
+
+    expect(values.get(`tarnisheds-arsenal.savedBuild.v2.${id}`)).toBe(stored[`tarnisheds-arsenal.savedBuild.v2.${id}`]);
+    expect(values.get("tarnisheds-arsenal.savedBuildIndex.v1")).toBe(stored["tarnisheds-arsenal.savedBuildIndex.v1"]);
   });
 });
