@@ -5,7 +5,7 @@ import {
   MAX_PRESET_IMPORT_BYTES,
   deleteBuildPreset,
   importBuildPreset,
-  loadBuildPreset,
+  readBuildPreset,
   parsePresetText,
   previewPresetImport,
   saveBuildPreset,
@@ -20,6 +20,7 @@ import {
   shareTextForPreset,
   MAX_BUILD_BACKUP_BYTES,
   MAX_BUILD_BACKUP_COUNT,
+  knownRequestFields,
 } from "./presets";
 import type { BuildPresetV1, SolvedBuildDto } from "./types";
 import { validateStoredBuild } from "./stored-build";
@@ -100,7 +101,7 @@ describe("saved build persistence", () => {
     saveBuildPreset({ ...preset(first.id, "Updated route"), dataVersion: "1:dataset:model" });
 
     expect(savedBuildIndex().builds).toHaveLength(1);
-    expect(loadBuildPreset(first.id)?.name).toBe("Updated route");
+    expect(readBuildPreset(first.id)?.name).toBe("Updated route");
   });
 
   it("keeps conflicting imports as an explicit copy", () => {
@@ -181,7 +182,7 @@ describe("saved build persistence", () => {
       compareBench: parsed.compareBench,
       dataVersion: parsed.dataVersion,
     });
-    expect(loadBuildPreset(saved.id)?.request).toMatchObject({
+    expect(readBuildPreset(saved.id)?.request).toMatchObject({
       characterLevel: 792,
       standardMaxUpgrade: 15,
       somberMaxUpgrade: 15,
@@ -206,7 +207,7 @@ describe("saved build persistence", () => {
     expect(localStorage.getItem("tarnisheds-arsenal.savedBuild.v1.smoke-id")).not.toBeNull();
     saveBuildPreset({ ...preset("new-smoke", smoke.name) });
     expect(savedBuildIndex().builds).toHaveLength(2);
-    expect(loadBuildPreset("new-smoke")).not.toBeNull();
+    expect(readBuildPreset("new-smoke")).not.toBeNull();
   });
 
   it("migrates legacy profile-less presets to Vanilla explicitly", () => {
@@ -275,7 +276,7 @@ describe("saved build persistence", () => {
   it("opens and backs up schema-1 builds whose skill routes predate poise damage", () => {
     const record = schemaOneRecord();
     // The route is re-solved on load, so the migrated archive keeps none of its unverifiable numbers.
-    expect(loadBuildPreset(record.id)).toMatchObject({ version: 2, name: record.name, selectedBuild: { aowName: "Unsheathe", aowRoute: null } });
+    expect(readBuildPreset(record.id)).toMatchObject({ version: 2, name: record.name, selectedBuild: { aowName: "Unsheathe", aowRoute: null } });
     const inspection = inspectSavedBuilds();
     expect(inspection.issues).toEqual([]);
     expect(JSON.parse(savedBuildBackupText(inspection)).builds.map((build: { id: string }) => build.id)).toEqual([record.id]);
@@ -289,7 +290,7 @@ describe("saved build persistence", () => {
     expect(copy.id).not.toBe(record.id);
     const replaced = replaceImportedBuildPreset(parsePresetText(text));
     expect(replaced.id).toBe(record.id);
-    expect(loadBuildPreset(record.id)?.version).toBe(2);
+    expect(readBuildPreset(record.id)?.version).toBe(2);
     expect(inspectSavedBuilds()).toMatchObject({ issues: [], needsRecovery: false });
     expect(savedBuildIndex().builds).toHaveLength(2);
   });
@@ -348,7 +349,7 @@ describe("saved build persistence", () => {
     const restoredBackup = previewBuildBackup(withExtras({ format: "tarnisheds-arsenal.build-backup", version: 1, builds: [clean] })).presets[0];
     localStorage.setItem(`tarnisheds-arsenal.savedBuild.v2.${clean.id}`, text);
     localStorage.setItem("tarnisheds-arsenal.savedBuildIndex.v1", withExtras(savedBuildIndex()));
-    const stored = loadBuildPreset(clean.id);
+    const stored = readBuildPreset(clean.id);
     for (const result of [parsePresetText(text), shared, restoredBackup, stored, inspectSavedBuilds().presets[0]]) {
       expect(result).toEqual(clean);
       expect(unknownKeys(result)).toBe(false);
@@ -395,7 +396,7 @@ describe("saved build persistence", () => {
     }))).toThrow(/compareBench/);
     expect(savedBuildIndex().builds).toEqual([]);
     localStorage.setItem(`tarnisheds-arsenal.savedBuild.v2.${malformed.id}`, JSON.stringify(malformed));
-    expect(loadBuildPreset(malformed.id)).toBeNull();
+    expect(readBuildPreset(malformed.id)).toBeNull();
     expect(inspectSavedBuilds().presets).toEqual([]);
   });
 
@@ -532,7 +533,7 @@ describe("saved build persistence", () => {
     malformed.builds.push({ version: 2 });
     expect(() => restoreBuildBackup(JSON.stringify(malformed))).toThrow();
     expect(savedBuildIndex().builds).toHaveLength(2);
-    expect(loadBuildPreset(saved.id)).toEqual(saved);
+    expect(readBuildPreset(saved.id)).toEqual(saved);
   });
 
   it("rolls back a partially written backup restore without modifying existing builds", () => {
@@ -559,7 +560,7 @@ describe("saved build persistence", () => {
     vi.spyOn(localStorage, "removeItem").mockImplementation(() => { throw new Error("cleanup unavailable"); });
     expect(() => restoreBuildBackup(backup)).toThrow(/index unavailable/);
     expect(savedBuildIndex().builds).toHaveLength(1);
-    expect(loadBuildPreset(saved.id)).toEqual(saved);
+    expect(readBuildPreset(saved.id)).toEqual(saved);
     const interrupted = inspectSavedBuilds();
     expect(interrupted).toMatchObject({ orphanCount: 1, needsRecovery: true });
     expect(interrupted.presets).toHaveLength(2);
@@ -608,7 +609,7 @@ describe("saved build persistence", () => {
     const scan = inspectSavedBuilds();
     expect(scan.presets).toHaveLength(1);
     recoverSavedBuilds(scan);
-    expect(loadBuildPreset(legacy.id)?.name).toBe(legacy.name);
+    expect(readBuildPreset(legacy.id)?.name).toBe(legacy.name);
     expect(() => renameBuildPreset(legacy.id, "Changed")).toThrow(/unreadable/);
     expect(localStorage.getItem(currentKey)).toBe("{broken");
   });
@@ -651,7 +652,7 @@ describe("saved build persistence", () => {
     const stored = { ...saved, selectedBuild: { ...build, aowRoute: { ...route, actions: [{ ...route.actions[0], hits: [hit, { ...hit, hitOrder: 1 }] }] } } };
     expect(JSON.stringify(stored).length).toBeGreaterThan(MAX_PRESET_IMPORT_BYTES);
     localStorage.setItem(`tarnisheds-arsenal.savedBuild.v2.${saved.id}`, JSON.stringify(stored));
-    expect(loadBuildPreset(saved.id)).toEqual(stored);
+    expect(readBuildPreset(saved.id)).toEqual(stored);
     const backup = savedBuildBackupText(inspectSavedBuilds());
     expect(JSON.parse(backup).builds).toEqual([stored]);
     // A restored copy over the limit could be loaded but never renamed or updated.
@@ -671,7 +672,7 @@ describe("saved build persistence", () => {
     expect(localStorage.getItem("tarnisheds-arsenal.savedBuildIndex.v1")).toBe(before);
     saveBuildPreset(preset("build-0", "Updated"));
     expect(savedBuildIndex().builds).toHaveLength(500);
-    expect(loadBuildPreset("build-0")?.name).toBe("Updated");
+    expect(readBuildPreset("build-0")?.name).toBe("Updated");
   });
 
   it("retains an oversized existing library and permits updates", () => {
@@ -688,7 +689,7 @@ describe("saved build persistence", () => {
   it("rejects overlong rename without damaging the existing build", () => {
     const saved = saveBuildPreset(preset());
     expect(() => renameBuildPreset(saved.id, "x".repeat(201))).toThrow(/200 characters/);
-    expect(loadBuildPreset(saved.id)?.name).toBe(saved.name);
+    expect(readBuildPreset(saved.id)?.name).toBe(saved.name);
     expect(savedBuildIndex().builds).toHaveLength(1);
   });
 
@@ -699,8 +700,8 @@ describe("saved build persistence", () => {
     expect(first.name).toHaveLength(200);
     expect(second.name).toHaveLength(200);
     expect(second.name).not.toBe(first.name);
-    expect(loadBuildPreset(first.id)?.name).toBe(first.name);
-    expect(loadBuildPreset(second.id)?.name).toBe(second.name);
+    expect(readBuildPreset(first.id)?.name).toBe(first.name);
+    expect(readBuildPreset(second.id)?.name).toBe(second.name);
     expect(savedBuildIndex().builds).toHaveLength(3);
   });
 
@@ -710,7 +711,7 @@ describe("saved build persistence", () => {
     const write = vi.spyOn(localStorage, "setItem").mockImplementation(() => {
       throw new DOMException("Storage quota exceeded", "QuotaExceededError");
     });
-    expect(loadBuildPreset(legacy.id)).toMatchObject({ version: 2, name: legacy.name });
+    expect(readBuildPreset(legacy.id)).toMatchObject({ version: 2, name: legacy.name });
     expect(write).not.toHaveBeenCalled();
     expect(() => saveBuildPreset(legacy)).toThrow(/index is missing.*recovery/);
   });
@@ -723,9 +724,9 @@ describe("saved build persistence", () => {
       write(key, value);
     });
     expect(() => renameBuildPreset(saved.id, "Changed")).toThrow(/index quota/);
-    expect(loadBuildPreset(saved.id)?.name).toBe(saved.name);
+    expect(readBuildPreset(saved.id)?.name).toBe(saved.name);
     expect(() => saveBuildPreset(preset("new-id"))).toThrow(/index quota/);
-    expect(loadBuildPreset("new-id")).toBeNull();
+    expect(readBuildPreset("new-id")).toBeNull();
   });
 
   it("reports the index failure when restoring the previous record also fails", () => {
@@ -752,7 +753,7 @@ describe("saved build persistence", () => {
 
     const key = "tarnisheds-arsenal.savedBuild.v2.stored";
     localStorage.setItem(key, JSON.stringify({ ...lenient, id: "stored" }));
-    expect(loadBuildPreset("stored")?.updatedAt).toBe("Jan 3, 2026 10:00 UTC");
+    expect(readBuildPreset("stored")?.updatedAt).toBe("Jan 3, 2026 10:00 UTC");
     expect(() => parsePresetText(JSON.stringify({ ...lenient, createdAt: "not a date" }))).toThrow(/ISO date/);
   });
 
@@ -762,12 +763,21 @@ describe("saved build persistence", () => {
       throw new DOMException("index quota exceeded", "QuotaExceededError");
     });
     expect(() => deleteBuildPreset(saved.id)).toThrow(/index quota/);
-    expect(loadBuildPreset(saved.id)).toEqual(saved);
+    expect(readBuildPreset(saved.id)).toEqual(saved);
     expect(savedBuildIndex().builds.map((entry) => entry.id)).toEqual([saved.id]);
     write.mockRestore();
     deleteBuildPreset(saved.id);
-    expect(loadBuildPreset(saved.id)).toBeNull();
+    expect(readBuildPreset(saved.id)).toBeNull();
     expect(savedBuildIndex().builds).toEqual([]);
+  });
+
+  it("keeps every request field and drops unknown keys and filter extras", () => {
+    const request = { ...defaultRequest, filters: { version: 1, entries: [{ dimension: "affinity", id: "Keen", mode: "include", note: "x" }] } };
+    const known = knownRequestFields({ ...request, futureField: 3 } as typeof defaultRequest);
+    expect(Object.keys(known).sort()).toEqual(Object.keys(defaultRequest).sort());
+    expect(known).not.toHaveProperty("futureField");
+    expect(known.filters.entries).toEqual([{ dimension: "affinity", id: "Keen", mode: "include" }]);
+    expect(known.filters).not.toBe(request.filters);
   });
 
 });

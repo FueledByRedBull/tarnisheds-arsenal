@@ -7,8 +7,9 @@ use er_optimizer_core::{
     OptimizeResult, ProgressSnapshot, ResultGrouping, SomberFilter, StableFilter, Stats,
 };
 use serde::{Deserialize, Serialize};
+use std::sync::Arc;
 
-use crate::errors::AppError;
+use crate::errors::{AppError, JobOutcome};
 
 pub const MAX_TOP_K: usize = 2_000;
 pub const MAX_LEVELS_AHEAD: u16 = 200;
@@ -425,16 +426,16 @@ pub struct PathProgressDto {
 #[serde(rename_all = "camelCase")]
 pub struct PathFinishedDto {
     pub job_id: String,
-    pub cancelled: bool,
+    cancelled: bool,
     pub paths: Vec<PathPreviewDto>,
-    pub error: Option<String>,
+    error: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PathJobStatusDto {
     pub progress: Option<PathProgressDto>,
-    pub finished: Option<PathFinishedDto>,
+    pub finished: Option<Arc<PathFinishedDto>>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -496,16 +497,16 @@ pub struct AffinityWatchProgressDto {
 #[serde(rename_all = "camelCase")]
 pub struct AffinityWatchFinishedDto {
     pub job_id: String,
-    pub cancelled: bool,
+    cancelled: bool,
     pub payload: Option<AffinityWatchPayloadDto>,
-    pub error: Option<String>,
+    error: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AffinityWatchJobStatusDto {
     pub progress: Option<AffinityWatchProgressDto>,
-    pub finished: Option<AffinityWatchFinishedDto>,
+    pub finished: Option<Arc<AffinityWatchFinishedDto>>,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -529,9 +530,9 @@ pub struct SearchProgressDto {
 #[serde(rename_all = "camelCase")]
 pub struct SearchFinishedDto {
     pub job_id: String,
-    pub cancelled: bool,
+    cancelled: bool,
     pub rows: Vec<SolvedBuildDto>,
-    pub error: Option<String>,
+    error: Option<String>,
     /// Setups the prepared search scores; zero when preparation failed.
     pub setups: u64,
 }
@@ -540,7 +541,7 @@ pub struct SearchFinishedDto {
 #[serde(rename_all = "camelCase")]
 pub struct SearchJobStatusDto {
     pub progress: Option<SearchProgressDto>,
-    pub finished: Option<SearchFinishedDto>,
+    pub finished: Option<Arc<SearchFinishedDto>>,
 }
 
 #[derive(Clone, Copy, Debug, Serialize, PartialEq, Eq)]
@@ -556,17 +557,17 @@ pub enum AnalysisJobKindDto {
 pub struct AnalysisFinishedDto {
     pub job_id: String,
     pub kind: AnalysisJobKindDto,
-    pub cancelled: bool,
+    cancelled: bool,
     pub result: Option<SolvedBuildDto>,
     pub points: Vec<UpgradePointDto>,
     pub frontier: Vec<ArBleedFrontierPointDto>,
-    pub error: Option<String>,
+    error: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AnalysisJobStatusDto {
-    pub finished: Option<AnalysisFinishedDto>,
+    pub finished: Option<Arc<AnalysisFinishedDto>>,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -911,61 +912,195 @@ impl SearchProgressDto {
     }
 }
 
+impl SearchFinishedDto {
+    pub fn new(job_id: String, outcome: JobOutcome<Vec<SolvedBuildDto>>, setups: u64) -> Self {
+        let (rows, cancelled, error) = outcome.into_parts();
+        Self {
+            job_id,
+            cancelled,
+            rows: rows.unwrap_or_default(),
+            error,
+            setups,
+        }
+    }
+
+    pub fn cancelled(&self) -> bool {
+        self.cancelled
+    }
+
+    pub fn error(&self) -> Option<&str> {
+        self.error.as_deref()
+    }
+}
+
+impl AnalysisFinishedDto {
+    /// A payload of `kind` with the outcome's flags and no results; the typed
+    /// constructors fill in their own result field.
+    fn without_results<T>(
+        job_id: String,
+        kind: AnalysisJobKindDto,
+        outcome: JobOutcome<T>,
+    ) -> (Self, Option<T>) {
+        let (payload, cancelled, error) = outcome.into_parts();
+        let finished = Self {
+            job_id,
+            kind,
+            cancelled,
+            result: None,
+            points: Vec::new(),
+            frontier: Vec::new(),
+            error,
+        };
+        (finished, payload)
+    }
+
+    pub fn solve_build(job_id: String, outcome: JobOutcome<Option<SolvedBuildDto>>) -> Self {
+        let (finished, result) =
+            Self::without_results(job_id, AnalysisJobKindDto::SolveBuild, outcome);
+        Self {
+            result: result.flatten(),
+            ..finished
+        }
+    }
+
+    pub fn upgrade_series(job_id: String, outcome: JobOutcome<Vec<UpgradePointDto>>) -> Self {
+        let (finished, points) =
+            Self::without_results(job_id, AnalysisJobKindDto::UpgradeSeries, outcome);
+        Self {
+            points: points.unwrap_or_default(),
+            ..finished
+        }
+    }
+
+    pub fn ar_bleed_frontier(
+        job_id: String,
+        outcome: JobOutcome<Vec<ArBleedFrontierPointDto>>,
+    ) -> Self {
+        let (finished, frontier) =
+            Self::without_results(job_id, AnalysisJobKindDto::ArBleedFrontier, outcome);
+        Self {
+            frontier: frontier.unwrap_or_default(),
+            ..finished
+        }
+    }
+
+    pub fn failed(job_id: String, kind: AnalysisJobKindDto, message: String) -> Self {
+        Self::without_results::<()>(job_id, kind, JobOutcome::Failed(message)).0
+    }
+
+    pub fn cancelled(&self) -> bool {
+        self.cancelled
+    }
+
+    pub fn error(&self) -> Option<&str> {
+        self.error.as_deref()
+    }
+}
+
+impl PathFinishedDto {
+    pub fn new(job_id: String, outcome: JobOutcome<Vec<PathPreviewDto>>) -> Self {
+        let (paths, cancelled, error) = outcome.into_parts();
+        Self {
+            job_id,
+            cancelled,
+            paths: paths.unwrap_or_default(),
+            error,
+        }
+    }
+
+    pub fn cancelled(&self) -> bool {
+        self.cancelled
+    }
+
+    pub fn error(&self) -> Option<&str> {
+        self.error.as_deref()
+    }
+}
+
+impl AffinityWatchFinishedDto {
+    pub fn new(job_id: String, outcome: JobOutcome<AffinityWatchPayloadDto>) -> Self {
+        let (payload, cancelled, error) = outcome.into_parts();
+        Self {
+            job_id,
+            cancelled,
+            payload,
+            error,
+        }
+    }
+
+    pub fn cancelled(&self) -> bool {
+        self.cancelled
+    }
+
+    pub fn error(&self) -> Option<&str> {
+        self.error.as_deref()
+    }
+}
+
 /// A job's terminal payload, as the registry publishes it.
 pub trait JobFinished {
-    fn has_error(&self) -> bool;
-    /// Marks the job cancelled and drops its payload.
-    fn cancel(&mut self);
+    /// Applies a cancellation requested before publication: a completed payload is
+    /// dropped, but an error outranks the cancellation. Returns whether the payload now
+    /// reads as cancelled.
+    fn cancel_unless_failed(&mut self) -> bool;
 }
 
 impl JobFinished for SearchFinishedDto {
-    fn has_error(&self) -> bool {
-        self.error.is_some()
-    }
-
-    fn cancel(&mut self) {
-        self.cancelled = true;
-        self.rows.clear();
+    fn cancel_unless_failed(&mut self) -> bool {
+        if self.error.is_none() {
+            self.cancelled = true;
+            self.rows.clear();
+        }
+        self.cancelled
     }
 }
 
 impl JobFinished for AnalysisFinishedDto {
-    fn has_error(&self) -> bool {
-        self.error.is_some()
+    fn cancel_unless_failed(&mut self) -> bool {
+        if self.error.is_none() {
+            self.cancelled = true;
+            self.result = None;
+            self.points.clear();
+            self.frontier.clear();
+        }
+        self.cancelled
     }
+}
 
-    fn cancel(&mut self) {
-        self.cancelled = true;
-        self.result = None;
-        self.points.clear();
-        self.frontier.clear();
+impl JobFinished for PathFinishedDto {
+    fn cancel_unless_failed(&mut self) -> bool {
+        if self.error.is_none() {
+            self.cancelled = true;
+            self.paths.clear();
+        }
+        self.cancelled
     }
 }
 
 impl JobFinished for AffinityWatchFinishedDto {
-    fn has_error(&self) -> bool {
-        self.error.is_some()
-    }
-
-    fn cancel(&mut self) {
-        self.cancelled = true;
-        self.payload = None;
+    fn cancel_unless_failed(&mut self) -> bool {
+        if self.error.is_none() {
+            self.cancelled = true;
+            self.payload = None;
+        }
+        self.cancelled
     }
 }
 
 /// The terminal payload to publish for a worker outcome. A worker that stopped without
 /// a result becomes `failed`; a cancellation requested before publication clears a
-/// completed payload, but an error outranks it.
+/// completed payload, but an error outranks it. The payload is shared, so a status read
+/// copies a pointer rather than the payload.
 pub fn finish<T: JobFinished>(
     outcome: Result<T, String>,
     cancelled: bool,
     failed: impl FnOnce(String) -> T,
-) -> T {
+) -> Arc<T> {
     let mut finished = outcome.unwrap_or_else(failed);
-    if cancelled && !finished.has_error() {
-        finished.cancel();
+    if cancelled {
+        finished.cancel_unless_failed();
     }
-    finished
+    Arc::new(finished)
 }
 
 /// Rejects an oversized text value without echoing it.
@@ -1140,6 +1275,7 @@ pub fn lock_request_to_stats(request: &mut OptimizeRequestDto, stats: CombatStat
 #[cfg(test)]
 mod tests {
     use super::*;
+    use er_optimizer_core::SearchError;
     use serde_json::{Value, json};
 
     #[test]
@@ -1258,6 +1394,62 @@ mod tests {
     }
 
     #[test]
+    fn job_outcomes_map_typed_cancellation_and_keep_the_wire_fields() {
+        let cancelled = JobOutcome::<Vec<SolvedBuildDto>>::new(Err(SearchError::Cancelled), false);
+        assert!(matches!(cancelled, JobOutcome::Cancelled));
+        let failed = JobOutcome::<Vec<SolvedBuildDto>>::new(Err("no data".into()), true);
+        assert!(matches!(failed, JobOutcome::Failed(ref message) if message == "no data"));
+        let late = JobOutcome::new(Ok(vec![solved_build()]), true);
+        assert!(matches!(late, JobOutcome::Cancelled));
+        let completed = JobOutcome::new(Ok(vec![solved_build()]), false);
+        assert!(matches!(completed, JobOutcome::Completed(ref rows) if rows.len() == 1));
+
+        let wire = |outcome| serde_json::to_value(SearchFinishedDto::new("s".into(), outcome, 3));
+        assert_eq!(
+            wire(cancelled).unwrap(),
+            json!({ "jobId": "s", "cancelled": true, "rows": [], "error": null, "setups": 3 }),
+        );
+        assert_eq!(
+            wire(failed).unwrap(),
+            json!({ "jobId": "s", "cancelled": false, "rows": [], "error": "no data", "setups": 3 }),
+        );
+        let completed = wire(completed).unwrap();
+        assert_eq!(completed["cancelled"], json!(false));
+        assert_eq!(completed["error"], json!(null));
+        assert_eq!(completed["rows"].as_array().map(Vec::len), Some(1));
+
+        let analysis = serde_json::to_value(AnalysisJobStatusDto {
+            finished: Some(Arc::new(AnalysisFinishedDto::upgrade_series(
+                "a".into(),
+                JobOutcome::Cancelled,
+            ))),
+        })
+        .unwrap();
+        assert_eq!(
+            analysis,
+            json!({ "finished": {
+                "jobId": "a", "kind": "upgrade_series", "cancelled": true, "result": null,
+                "points": [], "frontier": [], "error": null,
+            }}),
+        );
+    }
+
+    #[test]
+    fn a_late_cancellation_never_hides_an_error() {
+        let mut failed = SearchFinishedDto::new("s".into(), JobOutcome::Failed("x".into()), 0);
+        assert!(!failed.cancel_unless_failed());
+        assert!(!failed.cancelled() && failed.error() == Some("x"));
+
+        let mut completed =
+            SearchFinishedDto::new("s".into(), JobOutcome::Completed(vec![solved_build()]), 1);
+        assert!(completed.cancel_unless_failed());
+        assert!(completed.cancelled() && completed.rows.is_empty() && completed.error().is_none());
+
+        let published = finish(Ok(failed), true, |_| unreachable!("the worker returned"));
+        assert!(!published.cancelled() && published.error() == Some("x"));
+    }
+
+    #[test]
     fn representative_analysis_payloads_use_app_contract_keys() {
         let path_value = serde_json::to_value(PathJobStatusDto {
             progress: Some(PathProgressDto {
@@ -1267,10 +1459,9 @@ mod tests {
                 title: "Selected".to_string(),
                 level: 151,
             }),
-            finished: Some(PathFinishedDto {
-                job_id: "path-1".to_string(),
-                cancelled: false,
-                paths: vec![PathPreviewDto {
+            finished: Some(Arc::new(PathFinishedDto::new(
+                "path-1".to_string(),
+                JobOutcome::Completed(vec![PathPreviewDto {
                     title: "Selected".to_string(),
                     solved: solved_build(),
                     steps: vec![PathStepDto {
@@ -1280,9 +1471,8 @@ mod tests {
                         added_stat: Some("dex".to_string()),
                         requirement_gap: 0,
                     }],
-                }],
-                error: None,
-            }),
+                }]),
+            ))),
         })
         .expect("path status serializes");
 
@@ -1310,10 +1500,9 @@ mod tests {
                 affinity: "Blood".to_string(),
                 level: 151,
             }),
-            finished: Some(AffinityWatchFinishedDto {
-                job_id: "affinity-1".to_string(),
-                cancelled: false,
-                payload: Some(AffinityWatchPayloadDto {
+            finished: Some(Arc::new(AffinityWatchFinishedDto::new(
+                "affinity-1".to_string(),
+                JobOutcome::Completed(AffinityWatchPayloadDto {
                     lines: vec![AffinityWatchLineDto {
                         affinity: "Blood".to_string(),
                         points: vec![AffinityWatchPointDto {
@@ -1335,8 +1524,7 @@ mod tests {
                         quality: "clear".to_string(),
                     }],
                 }),
-                error: None,
-            }),
+            ))),
         })
         .expect("affinity status serializes");
 

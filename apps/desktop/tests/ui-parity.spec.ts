@@ -95,7 +95,7 @@ test("saved profile filters stay readable and can be removed without changing we
     const statePath = "/src/lib/state.ts";
     const presetsPath = "/src/lib/presets.ts";
     const { useDesktopStore } = await import(statePath);
-    const { saveBuildPreset, loadBuildPreset } = await import(presetsPath);
+    const { saveBuildPreset, readBuildPreset } = await import(presetsPath);
     const state = useDesktopStore.getState();
     const affinityId = state.catalog.filterDimensions.find((dimension: any) => dimension.id === "affinity")
       .options.find((option: any) => option.label === "Blood").id;
@@ -108,7 +108,7 @@ test("saved profile filters stay readable and can be removed without changing we
       selectedBuild: null, compareTarget: null, dataVersion: "1:dataset:model",
       createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
     });
-    state.loadBuildPreset(loadBuildPreset(stored.id));
+    state.loadBuildPreset(readBuildPreset(stored.id));
     return affinityId;
   });
   await openEditor(page, "Limits");
@@ -174,7 +174,7 @@ test("profile switch isolates results and explains Convergence coverage", async 
     page.getByText(/AoW hits, routes and attack poise come from the mod's animations/),
   ).toBeVisible();
   // The coverage note names the exact mod and game versions the bundled data models.
-  await expect(page.getByText(/^Convergence 3\.0\.3\.0 \(game 1\.17\.1\) weapon AR/)).toBeVisible();
+  await expect(page.getByText(/^The Convergence 3\.0\.3\.0 \(game 1\.17\.1\) weapon AR/)).toBeVisible();
   await expect(page.getByText("4 ranked rows")).toHaveCount(0);
   await expect(page.getByRole("button", { name: "AoW First Hit" })).toHaveCount(0);
   await openEditor(page, "Class");
@@ -647,7 +647,8 @@ test("saved family filters can be cleared without editing the saved build", asyn
     const key = Object.keys(localStorage).find((key) => key.startsWith("tarnisheds-arsenal.savedBuild.v2."));
     if (!key) throw new Error("saved preset was not created");
     const preset = JSON.parse(localStorage.getItem(key) ?? "null");
-    preset.request.filters.entries = [{ dimension: "weapon_family", id: "weapon:1001000", mode: "exclude" }];
+    // A family the preview data has; loading drops one it does not.
+    preset.request.filters.entries = [{ dimension: "weapon_family", id: "weapon:0", mode: "exclude" }];
     localStorage.setItem(key, JSON.stringify(preset));
   });
   await page.reload();
@@ -661,7 +662,7 @@ test("saved family filters can be cleared without editing the saved build", asyn
   expect(await page.evaluate(() => {
     const key = Object.keys(localStorage).find((key) => key.startsWith("tarnisheds-arsenal.savedBuild.v2."));
     return JSON.parse(localStorage.getItem(key!)!).request.filters.entries;
-  })).toEqual([{ dimension: "weapon_family", id: "weapon:1001000", mode: "exclude" }]);
+  })).toEqual([{ dimension: "weapon_family", id: "weapon:0", mode: "exclude" }]);
 });
 
 test("stale saved builds offer explicit input-only loading or recompute migration", async ({ page }) => {

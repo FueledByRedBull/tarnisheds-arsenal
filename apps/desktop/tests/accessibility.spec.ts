@@ -153,22 +153,24 @@ test("trade-offs, Paths, Affinity Watch, Saved Builds, the problem report and er
   expect(await violations(page, ".error-strip"), "error strip").toEqual([]);
 });
 
-test("the fixed-stats readout does not name Convergence while Vanilla is shown", async ({ page }) => {
+test("Vanilla shown while its data loads carries no Convergence class or readout", async ({ page }) => {
   // A session that opens on Convergence has no Vanilla query to restore on the switch.
   await page.addInitScript(() => localStorage.setItem("tarnisheds-arsenal.gameProfile.v1", "convergence"));
   await page.goto("/");
   const profiles = page.getByRole("radiogroup", { name: "Game profile" });
   await expect(page.getByRole("button", { name: "Class: Retainer" })).toBeVisible();
   await chooseClass(page, "Custom stats");
-  // Vanilla's catalog is held, as a slow or failed load leaves it, so the carried class stays.
+  // Vanilla's catalog is held, as a slow or failed load leaves it. A first visit starts from
+  // Vanilla's default class, so Convergence's Custom stats is not carried into it.
   await page.evaluate(async () => {
     const { api } = await import("/src/lib/api.ts");
     api.catalog = () => new Promise(() => {});
   });
   await profiles.getByRole("radio", { name: /Vanilla/ }).click();
   await expect(profiles.getByRole("radio", { name: /Vanilla/ })).toHaveAttribute("aria-checked", "true");
-  const readout = page.locator(".ribbon-readout").filter({ hasText: "Fixed stats" });
-  await expect(readout).toContainText("entered combat stats exactly");
-  await expect(readout).not.toContainText("Convergence");
-  await expect(readout).not.toHaveAttribute("title", /Convergence/);
+  await expect(page.getByRole("button", { name: "Class: Samurai" })).toBeVisible();
+  const readouts = page.locator(".ribbon-readout");
+  await expect(readouts.filter({ hasText: "Fixed stats" })).toHaveCount(0);
+  await expect(readouts.filter({ hasText: "Convergence" })).toHaveCount(0);
+  await expect(readouts.and(page.locator("[title*='Convergence']"))).toHaveCount(0);
 });

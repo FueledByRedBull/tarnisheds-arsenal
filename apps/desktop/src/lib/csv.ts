@@ -1,6 +1,7 @@
-import { SolvedBuildDto } from "./types";
+import { COMBAT_STATS } from "./combat-stats";
+import { hasAowDamage } from "./objectives";
 import { scalingLetter } from "./session";
-import { hasAowDamage } from "./format";
+import { SolvedBuildDto } from "./types";
 
 export interface RankingsExportMetadata {
   profileId: string;
@@ -20,6 +21,19 @@ type CsvColumn = {
   value: (row: SolvedBuildDto, index: number, metadata: RankingsExportMetadata) => string | number | boolean | null;
 };
 
+type CombatStat = (typeof COMBAT_STATS)[number];
+
+// One column per combat stat, named by its short label: "req_str" through "req_arc".
+function statColumns(
+  prefix: string,
+  value: (row: SolvedBuildDto, stat: CombatStat, metadata: RankingsExportMetadata) => string | number | null,
+): CsvColumn[] {
+  return COMBAT_STATS.map((stat) => ({
+    header: `${prefix}${stat.label.toLowerCase()}`,
+    value: (row, _index, metadata) => value(row, stat, metadata),
+  }));
+}
+
 const CSV_COLUMNS: CsvColumn[] = [
   { header: "rank", value: (_row, index) => index + 1 },
   { header: "weapon_id", value: (row) => row.weaponId },
@@ -30,26 +44,11 @@ const CSV_COLUMNS: CsvColumn[] = [
   { header: "upgrade", value: (row) => row.upgrade },
   { header: "upgrade_path", value: (row, _index, metadata) => metadata.separateUpgradeCaps === false ? "unified" : row.isSomber ? "somber" : "standard" },
   { header: "is_somber", value: (row, _index, metadata) => metadata.separateUpgradeCaps === false ? null : row.isSomber },
-  { header: "req_str", value: (row) => row.requirements?.strStat ?? null },
-  { header: "req_dex", value: (row) => row.requirements?.dex ?? null },
-  { header: "req_int", value: (row) => row.requirements?.intStat ?? null },
-  { header: "req_fai", value: (row) => row.requirements?.fai ?? null },
-  { header: "req_arc", value: (row) => row.requirements?.arc ?? null },
-  { header: "scaling_str", value: (row) => row.effectiveScaling?.str ?? null },
-  { header: "scaling_dex", value: (row) => row.effectiveScaling?.dex ?? null },
-  { header: "scaling_int", value: (row) => row.effectiveScaling?.int ?? null },
-  { header: "scaling_fai", value: (row) => row.effectiveScaling?.fai ?? null },
-  { header: "scaling_arc", value: (row) => row.effectiveScaling?.arc ?? null },
-  { header: "grade_str", value: (row, _index, metadata) => row.effectiveScaling ? scalingLetter(row.effectiveScaling.str, metadata.extendedScalingGrades) : null },
-  { header: "grade_dex", value: (row, _index, metadata) => row.effectiveScaling ? scalingLetter(row.effectiveScaling.dex, metadata.extendedScalingGrades) : null },
-  { header: "grade_int", value: (row, _index, metadata) => row.effectiveScaling ? scalingLetter(row.effectiveScaling.int, metadata.extendedScalingGrades) : null },
-  { header: "grade_fai", value: (row, _index, metadata) => row.effectiveScaling ? scalingLetter(row.effectiveScaling.fai, metadata.extendedScalingGrades) : null },
-  { header: "grade_arc", value: (row, _index, metadata) => row.effectiveScaling ? scalingLetter(row.effectiveScaling.arc, metadata.extendedScalingGrades) : null },
-  { header: "str", value: (row) => row.stats.strStat },
-  { header: "dex", value: (row) => row.stats.dex },
-  { header: "int", value: (row) => row.stats.intStat },
-  { header: "fai", value: (row) => row.stats.fai },
-  { header: "arc", value: (row) => row.stats.arc },
+  ...statColumns("req_", (row, stat) => row.requirements?.[stat.key] ?? null),
+  ...statColumns("scaling_", (row, stat) => row.effectiveScaling?.[stat.scaling] ?? null),
+  ...statColumns("grade_", (row, stat, metadata) => row.effectiveScaling
+    ? scalingLetter(row.effectiveScaling[stat.scaling], metadata.extendedScalingGrades) : null),
+  ...statColumns("", (row, stat) => row.stats[stat.key]),
   { header: "ar_total", value: (row) => row.ar.total },
   { header: "ar_physical", value: (row) => row.ar.physical },
   { header: "ar_magic", value: (row) => row.ar.magic },

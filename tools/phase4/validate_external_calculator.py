@@ -22,7 +22,12 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from tools.phase1.param_binary import load_param_definition, load_param_table  # noqa: E402
-from tools.phase1.profiles import CONVERGENCE_AFFINITIES, profile_definition  # noqa: E402
+from tools.phase1.profiles import (  # noqa: E402
+    CONVERGENCE_AFFINITIES,
+    PROFILE_DIRECTORIES,
+    discover_witchybnd,
+    profile_definition,
+)
 from tools.phase1.snapshot_manifest import sha256_file  # noqa: E402
 
 STATS = ("str", "dex", "int", "fai", "arc")
@@ -1208,7 +1213,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--convergence-data-dir",
         type=Path,
-        default=ROOT / "data" / "profiles" / "convergence",
+        default=ROOT / PROFILE_DIRECTORIES["convergence"],
     )
     parser.add_argument("--paramdex-dir", type=Path)
     parser.add_argument("--vanilla-raw-dir", type=Path)
@@ -1218,7 +1223,7 @@ def main(argv: list[str] | None = None) -> int:
         parser.error("tolerance must be between 0 and 0.001")
     if args.data_dir is None:
         args.data_dir = (
-            args.convergence_data_dir if args.profile == "convergence" else ROOT / "data" / "phase1"
+            args.convergence_data_dir if args.profile == "convergence" else ROOT / PROFILE_DIRECTORIES["vanilla"]
         )
     if not args.data_dir.is_dir():
         parser.error(f"data directory is missing: {args.data_dir}")
@@ -1230,14 +1235,7 @@ def main(argv: list[str] | None = None) -> int:
                     "--vanilla-raw-dir and --convergence-raw-dir are required with --exhaustive"
                 )
             paramdex_dir = args.paramdex_dir or (
-                ROOT
-                / "data"
-                / "raw"
-                / "WitchyBND-3.0.1.0-win-x64"
-                / "Assets"
-                / "Paramdex"
-                / "ER"
-                / "Defs"
+                discover_witchybnd(ROOT).parent / "Assets" / "Paramdex" / "ER" / "Defs"
             )
             data_dirs = {
                 "vanilla": args.data_dir,

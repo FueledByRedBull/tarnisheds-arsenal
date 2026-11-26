@@ -1046,8 +1046,13 @@ def unpack_anibnd(anibnd: Path, witchybnd_path: Path, workdir: Path) -> Path:
 
 
 def main() -> int:
-    from tools.phase1.phase1_dump import paramdex_path, unpack_regulation
-    from tools.phase1.profiles import discover_witchybnd, profile_definition
+    from tools.phase1.phase1_dump import (
+        check_regulation_sha256,
+        paramdex_path,
+        repository_path,
+        unpack_regulation,
+    )
+    from tools.phase1.profiles import PROFILE_DIRECTORIES, discover_witchybnd, profile_definition
 
     parser = argparse.ArgumentParser(
         description="Write AoW attack and route CSVs from a profile's animations into a copied snapshot folder."
@@ -1061,7 +1066,12 @@ def main() -> int:
     configured = profile.skill_animation_sources
     if configured is None:
         raise ValueError(f"{profile.id} has no skill animation sources")
-    raw_dir: Path = args.raw_dir or profile.raw_dir
+    snapshot_dir = args.snapshot_dir.resolve()
+    # Tracked snapshots change only through phase1_dump, which rewrites the manifest's hashes.
+    if snapshot_dir in {repository_path(directory) for directory in PROFILE_DIRECTORIES.values()}:
+        raise ValueError(f"{snapshot_dir} is a tracked snapshot; run this on a copy")
+    raw_dir = args.raw_dir.resolve() if args.raw_dir else repository_path(profile.raw_dir)
+    check_regulation_sha256(raw_dir / "regulation.bin", profile)
     sources = replace(
         configured,
         anibnd=raw_dir / configured.anibnd.name,
@@ -1072,7 +1082,7 @@ def main() -> int:
     with tempfile.TemporaryDirectory(prefix="skill-anim-") as temp:
         unpacked = unpack_regulation(raw_dir / "regulation.bin", witchybnd, Path(temp))
         run_skill_animation_exports(
-            args.snapshot_dir, unpacked, paramdex_path(witchybnd, "Defs"), sources, witchybnd, Path(temp)
+            snapshot_dir, unpacked, paramdex_path(witchybnd, "Defs"), sources, witchybnd, Path(temp)
         )
     return 0
 

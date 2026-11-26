@@ -1,78 +1,7 @@
 import { api } from "./api";
+import { noStatMinimums, statLocksAt } from "./combat-stats";
 import { buildOptimizeRequest, upgradeCapPatch } from "./session";
 import type { BuildPreset, CatalogDto, OptimizeRequestDto, SolvedBuildDto } from "./types";
-
-// Convergence class names now come from the game's menu text; earlier saves hold the data row names.
-const RENAMED_CLASSES: Record<string, Record<string, string>> = {
-  convergence: {
-    "storm caller": "Stormcaller",
-    "retainer alt (tarnished edition)": "Retainer (Alt)",
-    "dreadnought alt (tarnished edition)": "Dreadnought (Alt)",
-  },
-};
-
-export function currentClassName(profileId: string, className: string): string {
-  return RENAMED_CLASSES[profileId]?.[className.toLowerCase()] ?? className;
-}
-
-export function activationRequest(request: OptimizeRequestDto, catalog: CatalogDto): OptimizeRequestDto {
-  if (request.profileId !== catalog.dataManifest.profile.id) {
-    throw new Error(`This build belongs to ${request.profileId}. Switch game profiles before loading it.`);
-  }
-  const className = currentClassName(request.profileId, request.className).toLowerCase();
-  const matches = catalog.classes.filter(entry => entry.name.toLowerCase() === className);
-  if (matches.length !== 1) {
-    throw new Error(`Starting class '${request.className}' is unavailable in this profile. Correct the saved inputs before loading; the original record is unchanged.`);
-  }
-  return { ...request, className: matches[0].name };
-}
-
-/** Clears saved names the current data no longer has, before Migrate data verifies the build. */
-export function migratePresetRequest(request: OptimizeRequestDto, catalog: CatalogDto): { request: OptimizeRequestDto; issues: string[] } {
-  const migrated = activationRequest(request, catalog);
-  return { request: migrated, issues: clearMissingNames(migrated, catalog) };
-}
-
-/** Clears the names and filters of a restored query that the current catalog no longer has; returns what it cleared. */
-export function reconcileRestoredQuery(request: OptimizeRequestDto, catalog: CatalogDto): { request: OptimizeRequestDto; issues: string[] } {
-  const reconciled = { ...request };
-  const issues = clearMissingNames(reconciled, catalog);
-  // Coverage filters are not catalog dimensions; native validation checks them.
-  const entries = request.filters.entries.filter((entry) => entry.dimension === "coverage" || catalog.filterDimensions
-    .some((dimension) => dimension.id === entry.dimension && dimension.options.some((option) => option.id === entry.id)));
-  const dropped = request.filters.entries.length - entries.length;
-  if (dropped) {
-    issues.push(dropped === 1 ? "1 filter no longer exists" : `${dropped} filters no longer exist`);
-    reconciled.filters = { ...request.filters, entries };
-  }
-  return { request: reconciled, issues };
-}
-
-// Edits the request it is given, which must be a copy.
-function clearMissingNames(migrated: OptimizeRequestDto, catalog: CatalogDto): string[] {
-  const issues: string[] = [];
-  // Older builds stored the type's label; newer ones its key. Either still filters correctly.
-  if (migrated.weaponTypeKey && !catalog.weaponTypeOptions.some((option) => option.key === migrated.weaponTypeKey || option.label === migrated.weaponTypeKey)) {
-    issues.push(`weapon type '${migrated.weaponTypeKey}' no longer exists`);
-    migrated.weaponTypeKey = null;
-  }
-  if (migrated.weaponName && !catalog.weaponNames.includes(migrated.weaponName)) {
-    issues.push(`weapon '${migrated.weaponName}' no longer exists`);
-    migrated.weaponName = null;
-    migrated.affinity = null;
-    migrated.aowName = null;
-  }
-  if (migrated.affinity && !catalog.affinityNames.includes(migrated.affinity)) {
-    issues.push(`affinity '${migrated.affinity}' no longer exists`);
-    migrated.affinity = null;
-    migrated.aowName = null;
-  }
-  if (migrated.aowName && !catalog.aowNames.includes(migrated.aowName)) {
-    issues.push(`skill '${migrated.aowName}' no longer exists`);
-    migrated.aowName = null;
-  }
-  return issues;
-}
 
 export function catalogVersion(catalog: CatalogDto): string {
   const manifest = catalog.dataManifest;
@@ -93,9 +22,8 @@ export async function verifyPresetResults(preset: BuildPreset, catalog: CatalogD
       weaponTypeKey: null, somberFilter: "all", filters: { version: 1, entries: [] },
       exactUpgrade: true,
       ...upgradeCapPatch(!unifiedCaps, row.isSomber, row.upgrade),
-      minStr: 0, minDex: 0, minInt: 0, minFai: 0, minArc: 0,
-      lockStr: row.stats.strStat, lockDex: row.stats.dex, lockInt: row.stats.intStat,
-      lockFai: row.stats.fai, lockArc: row.stats.arc,
+      ...noStatMinimums(),
+      ...statLocksAt(row.stats),
     });
     const solved = await api.solveBuild(base, row.weaponName, row.affinity, row.aowName, signal);
     if (!solved) throw new Error(`${label} cannot be verified with its saved equipment, upgrade and stats.`);

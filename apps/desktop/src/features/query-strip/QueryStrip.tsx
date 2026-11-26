@@ -2,14 +2,17 @@ import { Play, Redo2, RotateCcw, Search, Undo2 } from "lucide-react";
 import { lazy, ReactNode, Suspense, useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
 import brandMark from "../../assets/brand-mark.png";
 import { CommandAction, CommandContext } from "../../lib/commands";
-import { fixed1, objectiveLabel, statLockLine } from "../../lib/format";
+import { activeMinimumCount, EIGHT_STAT_KEYS, EIGHT_STATS, hasCombatStatLocks, noStatLocks, statLine, statLockLine } from "../../lib/combat-stats";
+import { fixed1 } from "../../lib/format";
 import { useWeaponProfile } from "../../lib/hooks";
+import { whenIdle } from "../../lib/idle";
 import { isTextEntry, keyboardOwnedByOverlay } from "../../lib/keyboard";
+import { objectiveLabel } from "../../lib/objectives";
 import { describeStep, redoQuery, trackQueryHistory, undoQuery, useQueryHistory } from "../../lib/query-history";
 import { flashChanged } from "../../lib/motion";
-import { budgetSnapshot, classLabel, classMeta, derivedLevel, EIGHT_STAT_KEYS, hasCombatStatLocks, optimalStartingClass, startingClassLevel, usesFixedStats } from "../../lib/session";
-import { defaultRequest, useDesktopStore } from "../../lib/state";
-import { EightStatsDto, OptimizeRequestDto } from "../../lib/types";
+import { budgetSnapshot, classLabel, classMeta, derivedLevel, optimalStartingClass, startingClassLevel, usesFixedStats } from "../../lib/session";
+import { activeProfileRules, defaultRequest, useDesktopStore } from "../../lib/state";
+import { EightStatsDto } from "../../lib/types";
 import { effectiveWeaponStrength } from "../../lib/weapon-handling";
 import { ShortcutsDialog } from "../command-palette/ShortcutsDialog";
 import { Popover } from "../shared/Popover";
@@ -31,17 +34,6 @@ import { useSearchRunner } from "./useSearchRunner";
 
 const CommandPalette = lazy(() => import("../command-palette/CommandPalette")
   .then((module) => ({ default: module.CommandPalette })));
-
-const STAT_FIELDS = [
-  ["VIG", "vig"],
-  ["MND", "mnd"],
-  ["END", "end"],
-  ["STR", "strStat"],
-  ["DEX", "dex"],
-  ["INT", "intStat"],
-  ["FAI", "fai"],
-  ["ARC", "arc"],
-] as const;
 
 // The whole query as one editable line: tokens open their editors, the ribbon below keeps
 // every stat visible and editable in place, and Ctrl+K edits anything by typing.
@@ -96,7 +88,8 @@ export function QueryStrip({ profile, coverage, onProfileChange }: {
   const missingRequirements = requirementGaps ? Object.values(requirementGaps).some((gap) => gap > 0) : false;
 
   const fixedStats = usesFixedStats(catalog, request.className);
-  const rules = catalog?.dataManifest.rules;
+  // While a profile's catalog loads, its own rules from the profile list shape the strip.
+  const rules = useDesktopStore(activeProfileRules);
   const separateUpgradeCaps = rules?.separateUpgradeCaps ?? true;
   const scadutreeAvailable = rules?.scadutreeScaling ?? true;
   const scadutreeMultipliers = rules?.scadutreeAttackMultipliers ?? [];
@@ -104,8 +97,7 @@ export function QueryStrip({ profile, coverage, onProfileChange }: {
   const standardUpgradeLimit = rules?.standardMaxUpgrade ?? 25;
   const somberUpgradeLimit = rules?.somberMaxUpgrade ?? 10;
   const exactLocksActive = lockedStatMode && hasCombatStatLocks(request);
-  const activeMinimums = [request.minStr, request.minDex, request.minInt, request.minFai, request.minArc]
-    .filter((value) => value > 0).length;
+  const activeMinimums = activeMinimumCount(request);
   const savedCoverageCount = request.filters.entries.filter((entry) => entry.dimension === "coverage").length;
   const analysesAvailable = catalog !== null && hasSelection && !resultsStale && !fixedStats;
   const searchBusy = isSearching || runner.isPreparingSearch;
@@ -149,13 +141,7 @@ export function QueryStrip({ profile, coverage, onProfileChange }: {
   // and keystrokes typed right after it are never lost to a chunk download.
   useEffect(() => {
     if (!catalog || paletteLoaded) return;
-    const load = () => setPaletteLoaded(true);
-    if ("requestIdleCallback" in window) {
-      const id = window.requestIdleCallback(load, { timeout: 2_000 });
-      return () => window.cancelIdleCallback(id);
-    }
-    const id = setTimeout(load, 500);
-    return () => clearTimeout(id);
+    return whenIdle(() => setPaletteLoaded(true), 500);
   }, [catalog, paletteLoaded]);
 
   function startSearch() {
@@ -225,13 +211,13 @@ export function QueryStrip({ profile, coverage, onProfileChange }: {
   }
 
   function resetStats() {
-    if (fixedStats) patchRequest({ vig: 1, mnd: 1, end: 1, strStat: 1, dex: 1, intStat: 1, fai: 1, arc: 1 });
+    if (fixedStats) patchRequest(Object.fromEntries(EIGHT_STAT_KEYS.map((key) => [key, 1])));
     else applyClass(useDesktopStore.getState().request.className);
   }
 
   function clearLocks() {
     setLockedStatMode(false);
-    patchRequest({ lockStr: null, lockDex: null, lockInt: null, lockFai: null, lockArc: null });
+    patchRequest(noStatLocks());
   }
 
   function runCommand(action: CommandAction) {
@@ -488,7 +474,7 @@ export function QueryStrip({ profile, coverage, onProfileChange }: {
         </span>
         <span className="ribbon-divider" aria-hidden="true" />
         <div className="ribbon-stats">
-          {STAT_FIELDS.map(([label, key], index) => (
+          {EIGHT_STATS.map(({ label, key }, index) => (
             <label
               key={key}
               className={`ribbon-stat${index === 3 ? " combat-start" : ""}${requirementGaps && (requirementGaps[key] ?? 0) > 0 ? " stat-short" : ""}`}
@@ -499,7 +485,7 @@ export function QueryStrip({ profile, coverage, onProfileChange }: {
                 description={requirementGaps && (requirementGaps[key] ?? 0) > 0 ? `${requirementGaps[key]} below the selected weapon's requirement` : undefined}
                 min={Math.max(1, meta.baseStats[key])}
                 max={99}
-                value={Number(request[key as keyof OptimizeRequestDto])}
+                value={request[key]}
                 onCommit={(value) => patchRequest({ [key]: value })}
               />
             </label>
@@ -522,11 +508,7 @@ export function QueryStrip({ profile, coverage, onProfileChange }: {
           {weaponProfile ? (
             <span className={`requirements-strip ${missingRequirements ? "missing" : ""}`}>
               <span>{missingRequirements ? "Requirements unmet" : "Requirements clear"}</span>
-              <strong>
-                STR {weaponProfile.requirements.strStat} / DEX {weaponProfile.requirements.dex} /
-                INT {weaponProfile.requirements.intStat} / FAI {weaponProfile.requirements.fai} /
-                ARC {weaponProfile.requirements.arc}
-              </strong>
+              <strong>{statLine(weaponProfile.requirements)}</strong>
             </span>
           ) : null}
           {profileResource.status === "loading" ? (

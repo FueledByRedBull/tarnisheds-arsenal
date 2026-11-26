@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const { solveBuild } = vi.hoisted(() => ({ solveBuild: vi.fn() }));
 vi.mock("./api", () => ({ api: { solveBuild } }));
 
-import { migratePresetRequest, verifyPresetResults } from "./preset-activation";
+import { verifyPresetResults } from "./preset-activation";
 import { defaultRequest } from "./state";
 import type { BuildPreset, CatalogDto, SolvedBuildDto } from "./types";
 
@@ -89,55 +89,5 @@ describe("saved builds across a Somber reclassification", () => {
     solveBuild.mockResolvedValue({ ...saved, isSomber: false, upgrade: 9 });
 
     await expect(verifyPresetResults(preset, unifiedCatalog, new AbortController().signal)).rejects.toThrow("contradict current game data");
-  });
-});
-
-describe("migratePresetRequest", () => {
-  const current = {
-    ...catalog,
-    dataManifest: { profile: { id: "vanilla" }, capabilities: { classBudget: true } },
-    weaponTypeOptions: [{ key: "Katana", label: "Katanas" }],
-    weaponNames: ["Uchigatana"],
-    affinityNames: ["Standard", "Keen"],
-    aowNames: ["Unsheathe"],
-  } as unknown as CatalogDto;
-  const saved = { ...defaultRequest, profileId: "vanilla", className: "samurai", weaponTypeKey: "Katana",
-    weaponName: "Uchigatana", affinity: "Keen", aowName: "Unsheathe" };
-
-  it("keeps names the current data still has, by key or by older label", () => {
-    expect(migratePresetRequest(saved, current)).toEqual({ request: { ...saved, className: "Samurai" }, issues: [] });
-    expect(migratePresetRequest({ ...saved, weaponTypeKey: "Katanas" }, current).issues).toEqual([]);
-  });
-
-  it("loads Convergence classes saved under their former data names", () => {
-    const stormcaller = { ...catalog.classes[0], name: "Stormcaller" };
-    const convergence = { ...current, classes: [stormcaller],
-      dataManifest: { ...current.dataManifest, profile: { id: "convergence" } } } as unknown as CatalogDto;
-    const old = { ...saved, profileId: "convergence", className: "Storm Caller" };
-    expect(migratePresetRequest(old, convergence).request.className).toBe("Stormcaller");
-    expect(() => migratePresetRequest({ ...old, profileId: "vanilla" }, current)).toThrow("Starting class 'Storm Caller'");
-  });
-
-  it("clears a removed weapon type", () => {
-    const { request, issues } = migratePresetRequest({ ...saved, weaponTypeKey: "Hammer" }, current);
-    expect(request.weaponTypeKey).toBeNull();
-    expect(issues).toEqual(["weapon type 'Hammer' no longer exists"]);
-  });
-
-  it("clears a removed weapon with the affinity and skill that depended on it", () => {
-    const { request, issues } = migratePresetRequest({ ...saved, weaponName: "Moonveil" }, current);
-    expect(request).toMatchObject({ weaponName: null, affinity: null, aowName: null });
-    expect(issues).toEqual(["weapon 'Moonveil' no longer exists"]);
-  });
-
-  it("clears a removed affinity with its skill, and a removed skill alone", () => {
-    expect(migratePresetRequest({ ...saved, affinity: "Bloody" }, current)).toMatchObject({
-      request: { weaponName: "Uchigatana", affinity: null, aowName: null },
-      issues: ["affinity 'Bloody' no longer exists"],
-    });
-    expect(migratePresetRequest({ ...saved, aowName: "Old Skill" }, current)).toMatchObject({
-      request: { affinity: "Keen", aowName: null },
-      issues: ["skill 'Old Skill' no longer exists"],
-    });
   });
 });

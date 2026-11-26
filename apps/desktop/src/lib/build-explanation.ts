@@ -1,7 +1,8 @@
-import { fixed1, metricForObjective, objectiveLabel } from "./format";
+import { COMBAT_STATS } from "./combat-stats";
+import { fixed1 } from "./format";
+import { metricForObjective, objectiveLabel } from "./objectives";
 import type { OptimizeRequestDto, SolvedBuildDto } from "./types";
 
-const statNames = ["STR", "DEX", "INT", "FAI", "ARC"];
 const damageTypes = ["physical", "magic", "fire", "lightning", "holy"] as const;
 
 /** How far `row` leads `runnerUp` on the ranked objective; null when either is unavailable. */
@@ -20,11 +21,9 @@ export function explainBuild(row: SolvedBuildDto, request: OptimizeRequestDto, a
   if (runnerUp) lines.push(runnerUpLine(row, runnerUp, request.objective, aowModelSupported));
   const damage = damageTypes.map(key => [key, row.ar[key]] as const).filter(([, value]) => value > 0);
   if (damage.length) lines.push(`Weapon AR comes from ${damage.map(([key, value]) => `${fixed1(value)} ${key}`).join(" + ")}. Enemy defenses and negation are not applied.`);
-  const locks = [request.lockStr, request.lockDex, request.lockInt, request.lockFai, request.lockArc];
-  const minimums = [request.minStr, request.minDex, request.minInt, request.minFai, request.minArc];
-  const constrained = statNames.flatMap((name, index) => locks[index] !== null
-    ? [`${name} locked at ${locks[index]}`]
-    : minimums[index] > 0 ? [`${name} minimum ${minimums[index]}`] : []);
+  const constrained = COMBAT_STATS.flatMap((stat) => request[stat.lock] !== null
+    ? [`${stat.label} locked at ${request[stat.lock]}`]
+    : request[stat.minimum] > 0 ? [`${stat.label} minimum ${request[stat.minimum]}`] : []);
   if (constrained.length) lines.push(`Allocation constraints: ${constrained.join(", ")}.`);
   if (request.weaponName || request.affinity || request.aowName || request.filters.entries.length) {
     lines.push(`Equipment constraints: ${[request.weaponName, request.affinity, request.aowName,

@@ -23,6 +23,25 @@ EXTRACTOR_VERSION = PROFILE_FACTS["extractorVersion"]
 SKILL_ANIMATION_SOURCE = "skillAnimations"
 RUNTIME_FILES = set(PROFILE_FACTS["runtimeFiles"])
 CLASS_CATALOG_FILE = PROFILE_FACTS["classCatalogFile"]
+# Paramdex definitions WitchyBND uses to serialize the params every profile extracts.
+PARAM_DEFINITIONS = (
+    "EquipParamWeapon",
+    "ReinforceParamWeapon",
+    "CalcCorrectGraph",
+    "AttackElementCorrectParam",
+    "EquipParamGem",
+    "SpEffect",
+)
+# Tool sources every manifest records, so a snapshot names the WitchyBND build and Paramdex
+# layouts that produced it.
+REQUIRED_TOOL_SOURCES = frozenset(
+    {"witchybnd", "paramdexMetaEquipParamWeapon", *(f"paramdexDefs{name}" for name in PARAM_DEFINITIONS)}
+)
+# Weapon and skill names come from FMG tables or, without them, from Paramdex name files.
+NAME_SOURCE_CHOICES = (
+    ("weaponNamesBase", "paramdexNamesEquipParamWeapon"),
+    ("artsNamesBase", "paramdexNamesSwordArtsParam"),
+)
 
 
 def runtime_files_for(profile_id: str, class_budget: bool) -> set[str]:
@@ -304,6 +323,12 @@ def validate_snapshot_manifest(
     source_by_kind = {record.get("kind"): record for record in sources}
     if len(source_by_kind) != len(sources) or "regulation" not in source_by_kind:
         raise ValueError("snapshot source kinds must be unique and include regulation")
+    missing_tool_sources = sorted(REQUIRED_TOOL_SOURCES - source_by_kind.keys())
+    if missing_tool_sources:
+        raise ValueError(f"snapshot sources are missing WitchyBND or Paramdex files: {missing_tool_sources}")
+    for choices in NAME_SOURCE_CHOICES:
+        if not source_by_kind.keys() & set(choices):
+            raise ValueError(f"snapshot sources name no {' or '.join(choices)} file")
     if (
         expected_profile is not None
         and source_by_kind["regulation"].get("sha256") != expected_profile.regulation_sha256

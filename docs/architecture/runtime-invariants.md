@@ -71,6 +71,29 @@ Status: accepted. These rules describe contracts that tests and future refactors
   uncertainty in one queue retains that queue's native ownership without blocking
   the other queue.
 - A response may update state only when generation, signature, and job ID all exactly match the active request.
+- The Rankings search, Paths and Affinity Watch each run through one run slot
+  (`src/lib/run-slot.ts`), which keeps the kind's generation, signature, busy state and job
+  ID in the store, starts the job on the kind's queue and checks that ownership rule for
+  every status and result. Stop and invalidation cancel through the slot, so the queue sends
+  the native cancellation and owns its recovery. A Paths or Affinity Watch run on stale
+  results is refused, with a notice, before it takes its slot, and every run clears its own
+  busy state when it ends unless a later run or an invalidation has taken the slot.
+- Other native work has no run slot, because its job ID never leaves its queue or because
+  several callers share it. Each caller instead passes an `AbortSignal`, which the queue
+  turns into the native cancellation and recovery, and checks its own generation before it
+  publishes:
+  - Comparison searches and CSV export run on the Rankings search queue through
+    `runSearchRequestForRows`. Compare's comparison search belongs to Compare's request
+    generation (`LatestRequest`); CSV export owns its search with its own controller while
+    `isExporting` is set and downloads only while that export is current. Neither writes
+    the store's search state.
+  - Compare's solves and upgrade series run on the shared analysis queue through the
+    analysis cache, whose pending work is cancelled only when its last subscriber leaves.
+    Compare publishes them only while its `LatestRequest` token is current.
+  - The AR / Bleed frontier runs on the shared analysis queue. Its generation and context
+    signature live in `LoadoutTradeoffs`, and a store subscription aborts it when the
+    request, stat-lock mode, selected build or catalog changes its context.
+- No component calls a native cancel command itself.
 - Cancellation replies and errors obey the same generation/job ownership rule;
   a late acknowledgement cannot clear or report an error on a replacement search.
 - Input changes invalidate the active generation before dependent state is changed.
@@ -104,7 +127,7 @@ Status: accepted. These rules describe contracts that tests and future refactors
   count; there is no standalone estimate API or frontend estimate job. A future
   asynchronous estimate needs a generation, signature, and job ID.
 - A profile switch invalidates every job generation before changing inputs, requests cancellation for all active backend jobs, clears profile-bound results, and cannot accept a completion from the previous profile.
-- Each profile keeps its last query (request and stat-lock mode) in memory and gets it back when the player returns to that profile. A query is never carried into another profile, and results are not restored: the returning query is searched again on demand.
+- Each profile keeps its last query (request and stat-lock mode) in memory and gets it back when the player returns to that profile. Results are not restored: the returning query is searched again on demand. A first visit to a profile starts from that profile's defaults and keeps only `twoHanding`, `exactUpgrade`, `dlcScaling`, `scadutreeLevel`, `resultGrouping` and `topK` from the query being left, under the new profile's rules; nothing else crosses profiles. A returning, saved or retried query gets its profile's rules (upgrade caps, Somber filter, Scadutree blessing) through the same restore as the rest of the query when the profile's data loads, and a notice names each rule that changed it.
 - Each profile's query is also saved on the device under its own profile key, written only while that profile is loaded, and restored at startup or on return after a restart. It is validated like an imported preset request; an unreadable query or one naming another profile is removed with a notice, never repaired or carried across profiles.
 - Release builds swallow WebView2's reload and print keys (F5, Ctrl+R, Ctrl+Shift+R,
   Ctrl+F5 and Ctrl+P) so they cannot discard the session; development builds keep
@@ -119,8 +142,13 @@ Status: accepted. These rules describe contracts that tests and future refactors
   Compare, Paths, or Affinity Watch; Compare clears its visible series and target until
   fresh Rankings results exist.
 - A preset's starting class must match the active catalog before activation can
-  mutate workspace or storage. An unambiguous case-insensitive match is
-  canonicalized; unknown classes are rejected rather than replaced.
+  mutate workspace or storage. An unambiguous case-insensitive match, or a class
+  the profile has renamed, is canonicalized with a notice naming the old and new
+  name; unknown classes are rejected rather than replaced.
+- A first visit to a profile starts from that profile's default class at its own
+  starting stats, never from the class being left. A restored session query whose
+  class the profile lacks is not rejected: it starts from the default class, with a
+  notice saying so.
 - Saved solved rows are archives. Even when their schema, dataset and model match,
   selected rows and comparison snapshots are recalculated through native fixed
   loadout solving with their exact equipment, upgrade and stats before publication.
@@ -165,7 +193,10 @@ Status: accepted. These rules describe contracts that tests and future refactors
   Essential writes refuse to replace an unreadable index. Recovery previews bind
   the exact source records/index, reject changed previews, preserve the original
   index before replacement, and leave unreadable records untouched. Storage read
-  failures must not throw through component rendering.
+  failures must not throw through component rendering. Backup and recovery scans
+  storage at idle time; until the library's current revision is scanned it says it is
+  checking, shows no earlier scan, and keeps Export all and Restore disabled with the
+  reason.
 - Bulk build backups use `tarnisheds-arsenal.build-backup` version 1, containing
   existing versioned presets, bounded to 500 builds/10 MiB. Validate the entire
   backup before writing, each build against the same size limit as a save; restore with new IDs and commit the index last. Failed

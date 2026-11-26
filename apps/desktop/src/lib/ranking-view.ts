@@ -1,4 +1,4 @@
-import { hasAowDamage, metricForObjective } from "./format";
+import { hasAowDamage, metricForObjective } from "./objectives";
 import { ObjectiveId, SolvedBuildDto } from "./types";
 
 // Display-only views of a ranked result list. The optimizer's order stays the rank; sorting

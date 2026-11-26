@@ -4,7 +4,7 @@ use std::time::{Duration, Instant};
 
 use er_optimizer_core::model::COMBAT_STAT_COUNT;
 use er_optimizer_core::{
-    OptimizeRequest, OptimizeResult, PreparedLoadoutEvaluator, effective_str,
+    OptimizeRequest, OptimizeResult, PreparedLoadoutEvaluator, SearchError, effective_str,
     optimize_level_range_with_progress, prepare_loadout_evaluator_with_cancel,
 };
 use tauri::State;
@@ -12,11 +12,11 @@ use tauri::State;
 use crate::commands::data::uses_class_budget;
 use crate::commands::optimize::{solved_weapon, validate_solved_loadout};
 use crate::dto::{
-    CombatStateDto, MAX_STAT, PathFinishedDto, PathJobStatusDto, PathMode, PathPreviewDto,
-    PathPreviewRequestDto, PathProgressDto, PathStepDto, SolvedBuildDto,
+    CombatStateDto, JobFinished, MAX_STAT, PathFinishedDto, PathJobStatusDto, PathMode,
+    PathPreviewDto, PathPreviewRequestDto, PathProgressDto, PathStepDto, SolvedBuildDto,
     StartPathPreviewRequestDto, StartSearchResponseDto, validate_path_batch, validate_path_lane,
 };
-use crate::errors::AppError;
+use crate::errors::{AppError, JobOutcome};
 use crate::request::{self, STAT_LABELS, cancel_job, job_status};
 use crate::{AppState, ProfileData};
 
@@ -140,11 +140,10 @@ fn run_path_preview_job(
     publish(progress.clone());
     let mut last_published = Instant::now();
     let mut paths = Vec::new();
-    let mut error = None;
-    let mut cancelled = false;
+    let mut failure = None;
     for lane in lanes {
         if !should_continue() {
-            cancelled = true;
+            failure = Some(SearchError::Cancelled);
             break;
         }
         let planned_levels = path_level_count(&lane);
@@ -165,30 +164,21 @@ fn run_path_preview_job(
                 progress.total -= planned_levels - completed_levels;
                 paths.push(path);
             }
-            Err(err) if err.message == "cancelled" => {
-                cancelled = true;
-                break;
-            }
-            Err(err) => {
-                error = Some(err.message);
+            Err(error) => {
+                failure = Some(error);
                 break;
             }
         }
     }
-    cancelled |= error.is_none() && !should_continue();
-    if cancelled || error.is_some() {
-        paths.clear();
-    } else {
+    let result = failure.map_or(Ok(paths), Err);
+    let cancel_requested = result.is_ok() && !should_continue();
+    let outcome = JobOutcome::new(result, cancel_requested);
+    if matches!(outcome, JobOutcome::Completed(_)) {
         progress.checked += 1;
     }
     PathJobStatusDto {
         progress: Some(progress),
-        finished: Some(PathFinishedDto {
-            job_id,
-            cancelled,
-            paths,
-            error,
-        }),
+        finished: Some(Arc::new(PathFinishedDto::new(job_id, outcome))),
     }
 }
 
@@ -206,32 +196,25 @@ fn publish_path_result(
 ) {
     match result {
         Ok(mut finished) => {
-            // Like the other job kinds, an error outranks a late cancellation.
+            // Like the other job kinds, an error outranks a late cancellation. The worker's
+            // payload is not shared yet, so this edits it in place.
             if cancelled
                 && finished
                     .finished
-                    .as_ref()
-                    .is_none_or(|result| result.error.is_none())
+                    .as_mut()
+                    .is_none_or(|result| Arc::make_mut(result).cancel_unless_failed())
+                && let Some(progress) = &mut finished.progress
+                && progress.checked == progress.total
             {
-                if let Some(result) = &mut finished.finished {
-                    result.cancelled = true;
-                    result.paths.clear();
-                }
-                if let Some(progress) = &mut finished.progress
-                    && progress.checked == progress.total
-                {
-                    progress.checked = progress.checked.saturating_sub(1);
-                }
+                progress.checked = progress.checked.saturating_sub(1);
             }
             *status = finished;
         }
         Err(message) => {
-            status.finished = Some(PathFinishedDto {
+            status.finished = Some(Arc::new(PathFinishedDto::new(
                 job_id,
-                cancelled: false,
-                paths: Vec::new(),
-                error: Some(message),
-            });
+                JobOutcome::Failed(message),
+            )));
         }
     }
 }
@@ -241,14 +224,14 @@ fn build_path_preview_inner(
     profile: &ProfileData,
     should_continue: impl Fn() -> bool + Sync,
     mut level_complete: impl FnMut(u16),
-) -> Result<PathPreviewDto, AppError> {
+) -> Result<PathPreviewDto, SearchError> {
     if lane.mode == PathMode::OptimumEnvelope {
         return build_optimum_envelope(lane, profile, should_continue, level_complete);
     }
     let start_state = lane.solved.stats;
     let target_level = lane.base.character_level.saturating_add(lane.levels_ahead);
     if !should_continue() {
-        return Err(AppError::new("cancelled"));
+        return Err(SearchError::Cancelled);
     }
     let evaluator = prepare_path_evaluator(&lane, target_level, profile, &should_continue)?;
     let first = evaluate_step(
@@ -264,11 +247,11 @@ fn build_path_preview_inner(
     level_complete(lane.base.character_level);
 
     if !should_continue() {
-        return Err(AppError::new("cancelled"));
+        return Err(SearchError::Cancelled);
     }
     let target = path_target_build(&lane, target_level, profile, &evaluator, &should_continue)?;
     if !should_continue() {
-        return Err(AppError::new("cancelled"));
+        return Err(SearchError::Cancelled);
     }
     let Some(target) = target else {
         return Ok(PathPreviewDto {
@@ -310,7 +293,7 @@ fn build_optimum_envelope(
     profile: &ProfileData,
     should_continue: impl Fn() -> bool + Sync,
     mut level_complete: impl FnMut(u16),
-) -> Result<PathPreviewDto, AppError> {
+) -> Result<PathPreviewDto, SearchError> {
     let first_level = lane.base.character_level;
     let last_level = first_level.saturating_add(lane.levels_ahead);
     let levels = (first_level..=last_level).collect::<Vec<_>>();
@@ -327,8 +310,7 @@ fn build_optimum_envelope(
             true
         },
         should_continue,
-    )
-    .map_err(AppError::from)?;
+    )?;
     let mut previous = lane.solved.stats;
     let steps = rows
         .into_iter()
@@ -352,7 +334,7 @@ fn build_optimum_envelope(
                 requirement_gap,
             })
         })
-        .collect::<Result<_, AppError>>()?;
+        .collect::<Result<_, SearchError>>()?;
     Ok(PathPreviewDto {
         title: lane.title,
         solved: lane.solved,
@@ -384,12 +366,11 @@ fn prepare_path_evaluator<'a>(
     target_level: u16,
     profile: &'a ProfileData,
     should_continue: &(impl Fn() -> bool + Sync),
-) -> Result<PreparedLoadoutEvaluator<'a>, AppError> {
+) -> Result<PreparedLoadoutEvaluator<'a>, SearchError> {
     let mut template = lane.base.clone();
     template.character_level = target_level;
     set_path_loadout(&mut template, &lane.solved, profile);
     prepare_loadout_evaluator_with_cancel(&template, &profile.data, should_continue)
-        .map_err(AppError::from)
 }
 
 fn path_target_build(
@@ -398,7 +379,7 @@ fn path_target_build(
     profile: &ProfileData,
     evaluator: &PreparedLoadoutEvaluator<'_>,
     should_continue: &(impl Fn() -> bool + Sync),
-) -> Result<Option<SolvedBuildDto>, AppError> {
+) -> Result<Option<SolvedBuildDto>, SearchError> {
     let mut target_request = lane.base.clone();
     target_request.character_level = target_level;
     set_path_loadout(&mut target_request, &lane.solved, profile);
@@ -410,7 +391,6 @@ fn path_target_build(
     evaluator
         .evaluate_with_cancel(&target_request, should_continue)
         .map(|mut rows| rows.pop().map(SolvedBuildDto::from))
-        .map_err(AppError::from)
 }
 
 fn choose_next_step(
@@ -421,7 +401,7 @@ fn choose_next_step(
     profile: &ProfileData,
     evaluator: &PreparedLoadoutEvaluator<'_>,
     should_continue: &(impl Fn() -> bool + Sync),
-) -> Result<Option<EvaluatedPathStep>, AppError> {
+) -> Result<Option<EvaluatedPathStep>, SearchError> {
     let (current, target) = (current_state.to_array(), target_state.to_array());
     let mut candidates = Vec::new();
     for stat in 0..COMBAT_STAT_COUNT {
@@ -432,7 +412,7 @@ fn choose_next_step(
             continue;
         };
         if !should_continue() {
-            return Err(AppError::new("cancelled"));
+            return Err(SearchError::Cancelled);
         }
         candidates.push(evaluate_step(
             lane,
@@ -445,7 +425,7 @@ fn choose_next_step(
         )?);
     }
     if !should_continue() {
-        return Err(AppError::new("cancelled"));
+        return Err(SearchError::Cancelled);
     }
     candidates.sort_by(compare_steps);
     Ok(candidates.pop())
@@ -461,7 +441,7 @@ fn evaluate_step(
     profile: &ProfileData,
     evaluator: &PreparedLoadoutEvaluator<'_>,
     should_continue: &(impl Fn() -> bool + Sync),
-) -> Result<EvaluatedPathStep, AppError> {
+) -> Result<EvaluatedPathStep, SearchError> {
     let mut request = lane.base.clone();
     request.character_level = level;
     set_path_loadout(&mut request, &lane.solved, profile);
@@ -469,8 +449,7 @@ fn evaluate_step(
     request::lock_to_stats(&mut request, stats);
 
     let solved = evaluator
-        .evaluate_with_cancel(&request, should_continue)
-        .map_err(AppError::from)?
+        .evaluate_with_cancel(&request, should_continue)?
         .pop();
     let requirement_gap = if solved.is_some() {
         0
@@ -635,8 +614,8 @@ mod integration_tests {
                 assert_eq!(publications.load(Ordering::Relaxed), 1);
                 let terminal = status.lock().unwrap();
                 let finished = terminal.finished.as_ref().unwrap();
-                assert!(finished.error.is_some());
-                assert!(!finished.cancelled);
+                assert!(finished.error().is_some());
+                assert!(!finished.cancelled());
                 assert!(finished.paths.is_empty());
                 if during_calculation {
                     assert_eq!(terminal.progress.as_ref().unwrap().checked, 0);
@@ -917,7 +896,7 @@ mod integration_tests {
             |_| panic!("cancelled level must not publish completion"),
         )
         .unwrap_err();
-        assert_eq!(error.message, "cancelled");
+        assert_eq!(error, SearchError::Cancelled);
         assert_eq!(polls.load(Ordering::Relaxed), polls_at_completion);
     }
 
@@ -941,7 +920,7 @@ mod integration_tests {
         };
         publish_path_result(&mut status, Ok(completed), "late-cancel".to_string(), true);
         let finished = status.finished.unwrap();
-        assert!(finished.cancelled);
+        assert!(finished.cancelled());
         assert!(finished.paths.is_empty());
         let progress = status.progress.unwrap();
         assert_eq!(progress.checked, 2);
@@ -974,8 +953,8 @@ mod integration_tests {
                         |snapshot| snapshots.push(snapshot),
                     );
                     let finished = status.finished.unwrap();
-                    assert!(!finished.cancelled);
-                    assert!(finished.error.is_none(), "{:?}", finished.error);
+                    assert!(!finished.cancelled());
+                    assert!(finished.error().is_none(), "{:?}", finished.error());
                     assert_eq!(finished.paths.len(), lanes);
                     let terminal = status.progress.unwrap();
                     assert_eq!(terminal.checked, terminal.total);
@@ -1020,7 +999,7 @@ mod integration_tests {
                 |_| {},
             );
             let finished = status.finished.unwrap();
-            assert!(finished.error.is_some());
+            assert!(finished.error().is_some());
             assert!(finished.paths.is_empty());
             let progress = status.progress.unwrap();
             assert_eq!(progress.checked, 2);
@@ -1036,9 +1015,9 @@ mod integration_tests {
                 |snapshot| snapshots.push(snapshot),
             );
             let finished = status.finished.unwrap();
-            assert!(finished.cancelled);
+            assert!(finished.cancelled());
             assert!(finished.paths.is_empty());
-            assert!(finished.error.is_none());
+            assert!(finished.error().is_none());
             let progress = status.progress.unwrap();
             assert_eq!(progress.checked, 0);
             assert!(progress.checked < progress.total);
@@ -1066,8 +1045,8 @@ mod integration_tests {
             |_| {},
         );
         let finished = status.finished.unwrap();
-        assert!(finished.error.is_some());
-        assert!(!finished.cancelled);
+        assert!(finished.error().is_some());
+        assert!(!finished.cancelled());
         assert!(finished.paths.is_empty());
     }
 
@@ -1103,7 +1082,7 @@ mod integration_tests {
             |_| {},
         );
         let finished = status.finished.unwrap();
-        assert!(finished.error.is_none(), "{:?}", finished.error);
+        assert!(finished.error().is_none(), "{:?}", finished.error());
         assert_eq!(finished.paths[0].steps.len(), 1);
         assert!(finished.paths[0].steps[0].metric.is_none());
         let progress = status.progress.unwrap();
@@ -1185,10 +1164,10 @@ mod integration_tests {
                 let finished = status.finished.unwrap();
                 let progress = status.progress.unwrap();
                 if horizon == 0 {
-                    assert!(finished.error.is_none(), "{:?}", finished.error);
+                    assert!(finished.error().is_none(), "{:?}", finished.error());
                     assert_eq!(progress.checked, progress.total);
                 } else {
-                    assert!(finished.error.is_some());
+                    assert!(finished.error().is_some());
                     assert!(finished.paths.is_empty());
                     assert!(progress.checked < progress.total);
                 }
@@ -1204,7 +1183,7 @@ mod integration_tests {
             .expect("Vanilla profile exists");
         let error = build_path_preview_inner(request(&state), profile, || false, |_| {})
             .expect_err("cancelled path must fail closed");
-        assert_eq!(error.message, "cancelled");
+        assert_eq!(error, SearchError::Cancelled);
     }
 
     #[test]
@@ -1237,7 +1216,7 @@ mod integration_tests {
             |_| {},
         )
         .expect_err("nested path cancellation must not return a partial path");
-        assert_eq!(error.message, "cancelled");
+        assert_eq!(error, SearchError::Cancelled);
         assert_eq!(polls.into_inner(), cancel_after);
     }
 
@@ -1416,7 +1395,7 @@ mod hostile_request_tests {
     }
 
     /// The validation of `start_path_preview` followed by the lane calculation.
-    fn run(state: &AppState, lanes: Vec<PathPreviewRequestDto>) -> Result<(), AppError> {
+    fn run(state: &AppState, lanes: Vec<PathPreviewRequestDto>) -> Result<(), SearchError> {
         let (profile, lanes) =
             prepare_path_preview(&StartPathPreviewRequestDto { requests: lanes }, state)?;
         for lane in lanes {

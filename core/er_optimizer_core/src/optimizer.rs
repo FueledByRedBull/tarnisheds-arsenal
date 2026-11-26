@@ -11,6 +11,7 @@ use num_integer::Integer;
 use num_traits::{One, ToPrimitive, Zero};
 use rayon::prelude::*;
 
+use crate::error::SearchError;
 use crate::math::ScalarAowRoute;
 use crate::math::{
     apply_aow_status_buffs, calculate_aow_routes_scaled_with_cancel, calculate_status_buildup,
@@ -50,14 +51,14 @@ struct AowChoice<'a> {
     scalar_routes: Option<SharedScalarRoutes<'a>>,
 }
 
-type SharedScalarRoutes<'a> = Arc<Result<Option<Vec<ScalarAowRoute<'a>>>, String>>;
+type SharedScalarRoutes<'a> = Arc<Result<Option<Vec<ScalarAowRoute<'a>>>, SearchError>>;
 type ScalarRouteSet<'routes, 'data> = Cow<'routes, [ScalarAowRoute<'data>]>;
 
 fn scalar_route_set<'routes, 'data>(
     choice: &'routes AowChoice<'data>,
     data: &'data GameData,
     two_handing: bool,
-) -> Result<Option<ScalarRouteSet<'routes, 'data>>, String> {
+) -> Result<Option<ScalarRouteSet<'routes, 'data>>, SearchError> {
     match choice.scalar_routes.as_deref() {
         Some(Ok(routes)) => Ok(routes
             .as_ref()
@@ -72,7 +73,7 @@ fn handled_scalar_routes<'a>(
     attack_rows: &[&'a AowAttackRow],
     data: &'a GameData,
     two_handing: bool,
-) -> Result<Option<Vec<ScalarAowRoute<'a>>>, String> {
+) -> Result<Option<Vec<ScalarAowRoute<'a>>>, SearchError> {
     prepare_scalar_aow_routes(attack_rows, data).map(|routes| {
         routes.map(|mut routes| {
             routes.retain(|route| route_matches_handling(&route.route_id, two_handing));
@@ -183,12 +184,12 @@ impl PreparedLoadoutEvaluator<'_> {
         &self,
         request: &OptimizeRequest,
         mut should_continue: F,
-    ) -> Result<Vec<OptimizeResult>, String>
+    ) -> Result<Vec<OptimizeResult>, SearchError>
     where
         F: Fn() -> bool + Sync,
     {
         if !should_continue() {
-            return Err("cancelled".into());
+            return Err(SearchError::Cancelled);
         }
         validate_reusable_loadout(&self.template, request, self.data)?;
         let constraints = build_combat_constraints(request, self.data)?;
@@ -232,7 +233,7 @@ impl PreparedLoadoutEvaluator<'_> {
         &self,
         request: &OptimizeRequest,
         mut should_continue: F,
-    ) -> Result<Vec<ArBleedFrontierPoint>, String>
+    ) -> Result<Vec<ArBleedFrontierPoint>, SearchError>
     where
         F: Fn() -> bool + Sync,
     {
@@ -241,7 +242,7 @@ impl PreparedLoadoutEvaluator<'_> {
             return Err("selected profile does not provide status-buildup data".into());
         }
         if !should_continue() {
-            return Err("cancelled".into());
+            return Err(SearchError::Cancelled);
         }
         let constraints = build_combat_constraints(request, self.data)?;
         let mut weapons = self.weapons.to_vec();
@@ -286,7 +287,7 @@ impl PreparedLoadoutEvaluator<'_> {
                     // Coupled routes retain the ordinary solver's exhaustive path.
                     for spend in min_spend..=max_spend {
                         if !should_continue() {
-                            return Err("cancelled".into());
+                            return Err(SearchError::Cancelled);
                         }
                         fixed.locked_combat_stats[STAT_ARC] =
                             Some(constraints.mins[STAT_ARC] + spend as u8);
@@ -303,7 +304,7 @@ impl PreparedLoadoutEvaluator<'_> {
 fn build_ar_bleed_frontier(
     mut candidates: Vec<OptimizeResult>,
     should_continue: &mut impl FnMut() -> bool,
-) -> Result<Vec<ArBleedFrontierPoint>, String> {
+) -> Result<Vec<ArBleedFrontierPoint>, SearchError> {
     candidates.sort_by(|a, b| {
         b.exact_key
             .ar_total
@@ -328,7 +329,7 @@ fn build_ar_bleed_frontier(
     let mut frontier = Vec::new();
     for result in candidates {
         if !should_continue() {
-            return Err("cancelled".into());
+            return Err(SearchError::Cancelled);
         }
         if best_bleed
             .as_ref()
@@ -357,9 +358,9 @@ fn ar_bleed_candidates_with_reuse(
     evaluator: &PreparedLoadoutEvaluator<'_>,
     request: &OptimizeRequest,
     should_continue: &mut impl FnMut() -> bool,
-) -> Result<Option<Vec<OptimizeResult>>, String> {
+) -> Result<Option<Vec<OptimizeResult>>, SearchError> {
     if !should_continue() {
-        return Err("cancelled".into());
+        return Err(SearchError::Cancelled);
     }
     let prepared = &evaluator.weapons[0];
     let choice = &prepared.aow_choices[0];
@@ -405,7 +406,7 @@ fn ar_bleed_candidates_with_reuse(
     };
     for route in routes {
         if !should_continue() {
-            return Err("cancelled".into());
+            return Err(SearchError::Cancelled);
         }
         let route_formula = route
             .map(|route| {
@@ -441,7 +442,7 @@ fn ar_bleed_candidates_with_reuse(
             let cap = usize::from(other.maxs[stat] - other.mins[stat]).min(budget);
             for add in 0..=cap {
                 if !should_continue() {
-                    return Err("cancelled".into());
+                    return Err(SearchError::Cancelled);
                 }
                 let mut combat = search.mins;
                 combat[stat] += add as u8;
@@ -465,7 +466,7 @@ fn ar_bleed_candidates_with_reuse(
         )?;
         for arc_spend in 0..=arc_capacity {
             if !should_continue() {
-                return Err("cancelled".into());
+                return Err(SearchError::Cancelled);
             }
             let mut slice = other;
             slice.remaining_free -= arc_spend;
@@ -474,7 +475,7 @@ fn ar_bleed_candidates_with_reuse(
             let mut winner = None;
             for spent in slice.min_active_spend()..=slice.max_active_spend() {
                 if !should_continue() {
-                    return Err("cancelled".into());
+                    return Err(SearchError::Cancelled);
                 }
                 let Some(mut combat) = solved.combat[usize::from(spent)] else {
                     continue;
@@ -531,13 +532,13 @@ impl PreparedUpgradeSeriesEvaluator<'_> {
         request: &OptimizeRequest,
         max_upgrade: u8,
         mut should_continue: F,
-    ) -> Result<Vec<OptimizeResult>, String>
+    ) -> Result<Vec<OptimizeResult>, SearchError>
     where
         F: FnMut() -> bool + Send,
     {
         validate_reusable_loadout(&self.template, request, self.data)?;
         if request.locked_combat_stats.iter().any(Option::is_none) {
-            return Err("upgrade series evaluation requires exact combat stats".to_string());
+            return Err("upgrade series evaluation requires exact combat stats".into());
         }
         let constraints = build_combat_constraints(request, self.data)?;
         let [str_stat, dex, int_stat, fai, arc] = constraints.mins;
@@ -552,7 +553,7 @@ impl PreparedUpgradeSeriesEvaluator<'_> {
         let mut rows = Vec::new();
         for upgrade in 0..=max_upgrade {
             if !should_continue() {
-                return Err("cancelled".to_string());
+                return Err(SearchError::Cancelled);
             }
             if let Some(row) = evaluate_fixed_loadout_upgrade(
                 request,
@@ -730,10 +731,10 @@ impl DpReuse {
         primary_only: bool,
         allowed: Option<&[Vec<Vec<u8>>; COMBAT_STAT_COUNT]>,
         should_continue: &mut impl FnMut() -> bool,
-    ) -> Result<Arc<CachedDpResult>, String> {
+    ) -> Result<Arc<CachedDpResult>, SearchError> {
         if let Some(result) = self.cached(&key)? {
             if !should_continue() {
-                return Err("cancelled".to_string());
+                return Err(SearchError::Cancelled);
             }
             return Ok(result);
         }
@@ -789,7 +790,7 @@ fn solve_exact_with_reuse<const N: usize>(
     primary_only: bool,
     allowed: Option<&[Vec<Vec<u8>>; COMBAT_STAT_COUNT]>,
     should_continue: &mut impl FnMut() -> bool,
-) -> Result<DpSolve, String> {
+) -> Result<DpSolve, SearchError> {
     match (reuse, key) {
         (Some(reuse), Some(key)) => Ok(DpSolve::Shared(reuse.solve(
             key,
@@ -831,7 +832,7 @@ const PARALLEL_AOW_CHUNK_SIZE: usize = 8;
 pub fn prepare_search<'a>(
     request: &OptimizeRequest,
     data: &'a GameData,
-) -> Result<PreparedSearchPlan<'a>, String> {
+) -> Result<PreparedSearchPlan<'a>, SearchError> {
     prepare_search_with_cancel(request, data, || true)
 }
 
@@ -839,12 +840,12 @@ pub fn prepare_search_with_cancel<'a, F>(
     request: &OptimizeRequest,
     data: &'a GameData,
     mut should_continue: F,
-) -> Result<PreparedSearchPlan<'a>, String>
+) -> Result<PreparedSearchPlan<'a>, SearchError>
 where
     F: FnMut() -> bool,
 {
     if !should_continue() {
-        return Err("cancelled".to_string());
+        return Err(SearchError::Cancelled);
     }
     validate_profile_capabilities(request, data)?;
     let constraints = build_combat_constraints(request, data)?;
@@ -945,7 +946,7 @@ pub fn prepare_loadout_evaluator_with_cancel<'a, F>(
     request: &OptimizeRequest,
     data: &'a GameData,
     mut should_continue: F,
-) -> Result<PreparedLoadoutEvaluator<'a>, String>
+) -> Result<PreparedLoadoutEvaluator<'a>, SearchError>
 where
     F: FnMut() -> bool,
 {
@@ -961,7 +962,7 @@ pub fn prepare_upgrade_series_evaluator_with_cancel<'a, F>(
     request: &OptimizeRequest,
     data: &'a GameData,
     mut should_continue: F,
-) -> Result<PreparedUpgradeSeriesEvaluator<'a>, String>
+) -> Result<PreparedUpgradeSeriesEvaluator<'a>, SearchError>
 where
     F: FnMut() -> bool,
 {
@@ -981,7 +982,7 @@ fn prepare_reusable_weapons<'a>(
     data: &'a GameData,
     exact_upgrade: bool,
     should_continue: &mut impl FnMut() -> bool,
-) -> Result<(OptimizeRequest, Arc<[PreparedWeapon<'a>]>), String> {
+) -> Result<(OptimizeRequest, Arc<[PreparedWeapon<'a>]>), SearchError> {
     validate_profile_capabilities(request, data)?;
     let purpose = if exact_upgrade {
         "reusable loadout evaluation"
@@ -989,7 +990,7 @@ fn prepare_reusable_weapons<'a>(
         "upgrade series evaluation"
     };
     if request.weapon_name.is_none() || request.affinity.is_none() {
-        return Err(format!("{purpose} requires a weapon and affinity"));
+        return Err(format!("{purpose} requires a weapon and affinity").into());
     }
     if request.exact_upgrade != exact_upgrade {
         let upgrades = if exact_upgrade {
@@ -997,10 +998,10 @@ fn prepare_reusable_weapons<'a>(
         } else {
             "an upgrade range"
         };
-        return Err(format!("{purpose} requires {upgrades}"));
+        return Err(format!("{purpose} requires {upgrades}").into());
     }
     if !should_continue() {
-        return Err("cancelled".to_string());
+        return Err(SearchError::Cancelled);
     }
     let mut preparation_request = request.clone();
     preparation_request.min_combat_stats = [0; COMBAT_STAT_COUNT];
@@ -1073,14 +1074,14 @@ fn build_prepared_plan<'a>(
     constraints: CombatConstraints,
     weapons: Arc<[PreparedWeapon<'a>]>,
     should_continue: &mut impl FnMut() -> bool,
-) -> Result<PreparedSearchPlan<'a>, String> {
+) -> Result<PreparedSearchPlan<'a>, SearchError> {
     // Each Ash choice's stat search depends only on its weapon, so weapons resolve and group
     // their choices in parallel (with per-thread count memos); groups keep weapon order.
     let mut weapon_groups: Vec<Vec<(RelevantStatSearch, Vec<usize>)>> =
         Vec::with_capacity(weapons.len());
     for chunk in weapons.chunks(prepare_weapon_chunk()) {
         if !should_continue() {
-            return Err("cancelled".to_string());
+            return Err(SearchError::Cancelled);
         }
         weapon_groups.par_extend(chunk.par_iter().map_init(
             HashMap::new,
@@ -1125,7 +1126,7 @@ fn level_plan_from<'a>(
     request: &OptimizeRequest,
     constraints: CombatConstraints,
     should_continue: &mut impl FnMut() -> bool,
-) -> Result<PreparedSearchPlan<'a>, String> {
+) -> Result<PreparedSearchPlan<'a>, SearchError> {
     let mut distribution_counts = HashMap::new();
     let mut weapon_groups = vec![Vec::new(); template.weapons.len()];
     for group in &template.groups {
@@ -1154,7 +1155,7 @@ fn assemble_prepared_plan<'a>(
     weapons: Arc<[PreparedWeapon<'a>]>,
     weapon_groups: Vec<Vec<(RelevantStatSearch, Vec<usize>)>>,
     should_continue: &mut impl FnMut() -> bool,
-) -> Result<PreparedSearchPlan<'a>, String> {
+) -> Result<PreparedSearchPlan<'a>, SearchError> {
     let mut groups: Vec<PreparedSearchGroup> = Vec::new();
     let mut stat_candidates = 0_u64;
     let mut combinations = 0_u64;
@@ -1201,7 +1202,10 @@ fn assemble_prepared_plan<'a>(
     Ok(plan)
 }
 
-pub fn optimize(request: &OptimizeRequest, data: &GameData) -> Result<Vec<OptimizeResult>, String> {
+pub fn optimize(
+    request: &OptimizeRequest,
+    data: &GameData,
+) -> Result<Vec<OptimizeResult>, SearchError> {
     if request.top_k == 0 {
         validate_profile_capabilities(request, data)?;
         return Ok(Vec::new());
@@ -1214,7 +1218,7 @@ pub fn optimize_with_cancel<F>(
     request: &OptimizeRequest,
     data: &GameData,
     should_continue: F,
-) -> Result<Vec<OptimizeResult>, String>
+) -> Result<Vec<OptimizeResult>, SearchError>
 where
     F: Fn() -> bool + Sync,
 {
@@ -1233,7 +1237,7 @@ pub fn optimize_level_range_with_progress<F, C>(
     data: &GameData,
     mut level_complete: F,
     mut should_continue: C,
-) -> Result<Vec<LevelOptimizeResult>, String>
+) -> Result<Vec<LevelOptimizeResult>, SearchError>
 where
     F: FnMut(u16) -> bool,
     C: Fn() -> bool + Sync,
@@ -1249,7 +1253,8 @@ where
         return Err(format!(
             "level range starts at {} below request level {}",
             ordered_levels[0], request.character_level
-        ));
+        )
+        .into());
     }
     let max_level = *ordered_levels
         .last()
@@ -1269,7 +1274,7 @@ where
     }
 
     if !should_continue() {
-        return Err("cancelled".to_string());
+        return Err(SearchError::Cancelled);
     }
     let max_constraints = build_combat_constraints(&max_request, data)?;
     let shared_weapons = Arc::from(
@@ -1311,7 +1316,7 @@ where
                     .map_err(|_| "failed to lock recorded route bounds".to_string())?;
                 route_bounds = RangeRouteBounds::Recorded(Arc::new(recorded));
             }
-            Err(error) if error == "cancelled" => return Err(error),
+            Err(SearchError::Cancelled) => return Err(SearchError::Cancelled),
             // Other errors surface in level order, as the levels below may fail first.
             Err(_) => max_plan.route_bounds = RangeRouteBounds::Off,
         }
@@ -1319,7 +1324,7 @@ where
 
     let solve_lower = |level: u16| {
         if !should_continue() {
-            return Err("cancelled".to_string());
+            return Err(SearchError::Cancelled);
         }
         let mut level_request = request.clone();
         level_request.character_level = level;
@@ -1344,12 +1349,12 @@ where
         for (&level, rows) in levels.iter().zip(solved) {
             results.push(LevelOptimizeResult { level, rows: rows? });
             if !level_complete(level) {
-                return Err("cancelled".to_string());
+                return Err(SearchError::Cancelled);
             }
         }
     }
     if !should_continue() {
-        return Err("cancelled".to_string());
+        return Err(SearchError::Cancelled);
     }
     let rows = match max_rows {
         Some(rows) => rows,
@@ -1364,7 +1369,7 @@ where
         rows,
     });
     if !level_complete(max_level) {
-        return Err("cancelled".to_string());
+        return Err(SearchError::Cancelled);
     }
     Ok(results)
 }
@@ -1374,7 +1379,7 @@ fn solve_range_level<C>(
     plan: &PreparedSearchPlan<'_>,
     dp_reuse: Option<&DpReuse>,
     should_continue: &C,
-) -> Result<Vec<OptimizeResult>, String>
+) -> Result<Vec<OptimizeResult>, SearchError>
 where
     C: Fn() -> bool + Sync,
 {
@@ -1383,14 +1388,14 @@ where
 }
 /// Independent level ranges, such as one per affinity, on the shared Rayon pool. Results
 /// keep request order; `level_complete` also receives the request's position. The first
-/// error other than "cancelled" stops the remaining ranges, which then report "cancelled".
+/// failure stops the remaining ranges, which then report `SearchError::Cancelled`.
 pub fn optimize_level_ranges_with_progress<F, C>(
     requests: &[OptimizeRequest],
     levels: &[u16],
     data: &GameData,
     level_complete: F,
     should_continue: C,
-) -> Vec<Result<Vec<LevelOptimizeResult>, String>>
+) -> Vec<Result<Vec<LevelOptimizeResult>, SearchError>>
 where
     F: Fn(usize, u16) -> bool + Sync,
     C: Fn() -> bool + Sync,
@@ -1407,7 +1412,7 @@ where
                 |level| level_complete(index, level),
                 || !failed.load(Ordering::Relaxed) && should_continue(),
             );
-            if matches!(&result, Err(error) if error != "cancelled") {
+            if matches!(result, Err(SearchError::Failed(_))) {
                 failed.store(true, Ordering::Relaxed);
             }
             result
@@ -1441,7 +1446,7 @@ pub fn optimize_prepared_with_progress<F, C>(
     progress_every: u64,
     should_continue: C,
     progress_cb: F,
-) -> Result<Vec<OptimizeResult>, String>
+) -> Result<Vec<OptimizeResult>, SearchError>
 where
     F: FnMut(ProgressSnapshot) + Send,
     C: Fn() -> bool + Sync,
@@ -1456,7 +1461,7 @@ fn optimize_prepared<F, C>(
     should_continue: &C,
     mut progress_cb: F,
     reuse: Option<&DpReuse>,
-) -> Result<Vec<OptimizeResult>, String>
+) -> Result<Vec<OptimizeResult>, SearchError>
 where
     F: FnMut(ProgressSnapshot) + Send,
     C: Fn() -> bool + Sync,
@@ -1497,7 +1502,7 @@ where
 pub fn optimize_profiled(
     request: &OptimizeRequest,
     data: &GameData,
-) -> Result<ProfiledOptimizeResult, String> {
+) -> Result<ProfiledOptimizeResult, SearchError> {
     let preparation_started = Instant::now();
     let plan = prepare_search(request, data)?;
     let preparation = preparation_started.elapsed();
@@ -1526,7 +1531,7 @@ fn score_prepared_with_progress<F, C>(
     should_continue: &C,
     progress_cb: F,
     reuse: Option<&DpReuse>,
-) -> Result<Vec<ScoredCandidate>, String>
+) -> Result<Vec<ScoredCandidate>, SearchError>
 where
     F: FnMut(ProgressSnapshot) + Send,
     C: Fn() -> bool + Sync,
@@ -1597,7 +1602,7 @@ fn build_search_work_units(
     plan: &PreparedSearchPlan<'_>,
     split_aows: bool,
     should_continue: &mut impl FnMut() -> bool,
-) -> Result<Vec<SearchWorkUnit>, String> {
+) -> Result<Vec<SearchWorkUnit>, SearchError> {
     let mut units = Vec::new();
     for (group_idx, group) in plan.groups.iter().enumerate() {
         let chunk_size = if plan.request.objective.scores_skill() {
@@ -1632,7 +1637,7 @@ fn build_search_work_units(
             .iter()
             .map(|group| {
                 if !should_continue() {
-                    return Err("cancelled".to_string());
+                    return Err(SearchError::Cancelled);
                 }
                 let prepared = &plan.weapons[group.prepared_idx];
                 let weapon = prepared.weapon;
@@ -1680,7 +1685,7 @@ fn build_search_work_units(
                 };
                 Ok((bleed, best))
             })
-            .collect::<Result<Vec<_>, String>>()?;
+            .collect::<Result<Vec<_>, SearchError>>()?;
         units.sort_by(|left, right| {
             let (left, right) = (estimates[left.group_idx], estimates[right.group_idx]);
             right.0.total_cmp(&left.0).then(right.1.total_cmp(&left.1))
@@ -1721,7 +1726,7 @@ fn score_serial<F, C>(
     group_mode: ResultGroupMode,
     progress: &mut SerialSearchProgress<F, C>,
     reuse: Option<&DpReuse>,
-) -> Result<Vec<ScoredCandidate>, String>
+) -> Result<Vec<ScoredCandidate>, SearchError>
 where
     F: FnMut(ProgressSnapshot),
     C: Fn() -> bool,
@@ -1755,7 +1760,7 @@ fn score_parallel<F, C>(
     should_continue: C,
     progress_cb: F,
     reuse: Option<&DpReuse>,
-) -> Result<Vec<ScoredCandidate>, String>
+) -> Result<Vec<ScoredCandidate>, SearchError>
 where
     F: FnMut(ProgressSnapshot) + Send,
     C: Fn() -> bool + Send + Sync,
@@ -1810,7 +1815,7 @@ where
         .map_err(|_| "failed to lock parallel top-K candidates".to_string())?;
     progress.emit_final()?;
     if progress.is_cancelled() {
-        return Err("cancelled".to_string());
+        return Err(SearchError::Cancelled);
     }
     Ok(candidates)
 }
@@ -1821,7 +1826,7 @@ fn optimize_serial<F, C>(
     work_units: &[SearchWorkUnit],
     group_mode: ResultGroupMode,
     progress: &mut SerialSearchProgress<F, C>,
-) -> Result<Vec<OptimizeResult>, String>
+) -> Result<Vec<OptimizeResult>, SearchError>
 where
     F: FnMut(ProgressSnapshot),
     C: Fn() -> bool,
@@ -1839,7 +1844,7 @@ fn optimize_parallel<F>(
     total: u64,
     progress_every: u64,
     progress_cb: F,
-) -> Result<Vec<OptimizeResult>, String>
+) -> Result<Vec<OptimizeResult>, SearchError>
 where
     F: FnMut(ProgressSnapshot) + Send,
 {
@@ -1863,7 +1868,7 @@ fn search_work_unit_exhaustive<P>(
     unit: SearchWorkUnit,
     group_mode: ResultGroupMode,
     progress: &mut P,
-) -> Result<Vec<ScoredCandidate>, String>
+) -> Result<Vec<ScoredCandidate>, SearchError>
 where
     P: SearchProgress,
 {
@@ -1872,12 +1877,12 @@ where
     let prepared = &plan.weapons[group.prepared_idx];
     let aow_indices = &group.aow_indices[unit.aow_start..unit.aow_end];
     let mut candidates = Vec::new();
-    let mut visit_result: Result<(), String> = Ok(());
+    let mut visit_result: Result<(), SearchError> = Ok(());
 
     let mut current_combat = group.search.mins;
     group.search.visit(&mut current_combat, |combat| {
         if progress.is_cancelled() {
-            visit_result = Err("cancelled".to_string());
+            visit_result = Err(SearchError::Cancelled);
             return false;
         }
         let mut stats = request.current_stats;
@@ -1950,7 +1955,7 @@ fn search_dp_work_unit<P>(
     progress: &mut P,
     cutoff: Option<&ObjectiveKey>,
     reuse: Option<&DpReuse>,
-) -> Result<Vec<ScoredCandidate>, String>
+) -> Result<Vec<ScoredCandidate>, SearchError>
 where
     P: SearchProgress,
 {
@@ -2386,7 +2391,7 @@ where
                         continue;
                     }
                     None => {
-                        return Err("AoW route optimizer found no feasible allocation".to_string());
+                        return Err("AoW route optimizer found no feasible allocation".into());
                     }
                 }
             };
@@ -2554,7 +2559,7 @@ fn max_bleed<'a>(
     choices: impl Iterator<Item = &'a AowChoice<'a>>,
     upgrade: u8,
     data: &GameData,
-) -> Result<Option<ExactRational>, String> {
+) -> Result<Option<ExactRational>, SearchError> {
     let weapon = prepared.weapon;
     if data
         .reinforce_level(weapon.reinforce_type, upgrade)
@@ -2638,7 +2643,7 @@ fn prepare_primary_allocations<P: SearchProgress>(
     prepared_idx: usize,
     aow_idx: usize,
     reuse: Option<&DpReuse>,
-) -> Result<PrimaryAllocationPlan, String> {
+) -> Result<PrimaryAllocationPlan, SearchError> {
     progress.poll()?;
     let key = dp_cache_key(
         reuse,
@@ -2778,7 +2783,7 @@ fn exact_unique_primary_allocation<P: SearchProgress>(
     progress: &mut P,
     ranks: &[Option<usize>],
     additions: &[Vec<Vec<u8>>; COMBAT_STAT_COUNT],
-) -> Result<Option<[u8; COMBAT_STAT_COUNT]>, String> {
+) -> Result<Option<[u8; COMBAT_STAT_COUNT]>, SearchError> {
     if search.remaining_free == 0 {
         return Ok(None);
     }
@@ -2846,13 +2851,13 @@ fn best_objective_allocation<P>(
     reuse: Option<&DpReuse>,
     prepared_idx: usize,
     aow_idx: usize,
-) -> Result<ObjectiveAllocation, String>
+) -> Result<ObjectiveAllocation, SearchError>
 where
     P: SearchProgress,
 {
     progress.poll()?;
     if search.remaining_free == 0 {
-        return evaluate_objective_allocation(
+        return Ok(evaluate_objective_allocation(
             search.mins,
             request,
             prepared,
@@ -2860,7 +2865,7 @@ where
             upgrade,
             route,
             data,
-        );
+        )?);
     }
     if route.is_none()
         && match request.objective {
@@ -2953,9 +2958,9 @@ where
             }
         }
         if unique {
-            return evaluate_objective_allocation(
+            return Ok(evaluate_objective_allocation(
                 combat, request, prepared, aow_choice, upgrade, route, data,
-            );
+            )?);
         }
     }
     let mut route_primary = None;
@@ -3039,9 +3044,9 @@ where
         if let Some(combat) =
             exact_unique_primary_allocation(search, progress, solved.ranks(), solved.additions())?
         {
-            return evaluate_objective_allocation(
+            return Ok(evaluate_objective_allocation(
                 combat, request, prepared, aow_choice, upgrade, route, data,
-            );
+            )?);
         }
         route_primary = Some(solved);
     }
@@ -3204,7 +3209,7 @@ where
     }
     let (_, combat) =
         best.ok_or_else(|| "stat optimizer could not satisfy the stat budget".to_string())?;
-    evaluate(combat)
+    Ok(evaluate(combat)?)
 }
 
 /// A non-additive correction couples only the stats sharing a corrected damage type
@@ -3222,7 +3227,7 @@ fn coupled_route_allocation<P: SearchProgress>(
     route: &ScalarAowRoute<'_>,
     data: &GameData,
     progress: &mut P,
-) -> Result<ObjectiveAllocation, String> {
+) -> Result<ObjectiveAllocation, SearchError> {
     // Compiled once per route and upgrade: every candidate below is then table lookups and
     // exact sums instead of re-deriving AR and every hit from the loaded floats.
     let maxima = formula_max_stats(search, request, prepared.weapon);
@@ -3481,7 +3486,9 @@ fn coupled_route_allocation<P: SearchProgress>(
                 progress,
             )?,
         };
-        return evaluate(best.ok_or_else(|| "no feasible skill allocation".to_string())?);
+        return Ok(evaluate(
+            best.ok_or_else(|| "no feasible skill allocation".to_string())?,
+        )?);
     }
     let mut best: Option<([ExactRational; KEY], [u8; COMBAT_STAT_COUNT])> = None;
     let mut error = None;
@@ -3537,7 +3544,7 @@ fn coupled_route_allocation<P: SearchProgress>(
         return Err(error);
     }
     let (_, combat) = best.ok_or_else(|| "no feasible skill allocation".to_string())?;
-    evaluate(combat)
+    Ok(evaluate(combat)?)
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -3713,7 +3720,7 @@ fn objective_key_with_formulas(
 
 /// DP `should_continue` adapter that keeps a failed poll's own error (for example a
 /// poisoned progress lock) instead of the solver's generic cancellation.
-fn poll_continues(progress: &mut impl SearchProgress, error: &mut Option<String>) -> bool {
+fn poll_continues(progress: &mut impl SearchProgress, error: &mut Option<SearchError>) -> bool {
     match progress.poll() {
         Ok(()) => true,
         Err(poll_error) => {
@@ -3788,7 +3795,7 @@ fn exact_candidate(
     aow_idx: usize,
     upgrade: u8,
     stats: Stats,
-) -> Result<ScoredCandidate, String> {
+) -> Result<ScoredCandidate, SearchError> {
     let prepared = &weapons[prepared_idx];
     let choice = &prepared.aow_choices[aow_idx];
     let routes = scalar_route_set(
@@ -3853,7 +3860,7 @@ fn materialize_scored_candidates(
     data: &GameData,
     weapons: &[PreparedWeapon<'_>],
     candidates: Vec<ScoredCandidate>,
-) -> Result<Vec<OptimizeResult>, String> {
+) -> Result<Vec<OptimizeResult>, SearchError> {
     materialize_scored_candidates_with_cancel(request, data, weapons, candidates, &mut || true)
 }
 
@@ -3863,7 +3870,7 @@ fn materialize_scored_candidates_with_cancel(
     weapons: &[PreparedWeapon<'_>],
     candidates: Vec<ScoredCandidate>,
     should_continue: &mut impl FnMut() -> bool,
-) -> Result<Vec<OptimizeResult>, String> {
+) -> Result<Vec<OptimizeResult>, SearchError> {
     // Scoring has already grouped, bounded and ordered this batch. Hydration
     // preserves its exact keys and every final tie-break field.
     debug_assert!(candidates.len() <= request.top_k);
@@ -3881,7 +3888,7 @@ fn materialize_scored_candidates_with_cancel(
         results.push(result);
     }
     if !should_continue() {
-        return Err("cancelled".into());
+        return Err(SearchError::Cancelled);
     }
     Ok(results)
 }
@@ -3893,7 +3900,7 @@ fn evaluate_fixed_loadout_upgrade(
     upgrade: u8,
     stats: Stats,
     should_continue: &mut impl FnMut() -> bool,
-) -> Result<Option<OptimizeResult>, String> {
+) -> Result<Option<OptimizeResult>, SearchError> {
     let mut results = Vec::with_capacity(1);
     let damage_multiplier = request.damage_multiplier();
     for (prepared_idx, prepared) in weapons.iter().enumerate() {
@@ -3901,7 +3908,7 @@ fn evaluate_fixed_loadout_upgrade(
             continue;
         }
         if !should_continue() {
-            return Err("cancelled".to_string());
+            return Err(SearchError::Cancelled);
         }
         let effective_str_value = effective_str_for_weapon(request, prepared.weapon, stats.str);
         if !meets_requirements(prepared.weapon, effective_str_value, &stats) {
@@ -3909,7 +3916,7 @@ fn evaluate_fixed_loadout_upgrade(
         }
         for (aow_idx, _) in prepared.aow_choices.iter().enumerate() {
             if !should_continue() {
-                return Err("cancelled".to_string());
+                return Err(SearchError::Cancelled);
             }
             let candidate = exact_candidate(
                 request,
@@ -3946,7 +3953,7 @@ fn evaluate_fixed_loadout_upgrade(
         })
         .transpose()?;
     if !should_continue() {
-        return Err("cancelled".into());
+        return Err(SearchError::Cancelled);
     }
     Ok(result)
 }
@@ -3958,9 +3965,9 @@ fn materialize_scored_candidate(
     weapons: &[PreparedWeapon<'_>],
     damage_multiplier: f32,
     should_continue: &mut impl FnMut() -> bool,
-) -> Result<OptimizeResult, String> {
+) -> Result<OptimizeResult, SearchError> {
     if !should_continue() {
-        return Err("cancelled".into());
+        return Err(SearchError::Cancelled);
     }
     let prepared = &weapons[candidate.prepared_idx];
     let aow_choice = &prepared.aow_choices[candidate.aow_idx];
@@ -3969,7 +3976,8 @@ fn materialize_scored_candidate(
     {
         return Err(format!(
             "selected AoW route {route_id} is incompatible with the requested handling"
-        ));
+        )
+        .into());
     }
     let effective_str_value =
         effective_str_for_weapon(request, prepared.weapon, candidate.stats.str);
@@ -3998,7 +4006,7 @@ fn materialize_scored_candidate(
         should_continue,
     )?;
     if !should_continue() {
-        return Err("cancelled".into());
+        return Err(SearchError::Cancelled);
     }
     let reinforce = data
         .reinforce_level(prepared.weapon.reinforce_type, candidate.upgrade)
@@ -4054,9 +4062,9 @@ fn materialize_aow_route(
     damage_multiplier: f32,
     data: &GameData,
     should_continue: &mut impl FnMut() -> bool,
-) -> Result<Option<AowRouteResult>, String> {
+) -> Result<Option<AowRouteResult>, SearchError> {
     if !should_continue() {
-        return Err("cancelled".into());
+        return Err(SearchError::Cancelled);
     }
     let Some(selected_route) = selected_route else {
         return Ok(None);

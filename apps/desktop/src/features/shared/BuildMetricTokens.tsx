@@ -1,14 +1,7 @@
+import { COMBAT_STATS } from "../../lib/combat-stats";
 import { compactNumber } from "../../lib/format";
 import { scalingLetter } from "../../lib/session";
 import type { ScalingDto, SolvedBuildDto } from "../../lib/types";
-
-const SCALING_STATS = [
-  ["STR", "Strength", "str"],
-  ["DEX", "Dexterity", "dex"],
-  ["INT", "Intelligence", "int"],
-  ["FAI", "Faith", "fai"],
-  ["ARC", "Arcane", "arc"],
-] as const;
 
 const STATUS_STATS = [
   ["BLD", "Bleed", "bleedBuildup"],
@@ -20,16 +13,8 @@ const STATUS_STATS = [
   ["DTH", "Death Blight", "deathBuildup"],
 ] as const;
 
-const COMBAT_STATS = [
-  ["STR", "Strength", "strStat"],
-  ["DEX", "Dexterity", "dex"],
-  ["INT", "Intelligence", "intStat"],
-  ["FAI", "Faith", "fai"],
-  ["ARC", "Arcane", "arc"],
-] as const;
-
 /** Short stat names, shown once in a table header so rows can carry bare values. */
-export const COMBAT_STAT_LABELS = COMBAT_STATS.map(([short]) => short);
+export const COMBAT_STAT_LABELS = COMBAT_STATS.map((stat) => stat.label);
 
 type Token = { short: string; name: string; value: string };
 
@@ -60,17 +45,17 @@ export function ScalingTokens({ scaling, extended, labels }: {
   labels?: boolean;
 }) {
   return (
-    <Tokens label="Attribute scaling" className="scaling-token-grid" labels={labels} tokens={SCALING_STATS.map(([short, full, key]) => {
-      const grade = scaling ? scalingLetter(scaling[key], extended) : "-";
-      return { short, name: `${full} scaling: ${grade}`, value: grade };
+    <Tokens label="Attribute scaling" className="scaling-token-grid" labels={labels} tokens={COMBAT_STATS.map((stat) => {
+      const grade = scaling ? scalingLetter(scaling[stat.scaling], extended) : "-";
+      return { short: stat.label, name: `${stat.name} scaling: ${grade}`, value: grade };
     })} />
   );
 }
 
 export function StatTokens({ row }: { row: SolvedBuildDto }) {
   return (
-    <Tokens label="Combat stats" className="stat-token-grid row-combat-stats" labels={false} tokens={COMBAT_STATS.map(([short, full, key]) => (
-      { short, name: `${full} ${row.stats[key]}`, value: String(row.stats[key]) }
+    <Tokens label="Combat stats" className="stat-token-grid row-combat-stats" labels={false} tokens={COMBAT_STATS.map((stat) => (
+      { short: stat.label, name: `${stat.name} ${row.stats[stat.key]}`, value: String(row.stats[stat.key]) }
     ))} />
   );
 }

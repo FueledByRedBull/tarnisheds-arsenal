@@ -3,6 +3,8 @@
 // Compare and the first Ctrl+K (6 to 8 ms of one task each). Measuring the combinations the
 // stylesheet uses in an off-screen element while the app is idle moves that cost out of them.
 
+import { IdleTime, whenIdle } from "./idle";
+
 // Weights and sizes come from styles.css: font-weight 400 to 800, and the --text-* sizes that
 // text in Bahnschrift uses (label 12, note 13, body 14, emphasis 16, title 20, heading 22).
 const WEIGHTS = [400, 500, 600, 700, 800] as const;
@@ -44,19 +46,8 @@ export function runSlice(
   return index;
 }
 
-interface IdleDeadline {
-  timeRemaining(): number;
-}
-
-// Idle callbacks are missing in some webviews (WebKitGTK): a timer stands in, as in QueryStrip.
-function whenIdle(callback: (deadline: IdleDeadline) => void): () => void {
-  if ("requestIdleCallback" in window) {
-    const id = window.requestIdleCallback(callback, { timeout: 2_000 });
-    return () => window.cancelIdleCallback(id);
-  }
-  const id = globalThis.setTimeout(() => callback({ timeRemaining: () => SLICE_BUDGET_MS }), 100);
-  return () => globalThis.clearTimeout(id);
-}
+// Without idle callbacks a timer stands in, handing each slice its full budget.
+const nextIdleSlice = (callback: (deadline: IdleTime) => void) => whenIdle(callback, 100, SLICE_BUDGET_MS);
 
 let finished = false;
 let nextStep = 0;
@@ -81,20 +72,20 @@ export function warmFonts(): () => void {
     probe.remove();
   };
 
-  const step = (deadline: IdleDeadline) => {
+  const step = (deadline: IdleTime) => {
     if (stopped) return;
     const budget = Math.min(SLICE_BUDGET_MS, deadline.timeRemaining());
     if (!host.isConnected) document.body.append(host);
     nextStep = runSlice(steps, nextStep, measure, budget);
     if (nextStep < steps.length) {
-      cancelIdle = whenIdle(step);
+      cancelIdle = nextIdleSlice(step);
     } else {
       finished = true;
       host.remove();
     }
   };
 
-  cancelIdle = whenIdle(step);
+  cancelIdle = nextIdleSlice(step);
   return () => {
     stopped = true;
     cancelIdle();

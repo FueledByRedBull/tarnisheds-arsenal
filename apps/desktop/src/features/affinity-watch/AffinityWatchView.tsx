@@ -1,11 +1,13 @@
 import { Pause, Play } from "lucide-react";
-import { memo } from "react";
+import { memo, useMemo } from "react";
 import { api } from "../../lib/api";
 import { analysisStatus } from "../../lib/analysis-status";
 import { AnalysisProgress } from "../shared/AnalysisProgress";
 import { chartX, chartY, contiguousMetricSegments, niceTicks, paddedMetricDomain } from "../../lib/chart";
 import { AFFINITY_RUN, useAnalysisRun, useBuiltRequest } from "../../lib/hooks";
-import { fixed1, objectiveLabel, objectiveUnit, statLine } from "../../lib/format";
+import { statLine } from "../../lib/combat-stats";
+import { fixed1 } from "../../lib/format";
+import { objectiveLabel, objectiveUnit } from "../../lib/objectives";
 import { clampHorizon, stableSignature } from "../../lib/session";
 import { useDesktopStore } from "../../lib/state";
 import { AffinityWatchPayloadDto } from "../../lib/types";
@@ -29,7 +31,10 @@ export function AffinityWatchView() {
   const pushNotice = useDesktopStore((state) => state.pushNotice);
   const base = useBuiltRequest(catalog, request, lockedStatMode);
   const effectiveHorizon = clampHorizon(request, horizon);
-  const signature = stableSignature({ base, selected, horizon: effectiveHorizon });
+  const signature = useMemo(
+    () => stableSignature({ base, selected, horizon: effectiveHorizon }),
+    [base, selected, effectiveHorizon],
+  );
   const affinitySignature = useDesktopStore((state) => state.affinitySignature);
   const analysis = useAnalysisRun(AFFINITY_RUN, signature);
   const status = analysisStatus({
@@ -103,7 +108,7 @@ export function AffinityWatchView() {
             <strong role="cell">{line.affinity}</strong>
             <span role="cell">{endpointMetric(line.startMetric)}</span>
             <span role="cell">{endpointMetric(line.endMetric)}</span>
-            <small role="cell">{line.finalBuild ? statLine(line.finalBuild) : "Unavailable"}</small>
+            <small role="cell">{line.finalBuild ? statLine(line.finalBuild.stats) : "Unavailable"}</small>
           </div>
         ))}
       </div> : null}
